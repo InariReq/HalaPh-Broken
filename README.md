@@ -45,3 +45,4 @@ Run on iPhone and macOS for local DB inspector and app development
 - Prerequisites: Xcode, Flutter, gh, a connected iPhone, macOS development environment
 - Quick run: use the script to launch both iPhone app and macOS inspector along with the local mock backend:
 - bash scripts/run_dev_all.sh <DEVICE_ID>
+# HalaPh-Broken
