@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<!--
+   Copyright 2013 Thomas Dy, Philip Cheang under the terms of the
+   MIT license found at http://sakay.ph/LICENSE
+-->
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=false;">
+    <title>Sakay.ph — Commute directions for jeepneys, buses, and trains</title>
+    <link rel="stylesheet" href="leaflet/leaflet.css">
+    <!--[if IE]>
+    <link rel="stylesheet" href="leaflet/leaflet.ie.css">
+    <![endif]-->
+    <link rel="stylesheet" href="stylesheets/screen.css" media="screen">
+    <link rel="stylesheet" href="stylesheets/print.css" media="print">
+    <link rel="stylesheet" href="stylesheets/font-awesome.css">
+  </head>
+  <body>
+    <header>
+      <h1 onclick="viewMode('toggle');">sakay.ph <i class="icon-home"></i></h1>
+      <h2>
+        <p>Commuting is hard. It doesn't have to be.</p>
+        <p>Get <strong>jeepney</strong>, <strong>bus</strong>, and <strong>train</strong> directions in Metro Manila.</p>
+      </h2>
+      <figure id="vroom">
+        <img id="jeep" alt="Jeep!" src="img/jeep.svg">
+        <img id="bus" alt="Bus!" src="img/bus.svg">
+        <img id="train" alt="Train!" src="img/train.svg">
+      </figure>
+      <figure id="ground">
+        <!-- I am a non-semantic element. nice to meet you! -->
+      </figure>
+    </header>
+    <section id="search-container">
+      <div id="search" class="landinginfo">
+      </div>
+    </section>
+    <section id="do-things">
+      <div class="container">
+        <div id="sms-info" class="landinginfo">
+          <h3>Go mobile with SMS</h3>
+          <h4>Get directions on your mobile phone.</h4>
+          <p>We used to have route via SMS available, but it went down a lot. Plus we weren't too happy with it,
+             so until further notice, it is discontinued.</p>
+        </div>
+      </div>
+    </section>
+    <div id="map-container">
+      <div id="map">
+      </div>
+    </div>
+    <div id="sidebar">
+      <div id="routes"></div>
+      <div id="itinerary"></div>
+    </div>
+    <div id="home">
+      <section id="analytics">
+        <div class="container">
+          <h3>Search statistics</h3>
+          <p><strong>COMING SOON</strong> — Commonly searched routes, time-of-day graphs, and route visualizations.</p>
+          <br>
+          <p>We’re still collecting data. Why don‘t you try using the service? ;)</p>
+        </div>
+      </section>
+      <section id="faq">
+        <div class="container">
+          <h3>Frequently Asked Questions</h3>
+
+          <div class="columns">
+
+            <h4>So what's all this, then?</h4>
+
+            <p>Sakay.ph is a webapp that aims to help people use jeepneys, buses, and trains in Metro Manila. It's like Google Maps, but for commuting!
+
+            <p>It was built as an entry to the <a href="http://philippine-transit.hackathome.com">Philippine Transit App Challenge</a>, and is <a href="https://github.com/sakayph/sakayph">open-sourced</a> under the MIT license.
+
+            <h4>How are you maintaining this / making money?</h4>
+
+            <p>We're providing this service freely for the foreseeable future. We built it partly for the challenge, but mostly because it's something we'd personally love to have.
+
+            <p>That said, if you'd like to help out, you're free to donate! We'd appreciate it. (Links coming soon)
+
+            <h4>Your directions are wrong!
+            </h4>
+            <p>Sorry about that — the data is graciously provided by the DOTC, ASTI, etc., and is out of our control. You're welcome to help out, though. Why not check out <a href="http://philippine-transit.hackathome.com/forum/general/">their forum</a>, or hit us up on Twitter?
+
+            <h4>Who made this thing, anyway?
+            </h4>
+            <p>Sakay.ph was built by <a href="http://pleasantprogrammer.com">Thomas Dy</a>, and designed by <a rel="author" href="https://plus.google.com/101197263943951578416?rel=author">Philip Cheang</a>. We do awesome stuff at <a href="http://byimplication.com">By Implication</a>, which you should totes check out. (some of our projects include <a href="http://storylark.ph">storylark.ph</a> and <a href="http://sari.ph">sari.ph</a>, among others.)
+
+            <p>We use OpenTripPlanner and OpenStreetMap for routing, and Google Places API for geocoding. The front-end is built with Compass, Ractive, and Leaflet.
+
+            <p>There're also a <a href="http://pleasantprogrammer.com/posts/jeep-and-bus-schedules.html">number of customizations</a> we've made to the <a href="http://pleasantprogrammer.com/posts/highways-in-otp.html">OSM data</a> and <a href="http://pleasantprogrammer.com/posts/open-trip-planner.html">OTP code</a> to accommodate the Philippine transit system's <a href="http://pleasantprogrammer.com/posts/fare-data.html">weirdness</a>.
+
+            <p>We’ve made our <a href="http://planner.sakay.ph">backend</a> and <a href="http://github.com/sakayph/gtfs">data</a> publicly accessible, and a number of other entries and projects currently use it.</p>
+
+            <h4>I’d like to learn more about how you built this.
+            </h4>
+            <p>You should drop by Thomas’ <a href="http://pleasantprogrammer.com/categories/philippine-transit-app.html">blog</a>. I hear he's a very <a href="http://pleasantprogrammer.com">pleasant programmer</a>.
+
+            <h4>Can I print directions on paper?
+            </h4>
+            <p>Yup, you sure can. Just hit the PRINT button in the directions panel.
+
+            <h4>This looks broken in Safari 6.
+            </h4>
+            <p>This is <a href="https://bugs.webkit.org/show_bug.cgi?id=100568">a bug in Safari</a>. :( it’s fixed in <a href="http://www.apple.com/osx/preview/">Mavericks</a>. Please try Chrome, Firefox, Opera, or even IE 10 for now (really, everything else!)
+
+            <h4>Do you still not have statistics after all this time?</h4>
+
+            <p>We still don't have a nice UI for visualizing things, but we do have <a href="http://blog.sakay.ph/understanding-data-sakay-ph-stats/">some posts</a> in our <a href="http://blog.sakay.ph/">blog</a> that might interest you.</p>
+
+            <h4>This page looks sort of different from how it was before.</h4>
+
+            <p>We took out some features that we no longer provide. Rest assured; you're not missing out on anything. If you're curious how it looked like before, you're free to check out <a href="https://github.com/sakayph/sakayph">the source</a>.</p>
+        </div>
+
+      </section>
+      <footer>
+        <hr>
+        <p><a href="http://twitter.com/_phi">@_phi</a> and <a href="http://twitter.com/pleasantprog">@pleasantprog</a>
+        <br><br><span>proud members,</span><br>
+        <a href="http://byimplication.com"><img src="img/byim.svg" alt="By Implication"></a>
+        </p>
+      </footer>
+    </div>
+    <div id="print"></div>
+    <div id="progress"></div>
+    <div id="temp-load">
+      loading…
+    </div>
+    <script type="ractive" id="searchTemplate">
+      <h3>Find a route now</h3>
+      <h4>Enter your starting point, and your destination.</h4>
+      <div>
+        <input type="text" id="from" placeholder="Starting Point">
+        <input type="text" id="to" placeholder="Destination">
+        <button id="swap" proxy-tap="swap"><img src="img/swap.svg" alt="Swap Origin and Destination">
+        </button>
+        <button id="get-route" proxy-tap="go">Get Route</button>
+        <p class="view-toggle" onclick="viewMode('map');">
+          Visual thinker? You can <br>
+          <strong>go directly to the map.</strong>
+        </p>
+      </div>
+      <div class="fix-later">
+        <label for="mode">Mode:</label>
+        <select id="mode" name="{{mode}}">
+          <option value="TRANSIT,WALK">Transit</option>
+          <option value="WALK">Walk Only</option>
+          <option value="BICYCLE">Bike Only</option>
+        </select>
+      </div>
+    </script>
+
+    <script type="ractive" id="routerTemplate">
+      <h3>routes</h3>
+      <ul class="icons-ul">
+      {{#results:num}}
+        <li
+            class="{{(num == selected ? 'selected' : '')}}"
+            proxy-tap="select:{{num}}"
+            proxy-hover="hover:{{num}}"><i class="icon-li {{(num == selected ? 'icon-check-sign' : 'icon-check-empty')}}"></i>
+          {{#legs}}
+            {{#(mode == 'RAIL')}}
+              <span class="badge badge-{{(route)}}">{{route}}</span>
+            {{/()}}
+            {{^(mode == 'RAIL')}}
+              <span class="badge badge-{{(mode)}}">{{mode}}</span>
+            {{/()}}
+          {{/legs}}
+          <br>
+          <span class="info">
+           {{(f(duration))}}{{#fare}} — (P{{fare}}){{/fare}}
+          </span>
+        </li>
+      {{/results}}
+      {{^results}}
+        <li><i class="icon-li icon-remove"></i>No results</li>
+      {{/results}}
+      </ul>
+    </script>
+
+    <script type="ractive" id="printTemplate">
+      <h3>sakay.ph</h3>
+      {{#results:n}}
+      {{#(divLoaded(n, selected))}}
+      <ol class="{{(divClass(n, selected))}}">
+      {{#legs:i}}
+      <li class="step-container">
+        <div class="step {{className}}">
+          <img src="{{(map(.))}}">
+        {{#(mode == "WALK")}}
+            <div class="metadata">
+              <div class="mode">
+                {{mode}}
+              </div>
+              <div class="duration">
+                {{(f(duration))}}
+              </div>
+            </div>
+              <figure class="dot"></figure>
+              <figure class="line"></figure>
+            <div class="body">
+              <div class="main">
+                {{from.name}} <strong>to</strong> {{to.name}}
+              </div>
+                <ul>
+                  {{#steps}}
+                    <li><strong>{{( formatDirection(relativeDirection) )}}</strong> on to {{streetName}}</li>
+                  {{/steps}}
+                </ul>
+            </div>
+        {{/()}}
+
+        {{#(mode == "RAIL")}}
+            <div class="metadata">
+              <div class="mode">
+                {{route}}
+              </div>
+              <div class="duration">
+                {{(f(duration))}}{{#fare}}<br> P{{fare}}{{/fare}}
+              </div>
+            </div>
+              <figure class="dot"></figure>
+              <figure class="line"></figure>
+            <div class="body">
+              <div class="main">
+                {{from.name}} <strong>to</strong> {{to.name}}
+              </div>
+            </div>
+        {{/()}}
+
+        {{#(mode == "BUS" || mode == "JEEP")}}
+            <div class="metadata">
+              <div class="mode">
+                {{mode}}
+              </div>
+              <div class="duration">
+                {{(f(duration))}}{{#fare}}<br> P{{fare}}{{/fare}}
+              </div>
+            </div>
+              <figure class="dot"></figure>
+              <figure class="line"></figure>
+            <div class="body">
+              <div class="main">
+                {{route}}
+              </div>
+                <ul>
+                  <li><strong>board</strong> {{from.name}}</li>
+                  <li><strong>alight</strong> {{to.name}}</li>
+                </ul>
+            </div>
+        {{/()}}
+        </div>
+      </li>
+      {{/legs}}
+      </ol>
+      {{/()}}
+      {{/results}}
+
+    </script>
+
+    <script type="ractive" id="itineraryTemplate">
+      <h3>directions</h3>
+      <button id="print-button" proxy-tap="print"><i class="icon-print"></i> Print</button>
+      {{#current}}
+      <ol>
+      {{#legs:i}}
+      <li class="step-container">
+        <div class="step {{className}}" proxy-tap="showSteps" proxy-hover="hover:{{i}}">
+        {{#(mode == "WALK")}}
+            <div class="metadata">
+              <div class="mode">
+                {{mode}}
+              </div>
+              <div class="duration">
+                {{(f(duration))}}
+              </div>
+            </div>
+              <figure class="dot"></figure>
+              <figure class="line"></figure>
+            <div class="body">
+              <div class="main">
+                {{from.name}} <strong>to</strong> {{to.name}}
+              </div>
+              {{#.showSteps}}
+                <ul>
+                  {{#steps}}
+                    <li><strong>{{( formatDirection(relativeDirection) )}}</strong> on to {{streetName}}</li>
+                  {{/steps}}
+                </ul>
+              {{/.showSteps}}
+            </div>
+        {{/()}}
+
+        {{#(mode == "RAIL")}}
+            <div class="metadata">
+              <div class="mode">
+                {{route}}
+              </div>
+              <div class="duration">
+                {{(f(duration))}}{{#fare}}<br> P{{fare}}{{/fare}}
+              </div>
+            </div>
+              <figure class="dot"></figure>
+              <figure class="line"></figure>
+            <div class="body">
+              <div class="main">
+                {{from.name}} <strong>to</strong> {{to.name}}
+              </div>
+            </div>
+        {{/()}}
+
+        {{#(mode == "BUS" || mode == "JEEP")}}
+            <div class="metadata">
+              <div class="mode">
+                {{mode}}
+              </div>
+              <div class="duration">
+                {{(f(duration))}}{{#fare}}<br> P{{fare}}{{/fare}}
+              </div>
+            </div>
+              <figure class="dot"></figure>
+              <figure class="line"></figure>
+            <div class="body">
+              <div class="main">
+                {{route}}
+              </div>
+              {{#.showSteps}}
+                <ul>
+                  <li><strong>board</strong> {{from.name}}</li>
+                  <li><strong>alight</strong> {{to.name}}</li>
+                </ul>
+              {{/.showSteps}}
+            </div>
+        {{/()}}
+        </div>
+      </li>
+      {{/legs}}
+      </ol>
+      {{/current}}
+    </script>
+
+    <script type="ractive" id="popupTemplate">
+      <p>{{address}}</p>
+      <button proxy-tap="setStart">Set as starting point</button>
+      <button proxy-tap="setEnd">Set as destination</button>
+      <p>{{latlng.lat}},{{latlng.lng}}</p>
+    </script>
+
+    <script type="ractive" id="modalTemplate">
+      <input type="text" value="{{number}}" placeholder="Number">
+      {{^sending}}
+      <button proxy-tap="send">Send</button>
+      {{/sending}}
+      {{#sending}}
+      Sending...
+      {{/sending}}
+    </script>
+
+    <script type="ractive" id="progressWidgetTemplate">
+      {{#loading}}
+        <style>
+          body {
+            opacity: 0.8;
+          }
+          #map {
+            filter: blur(4px);
+            -webkit-filter: blur(4px);
+          }
+          #temp-load {
+            display:block;
+            -webkit-transition: all 0.8s;
+            transition: all 0.8s;
+            opacity: 1;
+            -webkit-filter: blur(0);
+            filter: blur(0);
+            -webkit-transform: scale(1);
+            transform: scale(1);
+          }
+        </style>
+
+      {{/loading}}
+    </script>
+
+    <script type="text/javascript">
+      (function() {
+        var config = {
+          kitId: 'sek3kre',
+          scriptTimeout: 3000
+        };
+        var h=document.getElementsByTagName("html")[0];h.className+=" wf-loading";var t=setTimeout(function(){h.className=h.className.replace(/(\s|^)wf-loading(\s|$)/g," ");h.className+=" wf-inactive"},config.scriptTimeout);var tk=document.createElement("script"),d=false;tk.src='//use.typekit.net/'+config.kitId+'.js';tk.type="text/javascript";tk.async="true";tk.onload=tk.onreadystatechange=function(){var a=this.readyState;if(d||a&&a!="complete"&&a!="loaded")return;d=true;clearTimeout(t);try{Typekit.load(config)}catch(b){}};var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(tk,s)
+      })();
+    </script>
+    <script src="js/reqwest.min.js"></script>
+    <script src="js/q.min.js"></script>
+    <script src="js/Ractive.min.js"></script>
+    <script src="js/picoModal-1.0.0.min.js"></script>
+    <script src="js/native.history.js"></script>
+    <!-- Use provided Google Maps JS API key; switched to HTTPS for security -->
+    <script src="https://maps.googleapis.com/maps/api/js?libraries=places&sensor=false&key=AIzaSyC9f8Z0u-wQ5A_ePeJxbuQcGdoMQXvAovA"></script>
+    <script src="leaflet/leaflet.js"></script>
+    <script src="leaflet/google.js"></script>
+    <script src="js/util.js"></script>
+    <script src="js/ws.js"></script>
+    <script src="js/map.js"></script>
+  </body>
+</html>

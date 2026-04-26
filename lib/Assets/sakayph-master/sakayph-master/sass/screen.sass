@@ -1,0 +1,762 @@
+/*
+ * Copyright 2013 Thomas Dy, Philip Cheang under the terms of the
+ * MIT license found at http://sakay.ph/LICENSE
+ */
+@import compass/reset
+@import compass/css3
+
+// vars!
+
+$brown: rgb(112,45,22)
+$light-brown: #E57C48
+$dark-brown: #350805
+$light-blue: #5498AF
+$light-blue-shadow: #333
+
+$header-bg-open: linear-gradient(to bottom, rgb(255, 111, 0), rgb(255, 148, 18))
+$header-bg-closed: #FF8612
+
+$state-transition: 0.85s
+
+$museo-sans-stack: "Museo Sans", museo-sans, sans-serif
+$museo-slab-stack: "Museo Slab", museo-slab, sans-serif
+
+$voting-period: block
+
+strong
+  font-weight: 500
+
+// utils!
+
+=clearfix
+  content: ""
+  display: table
+  clear: both
+
+.clearfix
+  +clearfix
+
+
+// states!
+
+body.mapmode
+  header
+    height: 70px
+    background: $header-bg-closed
+    border-bottom: 6px solid $dark-brown
+    h1
+      font-size: 32px
+      width: 230px
+      top: 13px
+      right: 8px
+      margin-right: 0
+      i.icon-home
+        display: inline-block
+    h2
+      opacity: 0
+    #vroom
+      +transform(translateY(100px))
+      opacity: 0
+    #ground
+      +transform(translateY(20px))
+      +animation(none)
+
+  #search-container
+    top: 10px
+    left: 0
+    width: calc(100% - 200px)
+    h3, h4
+      display: none
+    input[type="text"]
+      width: 270px
+    #search
+      width: 830px
+      margin-left: 12px
+    #from
+      top: 0
+    #to
+      top: 0
+      left: 280px
+    #swap
+      display: block
+      top: 12px
+      left: 262px
+    #get-route
+      top: 0
+      left: 560px
+      padding: 11px 12px
+      margin-right: 2px
+    .view-toggle
+      display: none
+  #home
+    height: 0
+  #do-things
+    height: 0
+    padding-top: 0
+  #map-container
+    max-height: 1080px
+  #sidebar
+    height: auto
+    left: 10px
+    opacity: 1
+  #voteplz
+    top: -10px
+    right: -450px
+
+// styles!
+
+body, html
+  height: 100%
+  font-family: $museo-sans-stack
+
+.hidden
+  display: none
+
+.fix-later
+  display: none
+
+.container
+  margin: 0 auto
+  width: 960px
+  position: relative
+
+header
+  -webkit-transition: height $state-transition, border $state-transition
+  transition: height $state-transition, border $state-transition
+  height: 410px
+  +background($header-bg-closed)
+  +background($header-bg-open)
+  padding-top: 1px
+  position: relative
+  overflow: hidden
+
+header h1, header h2
+  transition: $state-transition all
+  -webkit-transition: $state-transition all
+  text-align: center
+
+header h1
+  position: absolute
+  top: 75px
+  right: 50%
+  width: 290px
+  margin-right: - (290px/2)
+  text-align: center
+  font: 62px $museo-slab-stack
+  color: $brown
+  cursor: pointer
+  i.icon-home
+    display: none
+    position: absolute
+    right: 8px
+    top: 2px
+    color: #eee
+    text-shadow: 0px 4px 0 $dark-brown
+
+header h2
+  margin-top: 210px
+  font-weight: 100
+  color: #eee
+  font-size: 26px
+  p:nth-child(2)
+    margin-top: 4px
+    font-size: 22px
+    strong
+      font-weight: 500
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5)
+
+#vroom
+  -webkit-transition: -webkit-transform $state-transition, opacity 2s
+  transition: transform $state-transition, opacity 2s 
+  position: absolute
+  display: block
+  bottom: 8px
+  text-align: center
+  width: 100%
+  img
+    display: inline-block
+    margin: 0 10px
+    &:nth-child(1)
+      +animation(bounce 0.5s linear 0 infinite)
+    &:nth-child(2)
+      +animation(bounce 1.2s linear 0 infinite)
+    &:nth-child(3)
+      +animation(bounce 0.9s linear 0 infinite)
+
++keyframes(bounce)
+  0%
+    +transform(translateY(0px))
+  33%
+    +transform(translateY(3px))
+  66%
+    +transform(translateY(-1px))
+  100%
+    +transform(translateY(0px))
+
+#ground
+  transition: $state-transition all
+  -webkit-transition: $state-transition all
+  position: absolute
+  bottom: 0
+  right: 0
+  width: 2048px
+  height: 20px
+  background: url("../img/ground.svg") repeat-x
+  +animation(pan 15s linear 0 infinite)
+
++keyframes(pan)
+  from
+    +transform(translateX(0))
+  to
+    +transform(translateX(1024px))
+
+#search-container
+  position: absolute
+  z-index: 10
+  top: 420px
+  width: 100%
+  -webkit-transition: all $state-transition
+  transition: all $state-transition
+  *
+    -webkit-transition: all $state-transition
+    transition: all $state-transition
+
+#swap
+  width: 24px
+  height: 24px
+  padding: 0
+  +box-sizing(border-box)
+  background: $light-blue
+  border: 0
+  border-radius: 50%
+  box-shadow: 0 4px 0 $light-blue-shadow
+  // for now!
+  display: none
+  position: absolute
+
+#search
+  position: relative
+  margin-left: calc((100% - 960px)/2)
+
+#search input[type="text"]
+  position: absolute
+  font: 18px $museo-sans-stack
+  font-weight: 300
+  width: 400px
+  padding: 12px
+  +box-sizing(border-box)
+  border: 0
+  border-radius: 8px
+  background: $dark-brown
+  color: white
+  // WHY HTML5 WHY
+  &::-webkit-input-placeholder 
+    color: $light-brown
+  &::-moz-placeholder 
+    color: $light-brown
+  &:-ms-input-placeholder
+    color: $light-brown
+
+#from
+  top: 97px
+#to
+  top: 162px
+
+#get-route
+  position: absolute
+  top: 230px
+  font: 18px $museo-sans-stack
+  font-weight: 500
+  color: white
+  +box-sizing(border-box)
+  background: $light-blue
+  border: 0
+  border-radius: 8px
+  box-shadow: 0 4px 0 $light-blue-shadow
+  // toggle these
+  padding: 15px 50px 15px 11px
+  margin-right: 24px
+  // fix this
+  &:active
+    margin-top: 2px
+    box-shadow: 0 2px 0 $light-blue-shadow
+
+.view-toggle
+  position: relative
+  top: 140px
+  left: 180px
+  width: 220px
+  opacity: 0.6
+  margin-top: 10px
+  cursor: pointer
+  transition: 0.1s all
+  &:hover
+    opacity: 1
+    text-decoration: underline
+
+.landinginfo
+  width: 460px
+  font-weight: 100
+  color: #fff
+  font-size: 18px
+  h4
+    color: $light-brown
+    margin-bottom: 30px
+
+#map
+  -webkit-transition: 0.4s -webkit-filter
+  transition: 0.4s filter
+  min-height: 300px
+  height: 100%
+
+#temp-load
+  display: none
+  position: absolute
+  z-index: 100
+  background: rgba(255,255,255,0.8)
+  border-radius: 8px
+  font-size: 26px
+  opacity: 0
+  font-weight: 100
+  vertical-align: middle
+  text-align: center
+  top: 50%
+  left: 50%
+  line-height: 100px
+  margin-top: -50px
+  margin-left: -150px
+  width: 300px
+  height: 100px
+  +box-sizing(border-box)
+  -webkit-transform: scale(1.25)
+  -webkit-filter: blur(2px)
+  box-shadow: 0 0 8px rgba(0,0,0,0.5)
+
+#map-container
+  -webkit-transition: $state-transition all
+  transition: $state-transition all
+  max-height: 0
+  height: calc(100% - 77px)
+  overflow: hidden
+
+#home
+  -webkit-transition: $state-transition all
+  transition: $state-transition all
+  overflow: hidden
+
+#home section
+  padding-top: 11px
+
+section
+  h3
+    font-weight: 100
+    font-size: 32px
+    margin: 22px 0
+
+#do-things
+  -webkit-transition: $state-transition all
+  transition: $state-transition all
+  background: $brown
+  height: 410px
+  overflow: hidden
+  +box-sizing(border-box)
+  padding-top: 9px
+
+#sms-info
+  float: right
+  .iphone
+    float: left
+    margin-right: 24px
+  p
+    margin-bottom: 12px
+
+#analytics
+  color: #fff
+  height: 260px
+  background-color: darken($light-blue, 6%)
+  background-image: url("../img/data-bg.svg")
+  background-position: center
+
+#faq
+  padding: 1px
+  background: #e6e6e6
+  font-size: 14px
+  .columns
+    line-height: 22px
+    +column-count(3)
+    +column-gap(18px)
+    margin: 50px 0
+    a
+      color: #111
+      text-decoration: none
+      border-bottom: 1px #aaa solid
+      &:hover
+        color: #000
+        background: #ccc
+        border-bottom: 1px #333 solid
+  h3
+    color: #444
+    margin-bottom: 22px
+  h4
+    font-size: 18px
+    line-height: 22px
+    margin-bottom: 11px
+  p
+    margin-bottom: 11px
+    color: #444
+    padding-left: 5px
+  strong
+    color: #111
+
+footer
+  padding: 1px
+  background: #e6e6e6
+  color: #777
+  font-size: 17px
+  text-align: center
+  p
+    margin: 50px auto 35px auto
+    span
+      color: #999
+  hr
+    width: 380px
+    margin: 0 auto
+    border-color: $header-bg-closed
+  a
+    color: #111
+    text-decoration: none
+    border-bottom: 1px solid #777
+    &:hover
+      border-bottom: 1px solid #444
+      background: #ccc
+    &:last-child
+      opacity: 0.6
+      border-bottom: 1px solid transparent
+      background: none
+      +transition(all 0.1s)
+      &:hover
+        border-bottom: 1px solid #444
+        opacity: 1
+
+#sidebar
+  position: absolute
+  -webkit-transition: $state-transition all
+  transition: $state-transition all
+  bottom: 28px
+  left: -600px
+  border-radius: 7px
+  color: #fff
+  width: 30%
+  // height: 0
+  padding: 0
+  opacity: 0
+  +box-sizing(border-box)
+  min-width: 290px
+  max-width: 410px
+  max-height: calc(100% - 150px)
+  overflow: hidden
+  overflow-y: scroll
+  border: 1px solid lighten($light-blue, 10%)
+  h3
+    font-size: 21px
+    font-weight: 100
+    margin: 4px 0 15px 0
+
+#routes
+  margin: 0
+  padding: 10px
+  background: darken($light-blue, 10%)
+  li
+    -webkit-transition: all 0.2s
+    transition: all 0.2s
+    cursor: pointer
+    list-style: none
+    margin-bottom: 10px
+    border-left: 2px solid #fff
+    padding-left: 9px
+    .info
+      display: inline-block
+      font-weight: 100
+    .badge
+      display: inline-block
+      font-size: 75%
+      padding: 3px
+      margin-bottom: 6px
+      color: #fff
+      font-weight: 700
+      border-radius: 2px
+      color: #fff
+      border: 1px solid #fff
+  li:hover
+    padding-left: 18px
+  li.selected
+    color: #fff
+    .info
+      color: #fff
+    .badge
+      background: #fff
+      color: $light-blue
+      border: 1px solid transparent
+
+#itinerary
+  position: relative
+  border-radius: 0 0 7px 7px
+  color: darken($light-blue, 8%)
+  margin: 0
+  padding: 10px
+  background: #f0f0f0
+  h3
+    font-weight: 500
+  li
+    color: darken($light-blue, 14%)
+    font-weight: 300
+    -webkit-transition: all 0.2s
+    transition: all 0.2s
+    cursor: pointer
+    list-style: none
+    .step
+      position: relative
+      min-height: 92px
+      padding: 1px
+    .dot
+      position: absolute
+      top: 0
+      left: 63px
+      height: 14px
+      width: 14px
+      border-radius: 50%
+    .line
+      position: absolute
+      height: calc(100% - 23px)
+      background-repeat: repeat-y
+      width: 16px
+      bottom: 5px
+      left: 61px
+    .metadata
+      position: absolute
+      top: 0
+      left: 0
+      color: #222
+      font-size: 14px
+      line-height: 16px
+      height: 100%
+      float: left
+      width: 54px
+      text-align: right
+      .mode
+        color: darken($light-blue, 14%)
+        font-weight: 700
+    .body
+      position: relative
+      padding-left: 85px
+      width: calc(100% - 86px)
+    .main
+      line-height: 20px
+    ul
+      margin: 10px 0 10px 10px
+      border-left: 1px solid #555
+      padding-left: 8px
+      li
+        margin-bottom: 6px
+      li:last-child
+        margin-bottom: 0
+    .walk
+      .dot
+        background: #777
+      .line
+        background: url("../img/line-walk.svg")
+    .bus
+      .dot
+        background: $brown
+      .line
+        background: url("../img/line-bus.svg")
+    .jeep
+      .dot
+        background: #006837
+      .line
+        background: url("../img/line-jeep.svg")
+    .lrt1
+      .dot
+        background: #FBB03B
+      .line
+        background: url("../img/line-lrt1.svg")
+    .lrt2
+      .dot
+        background: #662D91
+      .line
+        background: url("../img/line-lrt2.svg")
+    .mrt3
+      .dot
+        background: #0071BC
+      .line
+        background: url("../img/line-mrt3.svg")
+    &:last-child
+      .line
+        display: none
+  li.selected
+    color: #fff
+    .info
+      color: #fff
+    .badge
+      background: #fff
+      color: $light-blue
+      border: 1px solid transparent
+  button
+    font-family: $museo-sans-stack
+    position: absolute
+    font-size: 14px
+
+#sms-button
+  top: 10px
+  right: 70px
+  background: darken($light-blue, 10%)
+  border: 1px solid white
+  color: #fff
+  border-radius: 4px
+  cursor: pointer
+
+#print-button
+  top: 10px
+  right: 6px
+  background: darken($light-blue, 10%)
+  border: 1px solid white
+  color: #fff
+  border-radius: 4px
+  cursor: pointer
+
+.pico-content
+  p.tracking
+    font-weight: 100
+    font-size: 14px
+    line-height: 20px
+    padding: 20px
+    &:nth-child(1)
+      border-radius: 10px 10px 0 0
+      background: #f4f4f4
+    &.no
+      background: #eee
+    &.opt
+      background: #ddd
+    &.check
+      background: #bbb
+      border-radius: 0 0 10px 10px
+      font-weight: 500
+
+#voteplz
+  display: $voting-period
+  background-color: #662D91
+  position: fixed
+  text-align: center
+  top: 60px
+  right: -300px
+  width: 760px
+  // height: 50px
+  line-height: 24px
+  padding: 10px
+  font-size: 17px
+  font-weight: 500
+  color: #fff
+  border: 1px solid rgba(255,255,255,0.76)
+  text-shadow: -1px -1px 1px rgba(0,0,0,0.8)
+  text-decoration: none
+  +transform( rotate(45deg) )
+  +transition( top $state-transition, right $state-transition, transform 0.3s )
+  &:hover
+    +transform( rotate(45deg) translateY(3px) scale(1.15))
+
+#print
+  display: none
+
+@media (max-width: 768px)
+  .container
+    width: 100%
+    padding: 0 6px
+  #faq
+    .columns
+      +column-count(1)
+  #voteplz
+    display: none
+  header
+    height: 270px
+    h1
+      font-size: 32px
+      top: 32px
+    h2
+      color: #fff
+      font-size: 14px
+      margin-top: 100px
+  section
+    h3
+      font-size: 24px
+  #vroom
+    +transform-origin( center bottom )
+    +transform( scale(0.75) )
+    img
+      position: absolute
+      bottom: 0
+      display: block
+      &:nth-child(1)
+        left: -100px
+      &:nth-child(2)
+        left: 30px
+      &:nth-child(3)
+        left: 250px
+  #do-things
+    height: 500px
+  .landinginfo
+    width: 100%
+    +box-sizing(border-box)
+    padding: 0 10px
+  #search-container
+    top: 280px
+  #search
+    margin: 0
+    .view-toggle
+      display: none
+    input[type="text"]
+      +transition(none)
+      width: -webkit-calc(100% - 20px)
+      width: calc(100% - 20px)
+    #to
+      top: 150px
+    #get-route
+      top: 210px
+      padding: 6px 8px
+  #sms-info
+    margin-top: 270px
+    .iphone
+      display: none
+  #map-container
+    display: none
+  #sidebar
+    position: absolute
+    top: 0
+    left: 0
+  body.mapmode
+    h1
+      display: none
+    header
+      height: 130px
+    #search-container
+      #search
+        width: 100%
+        margin-left: 0
+      #get-route
+        display: none
+      input[type="text"]
+        width: 290px
+      #from
+        top: 0px
+        left: 12px
+      #to
+        left: 12px
+        top: 58px
+      #swap
+        top: 42px
+        left: 140px
+    #sidebar
+      left: 0
+      position: relative
+      max-height: none
+      max-width: none
+      width: 100%
