@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tzdata;
-import 'package:flutter_native_timezone/flutter_native_timezone.dart' as fntz;
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
@@ -15,9 +13,12 @@ class NotificationService {
     const InitializationSettings settings = InitializationSettings(android: androidSettings, iOS: iosSettings);
     await _plugin.initialize(settings);
     tzdata.initializeTimeZones();
-    final String timeZoneName = await fntz.FlutterNativeTimezone.getLocalTimezone();
-    final location = tz.getLocation(timeZoneName);
-    tz.setLocalLocation(location);
+    try {
+      final location = tz.getLocation('Asia/Manila');
+      tz.setLocalLocation(location);
+    } catch (_) {
+      // Fallback to UTC if Asia/Manila not available
+    }
     _initialized = true;
   }
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:halaph/models/destination.dart';
@@ -8,14 +9,14 @@ class PlanService {
 
   // Get all user plans
   static List<TravelPlan> getUserPlans() {
-    print('=== GET USER PLANS ===');
-    print('Total plans in service: ${_plans.length}');
+    debugPrint('=== GET USER PLANS ===');
+    debugPrint('Total plans in service: ${_plans.length}');
     for (var plan in _plans) {
-      print('Plan: "${plan.title}" by "${plan.createdBy}"');
+      debugPrint('Plan: "${plan.title}" by "${plan.createdBy}"');
     }
     final userPlans = _plans.where((plan) => plan.createdBy == 'current_user').toList();
-    print('User plans count: ${userPlans.length}');
-    print('====================');
+    debugPrint('User plans count: ${userPlans.length}');
+    debugPrint('====================');
     return userPlans;
   }
 
@@ -100,10 +101,10 @@ class PlanService {
     );
     
     _plans.add(plan);
-    print('=== CREATED PLAN ===');
-    print('Plan: "${plan.title}" by "${plan.createdBy}"');
-    print('Total plans now: ${_plans.length}');
-    print('==================');
+    debugPrint('=== CREATED PLAN ===');
+    debugPrint('Plan: "${plan.title}" by "${plan.createdBy}"');
+    debugPrint('Total plans now: ${_plans.length}');
+    debugPrint('==================');
     _planIdCounter++;
     return plan;
   }

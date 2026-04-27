@@ -1,23 +1,26 @@
+import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class GoogleMapsApiService {
+  // ignore: unused_field
   static const String _baseUrl = 'https://maps.googleapis.com/maps/api';
+  static const Duration _requestTimeout = Duration(seconds: 12);
   static String? _apiKey;
 
   static bool get isConfigured => _apiKey != null && _apiKey!.isNotEmpty;
 
   static void _logMissingApiKey() {
-    print('Google Maps API key is not configured. Check your .env file.');
+    debugPrint('Google Maps API key is not configured. Check your .env file.');
   }
 
   static void _loadApiKey() {
     if (_apiKey == null) {
       _apiKey = dotenv.env['MAPS_API_KEY'];
       if (_apiKey == null || _apiKey!.isEmpty) {
-        print('Warning: MAPS_API_KEY not found in .env file');
+        debugPrint('Warning: MAPS_API_KEY not found in .env file');
       }
     }
   }
@@ -30,8 +33,8 @@ class GoogleMapsApiService {
       return null;
     }
 
-    print('=== GOOGLE GEOCODING API ===');
-    print('Geocoding address: "$address"');
+    debugPrint('=== GOOGLE GEOCODING API ===');
+    debugPrint('Geocoding address: "$address"');
 
     final params = {'address': address, 'key': _apiKey};
 
@@ -42,28 +45,28 @@ class GoogleMapsApiService {
     );
 
     try {
-      final response = await http.get(uri);
-      print('Geocoding response status: ${response.statusCode}');
+      final response = await http.get(uri).timeout(_requestTimeout);
+      debugPrint('Geocoding response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('Geocoding API status: ${data['status']}');
+        debugPrint('Geocoding API status: ${data['status']}');
 
         if (data['status'] == 'OK' && data['results'].isNotEmpty) {
           final location = data['results'][0]['geometry']['location'];
           final coordinates = LatLng(location['lat'], location['lng']);
-          print(
+          debugPrint(
             'Geocoded "$address" to: ${coordinates.latitude}, ${coordinates.longitude}',
           );
           return coordinates;
         } else {
-          print(
+          debugPrint(
             'Geocoding failed: ${data['status']} - ${data['error_message'] ?? 'No error message'}',
           );
         }
       }
     } catch (e) {
-      print('Geocoding API error: $e');
+      debugPrint('Geocoding API error: $e');
     }
 
     return null;
@@ -77,8 +80,8 @@ class GoogleMapsApiService {
       return null;
     }
 
-    print('=== GOOGLE REVERSE GEOCODING API ===');
-    print(
+    debugPrint('=== GOOGLE REVERSE GEOCODING API ===');
+    debugPrint(
       'Reverse geocoding: ${coordinates.latitude}, ${coordinates.longitude}',
     );
 
@@ -94,19 +97,19 @@ class GoogleMapsApiService {
     );
 
     try {
-      final response = await http.get(uri);
+      final response = await http.get(uri).timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
         if (data['status'] == 'OK' && data['results'].isNotEmpty) {
           final address = data['results'][0]['formatted_address'];
-          print('Reverse geocoded to: "$address"');
+          debugPrint('Reverse geocoded to: "$address"');
           return address;
         }
       }
     } catch (e) {
-      print('Reverse geocoding error: $e');
+      debugPrint('Reverse geocoding error: $e');
     }
 
     return null;
@@ -125,11 +128,11 @@ class GoogleMapsApiService {
       return null;
     }
 
-    print('=== GOOGLE DIRECTIONS API ===');
-    print(
+    debugPrint('=== GOOGLE DIRECTIONS API ===');
+    debugPrint(
       'Getting directions from ${origin.latitude},${origin.longitude} to ${destination.latitude},${destination.longitude}',
     );
-    print('Travel mode: $travelMode');
+    debugPrint('Travel mode: $travelMode');
 
     final params = {
       'origin': '${origin.latitude},${origin.longitude}',
@@ -151,27 +154,27 @@ class GoogleMapsApiService {
     );
 
     try {
-      final response = await http.get(uri);
-      print('Directions API response status: ${response.statusCode}');
+      final response = await http.get(uri).timeout(_requestTimeout);
+      debugPrint('Directions API response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('Directions API status: ${data['status']}');
+        debugPrint('Directions API status: ${data['status']}');
 
         if (data['status'] == 'OK' && data['routes'].isNotEmpty) {
           final directionsResponse = GoogleDirectionsResponse.fromJson(data);
-          print(
+          debugPrint(
             'Found ${directionsResponse.routes.length} routes with ${directionsResponse.routes.first.legs.length} legs',
           );
           return directionsResponse;
         } else {
-          print(
+          debugPrint(
             'Directions API failed: ${data['status']} - ${data['error_message'] ?? 'No error message'}',
           );
         }
       }
     } catch (e) {
-      print('Directions API error: $e');
+      debugPrint('Directions API error: $e');
     }
 
     return null;
@@ -200,7 +203,7 @@ class GoogleMapsApiService {
 
     for (final modeConfig in travelModes) {
       try {
-        print('Trying ${modeConfig['mode']} mode...');
+        debugPrint('Trying ${modeConfig['mode']} mode...');
         final directions = await getDirections(
           origin: origin,
           destination: destination,
@@ -210,16 +213,16 @@ class GoogleMapsApiService {
 
         if (directions != null) {
           allRoutes.add(directions);
-          print('Successfully got ${modeConfig['mode']} directions');
+          debugPrint('Successfully got ${modeConfig['mode']} directions');
         } else {
-          print('No directions returned for ${modeConfig['mode']} mode');
+          debugPrint('No directions returned for ${modeConfig['mode']} mode');
         }
       } catch (e) {
-        print('Error getting ${modeConfig['mode']} directions: $e');
+        debugPrint('Error getting ${modeConfig['mode']} directions: $e');
       }
     }
 
-    print(
+    debugPrint(
       'Got directions for ${allRoutes.length} travel modes out of ${travelModes.length} requested',
     );
     return allRoutes;
@@ -237,10 +240,10 @@ class GoogleMapsApiService {
       return [];
     }
 
-    print('=== GOOGLE PLACES TEXT SEARCH ===');
-    print('Searching for: "$query"');
+    debugPrint('=== GOOGLE PLACES TEXT SEARCH ===');
+    debugPrint('Searching for: "$query"');
     if (location != null) {
-      print('Near location: ${location.latitude},${location.longitude}');
+      debugPrint('Near location: ${location.latitude},${location.longitude}');
     }
 
     final params = {'query': query, 'key': _apiKey};
@@ -256,39 +259,39 @@ class GoogleMapsApiService {
       '/maps/api/place/textsearch/json',
       params,
     );
-    print('Google Places API URL: $uri');
+    debugPrint('Google Places API URL: $uri');
 
     try {
-      final response = await http.get(uri);
-      print('Places search response status: ${response.statusCode}');
+      final response = await http.get(uri).timeout(_requestTimeout);
+      debugPrint('Places search response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('Places search status: ${data['status']}');
+        debugPrint('Places search status: ${data['status']}');
 
         if (data['status'] == 'OK') {
           final places = (data['results'] as List)
               .map((place) => GooglePlace.fromJson(place))
               .toList();
-          print('Found ${places.length} places for "$query"');
+          debugPrint('Found ${places.length} places for "$query"');
 
           // Print first few results for debugging
           for (int i = 0; i < places.length && i < 3; i++) {
             final place = places[i];
-            print(
+            debugPrint(
               '  ${i + 1}. ${place.name} at ${place.location.latitude},${place.location.longitude}',
             );
           }
 
           return places;
         } else {
-          print(
+          debugPrint(
             'Places search failed: ${data['status']} - ${data['error_message'] ?? 'No error message'}',
           );
         }
       }
     } catch (e) {
-      print('Places search error: $e');
+      debugPrint('Places search error: $e');
     }
 
     return [];
@@ -306,8 +309,8 @@ class GoogleMapsApiService {
       return [];
     }
 
-    print('=== GOOGLE PLACES NEARBY SEARCH ===');
-    print(
+    debugPrint('=== GOOGLE PLACES NEARBY SEARCH ===');
+    debugPrint(
       'Finding $placeType near ${location.latitude},${location.longitude} within ${radius}m',
     );
 
@@ -325,7 +328,7 @@ class GoogleMapsApiService {
     );
 
     try {
-      final response = await http.get(uri);
+      final response = await http.get(uri).timeout(_requestTimeout);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -334,12 +337,12 @@ class GoogleMapsApiService {
           final places = (data['results'] as List)
               .map((place) => GooglePlace.fromJson(place))
               .toList();
-          print('Found ${places.length} nearby $placeType places');
+          debugPrint('Found ${places.length} nearby $placeType places');
           return places;
         }
       }
     } catch (e) {
-      print('Nearby places error: $e');
+      debugPrint('Nearby places error: $e');
     }
 
     return [];
@@ -357,8 +360,8 @@ class GoogleMapsApiService {
       return '';
     }
 
-    print('=== GOOGLE PLACES PHOTO API ===');
-    print('Getting photo for reference: $photoReference');
+    debugPrint('=== GOOGLE PLACES PHOTO API ===');
+    debugPrint('Getting photo for reference: $photoReference');
 
     final params = {
       'maxwidth': maxWidth.toString(),
@@ -372,7 +375,7 @@ class GoogleMapsApiService {
       '/maps/api/place/photo',
       params,
     );
-    print('Generated photo URL: $uri');
+    debugPrint('Generated photo URL: $uri');
     return uri.toString();
   }
 
@@ -384,8 +387,8 @@ class GoogleMapsApiService {
       return null;
     }
 
-    print('=== GOOGLE PLACE DETAILS API ===');
-    print('Getting details for place ID: $placeId');
+    debugPrint('=== GOOGLE PLACE DETAILS API ===');
+    debugPrint('Getting details for place ID: $placeId');
 
     final params = {
       'place_id': placeId,
@@ -401,25 +404,25 @@ class GoogleMapsApiService {
     );
 
     try {
-      final response = await http.get(uri);
-      print('Place details response status: ${response.statusCode}');
+      final response = await http.get(uri).timeout(_requestTimeout);
+      debugPrint('Place details response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('Place details status: ${data['status']}');
+        debugPrint('Place details status: ${data['status']}');
 
         if (data['status'] == 'OK' && data['result'] != null) {
           final placeDetails = GooglePlaceDetails.fromJson(data['result']);
-          print('Successfully got details for ${placeDetails.name}');
+          debugPrint('Successfully got details for ${placeDetails.name}');
           return placeDetails;
         } else {
-          print(
+          debugPrint(
             'Place details failed: ${data['status']} - ${data['error_message'] ?? 'No error message'}',
           );
         }
       }
     } catch (e) {
-      print('Place details API error: $e');
+      debugPrint('Place details API error: $e');
     }
 
     return null;

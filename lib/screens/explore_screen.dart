@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/destination_service.dart';
@@ -7,6 +8,8 @@ import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+
+enum _ExploreSort { ratingHigh, nameAZ, nameZA }
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -24,6 +27,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final Set<String> _favoriteIds = {};
   final FavoritesService _favoritesService = FavoritesService();
   StreamSubscription? _subscription;
+  Timer? _searchDebounce;
+  int _searchGeneration = 0;
+  _ExploreSort _sortMode = _ExploreSort.ratingHigh;
+  double _minimumRating = 0;
 
   @override
   void initState() {
@@ -37,6 +44,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _subscription?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -57,6 +65,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Future<void> _toggleFavorite(String id) async {
     try {
       await _favoritesService.toggleFavorite(id);
+      if (!mounted) return;
       setState(() {
         if (_favoriteIds.contains(id)) {
           _favoriteIds.remove(id);
@@ -77,72 +86,191 @@ class _ExploreScreenState extends State<ExploreScreen> {
   ];
 
   Future<void> _loadDestinations() async {
-    setState(() => _isLoading = true);
-    try {
-final destinations = await DestinationService.searchDestinationsEnhanced(
-        query: _searchController.text.trim().isEmpty ? null : _searchController.text.trim(),
-        category: _selectedCategory,
-      );
-      setState(() => _destinations = destinations);
-      _loadTravelCosts(destinations);
-    } catch (e) {
-      debugPrint('Error loading destinations: $e');
-    } finally {
-      setState(() => _isLoading = false);
-    }
+    await _runDestinationSearch();
   }
 
-  Future<void> _loadTravelCosts(List<Destination> destinations) async {
+  Future<void> _loadTravelCosts(
+    List<Destination> destinations,
+    int generation,
+  ) async {
     for (final destination in destinations) {
+      if (!mounted || generation != _searchGeneration) return;
       if (destination.coordinates != null) {
         try {
-          final costs = await TravelCostService.getTravelCostEstimates(destination.coordinates!);
-          if (mounted) {
+          final costs = await TravelCostService.getTravelCostEstimates(
+            destination.coordinates!,
+          );
+          if (mounted && generation == _searchGeneration) {
             setState(() {
               _travelCosts[destination.id] = costs;
             });
           }
         } catch (e) {
-          print('Error loading travel costs for ${destination.name}: $e');
+          debugPrint('Error loading travel costs for ${destination.name}: $e');
         }
       }
     }
   }
 
   Future<void> _searchDestinations() async {
+    await _runDestinationSearch();
+  }
+
+  void _queueSearchDestinations() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 350),
+      _searchDestinations,
+    );
+  }
+
+  Future<void> _runDestinationSearch() async {
+    final generation = ++_searchGeneration;
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
+      final query = _searchController.text.trim();
       final destinations = await DestinationService.searchDestinationsEnhanced(
-        query: _searchController.text.trim().isEmpty ? null : _searchController.text.trim(),
+        query: query.isEmpty ? null : query,
         category: _selectedCategory,
       );
-      setState(() => _destinations = destinations);
-      _loadTravelCosts(destinations);
+      final filteredDestinations = _applyAdvancedFilters(destinations);
+      if (!mounted || generation != _searchGeneration) return;
+      setState(() {
+        _destinations = filteredDestinations;
+        _travelCosts.clear();
+      });
+      unawaited(_loadTravelCosts(filteredDestinations, generation));
     } catch (e) {
       debugPrint('Search error: $e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
+  List<Destination> _applyAdvancedFilters(List<Destination> destinations) {
+    final filtered = destinations
+        .where((destination) => destination.rating >= _minimumRating)
+        .toList();
+    switch (_sortMode) {
+      case _ExploreSort.ratingHigh:
+        filtered.sort((a, b) => b.rating.compareTo(a.rating));
+        break;
+      case _ExploreSort.nameAZ:
+        filtered.sort((a, b) => a.name.compareTo(b.name));
+        break;
+      case _ExploreSort.nameZA:
+        filtered.sort((a, b) => b.name.compareTo(a.name));
+        break;
+    }
+    return filtered;
+  }
+
+  Future<void> _showAdvancedFilters() async {
+    var draftSort = _sortMode;
+    var draftMinimumRating = _minimumRating;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Filters',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<_ExploreSort>(
+                      initialValue: draftSort,
+                      decoration: const InputDecoration(labelText: 'Sort by'),
+                      items: const [
+                        DropdownMenuItem(
+                          value: _ExploreSort.ratingHigh,
+                          child: Text('Highest rated'),
+                        ),
+                        DropdownMenuItem(
+                          value: _ExploreSort.nameAZ,
+                          child: Text('Name A-Z'),
+                        ),
+                        DropdownMenuItem(
+                          value: _ExploreSort.nameZA,
+                          child: Text('Name Z-A'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setSheetState(() => draftSort = value);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Minimum rating: ${draftMinimumRating.toStringAsFixed(1)}',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    Slider(
+                      value: draftMinimumRating,
+                      min: 0,
+                      max: 5,
+                      divisions: 10,
+                      label: draftMinimumRating.toStringAsFixed(1),
+                      onChanged: (value) {
+                        setSheetState(() => draftMinimumRating = value);
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            setSheetState(() {
+                              draftSort = _ExploreSort.ratingHigh;
+                              draftMinimumRating = 0;
+                            });
+                          },
+                          child: const Text('Reset'),
+                        ),
+                        const Spacer(),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _sortMode = draftSort;
+                              _minimumRating = draftMinimumRating;
+                            });
+                            Navigator.of(context).pop();
+                            unawaited(_runDestinationSearch());
+                          },
+                          child: const Text('Apply'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _filterByCategory(DestinationCategory? category) async {
+    _searchDebounce?.cancel();
     setState(() {
       _selectedCategory = category;
-      _isLoading = true;
     });
-
-    try {
-      final destinations = await DestinationService.searchDestinationsEnhanced(
-        query: _searchController.text.trim().isEmpty ? null : _searchController.text.trim(),
-        category: category,
-      );
-      setState(() => _destinations = destinations);
-      _loadTravelCosts(destinations);
-    } catch (e) {
-      debugPrint('Category filter error: $e');
-    } finally {
-      setState(() => _isLoading = false);
-    }
+    await _runDestinationSearch();
   }
 
   @override
@@ -164,9 +292,7 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
         actions: [
           IconButton(
             icon: Icon(Icons.tune, color: Colors.grey[700]),
-            onPressed: () {
-              // TODO: Advanced filters
-            },
+            onPressed: _showAdvancedFilters,
           ),
         ],
       ),
@@ -178,7 +304,9 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
             _buildFilterChips(),
             const SizedBox(height: 16),
             Expanded(
-              child: _isLoading ? _buildLoadingIndicator() : _buildSearchResults(),
+              child: _isLoading
+                  ? _buildLoadingIndicator()
+                  : _buildSearchResults(),
             ),
           ],
         ),
@@ -203,7 +331,7 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 20,
               offset: const Offset(0, 4),
             ),
@@ -211,7 +339,7 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
         ),
         child: TextField(
           controller: _searchController,
-          onChanged: (_) => _searchDestinations(), // real-time search
+          onChanged: (_) => _queueSearchDestinations(),
           decoration: InputDecoration(
             hintText: 'Search Philippines destinations...',
             hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
@@ -221,7 +349,7 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
                     icon: const Icon(Icons.clear),
                     onPressed: () {
                       _searchController.clear();
-                      _searchDestinations();
+                      _queueSearchDestinations();
                     },
                   )
                 : null,
@@ -229,7 +357,10 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 16,
+            ),
           ),
         ),
       ),
@@ -249,7 +380,8 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
               child: FilterChip(
                 label: Text(DestinationService.getCategoryName(category)),
                 selected: isSelected,
-                onSelected: (selected) => _filterByCategory(selected ? category : null),
+                onSelected: (selected) =>
+                    _filterByCategory(selected ? category : null),
                 backgroundColor: Colors.white,
                 selectedColor: Colors.blue[50],
                 labelStyle: TextStyle(
@@ -259,7 +391,10 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
                 side: BorderSide(
                   color: isSelected ? Colors.blue[300]! : Colors.grey[300]!,
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 elevation: isSelected ? 2 : 0,
               ),
             );
@@ -277,7 +412,10 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
           children: [
             Icon(Icons.search, size: 64, color: Colors.grey),
             SizedBox(height: 16),
-            Text('No destinations found', style: TextStyle(fontSize: 16, color: Colors.grey)),
+            Text(
+              'No destinations found',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
           ],
         ),
       );
@@ -288,61 +426,40 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
       itemCount: _destinations.length,
       itemBuilder: (context, index) {
         final destination = _destinations[index];
-        print('=== BUILDING CARD FOR: ${destination.name} ===');
-        print('=== DESTINATION ID: ${destination.id} ===');
+        debugPrint('=== BUILDING CARD FOR: ${destination.name} ===');
+        debugPrint('=== DESTINATION ID: ${destination.id} ===');
         return _buildDestinationCard(destination);
       },
     );
   }
 
   Widget _buildFallbackImage(DestinationCategory category) {
-    Color startColor, endColor;
-    IconData iconData;
-    String categoryName;
-
-    switch (category) {
-      case DestinationCategory.park:
-        startColor = const Color(0xFF81C784);
-        endColor = const Color(0xFF4CAF50);
-        iconData = Icons.park;
-        categoryName = 'Park';
-        break;
-      case DestinationCategory.landmark:
-        startColor = const Color(0xFF64B5F6);
-        endColor = const Color(0xFF2196F3);
-        iconData = Icons.location_city;
-        categoryName = 'Landmark';
-        break;
-      case DestinationCategory.food:
-        startColor = const Color(0xFFFFB74D);
-        endColor = const Color(0xFFFF9800);
-        iconData = Icons.restaurant;
-        categoryName = 'Food';
-        break;
-      case DestinationCategory.activities:
-        startColor = const Color(0xFFBA68C8);
-        endColor = const Color(0xFF9C27B0);
-        iconData = Icons.beach_access;
-        categoryName = 'Activity';
-        break;
-      case DestinationCategory.museum:
-        startColor = const Color(0xFFF06292);
-        endColor = const Color(0xFFE91E63);
-        iconData = Icons.museum;
-        categoryName = 'Museum';
-        break;
-      case DestinationCategory.market:
-        startColor = const Color(0xFF4DB6AC);
-        endColor = const Color(0xFF009688);
-        iconData = Icons.shopping_cart;
-        categoryName = 'Market';
-        break;
-      default:
-        startColor = const Color(0xFF90A4AE);
-        endColor = const Color(0xFF607D8B);
-        iconData = Icons.place;
-        categoryName = 'Place';
-    }
+    final (startColor, endColor) = switch (category) {
+      DestinationCategory.park => (
+        const Color(0xFF81C784),
+        const Color(0xFF4CAF50),
+      ),
+      DestinationCategory.landmark => (
+        const Color(0xFF64B5F6),
+        const Color(0xFF2196F3),
+      ),
+      DestinationCategory.food => (
+        const Color(0xFFFFB74D),
+        const Color(0xFFFF9800),
+      ),
+      DestinationCategory.activities => (
+        const Color(0xFFBA68C8),
+        const Color(0xFF9C27B0),
+      ),
+      DestinationCategory.museum => (
+        const Color(0xFFF06292),
+        const Color(0xFFE91E63),
+      ),
+      DestinationCategory.market => (
+        const Color(0xFF4DB6AC),
+        const Color(0xFF009688),
+      ),
+    };
 
     return Container(
       decoration: BoxDecoration(
@@ -360,14 +477,17 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
             SizedBox(height: 8),
             Text(
               'No Photo Available',
-              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
       ),
     );
   }
-
 
   Widget _buildDestinationCard(Destination destination) {
     return Container(
@@ -377,12 +497,12 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -400,8 +520,12 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
                   width: double.infinity,
                   height: 200,
                   child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                    child: destination.imageUrl.isNotEmpty && destination.imageUrl.startsWith('http')
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                    child:
+                        destination.imageUrl.isNotEmpty &&
+                            destination.imageUrl.startsWith('http')
                         ? CachedNetworkImage(
                             imageUrl: destination.imageUrl,
                             fit: BoxFit.cover,
@@ -416,7 +540,9 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
                               ),
                             ),
                             errorWidget: (context, url, error) {
-                              print('CachedNetworkImage error for ${destination.name}: $error');
+                              debugPrint(
+                                'CachedNetworkImage error for ${destination.name}: $error',
+                              );
                               return _buildFallbackImage(destination.category);
                             },
                           )
@@ -428,7 +554,10 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
                   top: 12,
                   left: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.blue[600],
                       borderRadius: BorderRadius.circular(12),
@@ -452,11 +581,13 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(
-                        _favoriteIds.contains(destination.id) ? Icons.favorite : Icons.favorite_border,
+                        _favoriteIds.contains(destination.id)
+                            ? Icons.favorite
+                            : Icons.favorite_border,
                         color: Colors.red,
                         size: 18,
                       ),
@@ -480,7 +611,7 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.7),
+                          Colors.black.withValues(alpha: 0.7),
                         ],
                       ),
                     ),
@@ -530,8 +661,8 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
                   Center(
                     child: GestureDetector(
                       onTap: () {
-                        print('=== TAPPING ON: ${destination.name} ===');
-                        print('=== PASSING ID: ${destination.id} ===');
+                        debugPrint('=== TAPPING ON: ${destination.name} ===');
+                        debugPrint('=== PASSING ID: ${destination.id} ===');
                         ExploreDetailsScreen.showAsBottomSheet(
                           context,
                           destinationId: destination.id,
@@ -541,7 +672,10 @@ final destinations = await DestinationService.searchDestinationsEnhanced(
                       },
                       child: Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.blue[600],
                           borderRadius: BorderRadius.circular(25),

@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:halaph/services/auth_service.dart';
+import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/friend_service.dart';
+import 'package:halaph/services/favorites_service.dart';
+import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/models/user.dart';
 
 // Data models for easier implementation
@@ -64,6 +69,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _friendCodeController = TextEditingController();
   final AuthService _auth = AuthService();
   final FriendService _friendService = FriendService();
+  StreamSubscription<void>? _favoritesSubscription;
   User? _user;
   String? _myCode;
 
@@ -71,18 +77,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadUser();
+    _loadFavoritesFromService();
+    _favoritesSubscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
+      _loadFavoritesFromService();
+    });
   }
 
   Future<void> _loadUser() async {
-    final results = await Future.wait<dynamic>([
-      _auth.getCurrentUser(),
-      _friendService.getMyCode(),
-    ]);
-    if (!mounted) return;
-    setState(() {
-      _user = results[0] as User?;
-      _myCode = results[1] as String;
-    });
+    try {
+      final results = await Future.wait<dynamic>([
+        _auth.getCurrentUser(),
+        _friendService.getMyCode(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _user = results[0] as User?;
+        _myCode = results[1] as String;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _myCode ??= 'HP-0000');
+    }
   }
 
   UserProfile get _userProfile =>
@@ -93,15 +108,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         userCode: _myCode ?? 'HP-0000',
       );
 
-  List<FavoritePlace> get _favorites =>
-      widget.favorites ??
-      [
-        FavoritePlace(id: '1', name: 'Place 1', type: 'Place'),
-        FavoritePlace(id: '2', name: 'Place 2', type: 'Place'),
-        FavoritePlace(id: '3', name: 'Place 3', type: 'Place'),
-        FavoritePlace(id: '4', name: 'Place 4', type: 'Place'),
-        FavoritePlace(id: '5', name: 'Place 5', type: 'Place'),
-      ];
+  final List<FavoritePlace> _favoritePlaces = [];
+
+  List<FavoritePlace> get _favorites {
+    if (widget.favorites != null) return widget.favorites!;
+    if (_favoritePlaces.isNotEmpty) return _favoritePlaces;
+    return const [];
+  }
 
   Future<void> _handleAddFriend(String code) async {
     final result = await _friendService.addFriendByCode(code);
@@ -140,7 +153,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed:
                 widget.onSettingsTap ??
                 () {
-                  // Default action - can be overridden
+                  GoRouter.of(context).go('/accounts');
                 },
           ),
         ],
@@ -171,6 +184,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _loadFavoritesFromService() async {
+    try {
+      final ids = await FavoritesService().getFavorites();
+      final loaded = <FavoritePlace>[];
+      for (final id in ids) {
+        final dest = await DestinationService.getDestination(id);
+        if (dest != null) {
+          loaded.add(
+            FavoritePlace(
+              id: id,
+              name: dest.name,
+              type: dest.category.name,
+              imageUrl: dest.imageUrl,
+            ),
+          );
+        } else {
+          loaded.add(FavoritePlace(id: id, name: id, type: 'Place'));
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _favoritePlaces.clear();
+          _favoritePlaces.addAll(loaded);
+        });
+      }
+    } catch (_) {
+      // ignore and keep defaults
+    }
   }
 
   Widget _buildProfileSection() {
@@ -334,7 +377,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -467,7 +510,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed:
                   widget.onViewAllFavoritesTap ??
                   () {
-                    // Default action
+                    GoRouter.of(context).go('/favorites');
                   },
               child: const Text(
                 'View All',
@@ -564,7 +607,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onPressed:
             widget.onTripHistoryTap ??
             () {
-              // Default action
+              GoRouter.of(context).go('/my-plans');
             },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.white,
@@ -609,6 +652,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: () async {
+          final router = GoRouter.of(context);
           final shouldLogout = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
@@ -636,8 +680,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               return;
             }
             await _auth.logout();
-            if (!context.mounted) return;
-            context.go('/accounts');
+            if (!mounted) return;
+            router.go('/accounts');
           }
         },
         icon: const Icon(Icons.logout, size: 18),
@@ -682,6 +726,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
+    _favoritesSubscription?.cancel();
     _friendCodeController.dispose();
     super.dispose();
   }

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:halaph/models/destination.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:halaph/models/user.dart';
 

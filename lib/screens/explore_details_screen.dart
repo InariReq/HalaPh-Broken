@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:halaph/models/destination.dart';
+import 'package:halaph/models/plan.dart';
 import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
+import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/screens/route_options_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -117,15 +120,11 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
         }
       }
 
-      if (found == null) {
-        found = await DestinationService.getDestination(widget.destinationId);
-      }
+      found ??= await DestinationService.getDestination(widget.destinationId);
 
-      if (found == null) {
-        found = await DestinationService.getDestinationByPlaceId(
-          widget.destinationId,
-        );
-      }
+      found ??= await DestinationService.getDestinationByPlaceId(
+        widget.destinationId,
+      );
 
       if (found != null) {
         final refreshed = await DestinationService.getDestinationByPlaceId(
@@ -137,7 +136,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
       }
 
       final isFav = found != null
-          ? await _favoritesService.isFavorite(found!.id)
+          ? await _favoritesService.isFavorite(found.id)
           : false;
 
       if (mounted) {
@@ -156,6 +155,90 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
     if (_destination == null) return;
     await _favoritesService.toggleFavorite(_destination!.id);
     setState(() => _isFavorite = !_isFavorite);
+  }
+
+  Future<void> _showAddToPlanSheet() async {
+    final destination = _destination;
+    if (destination == null) return;
+
+    final plans = SimplePlanService.getAllPlans();
+    if (plans.isEmpty) {
+      final createPlan = await showModalBottomSheet<bool>(
+        context: context,
+        builder: (context) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Add to Plan',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 12),
+                const Text('No plans yet. Create a plan first.'),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Create Plan'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (createPlan == true && mounted) {
+        context.push('/create-plan');
+      }
+      return;
+    }
+
+    final selectedPlan = await showModalBottomSheet<TravelPlan>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          children: [
+            const Text(
+              'Add to Plan',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            ...plans.map(
+              (plan) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(plan.title),
+                subtitle: Text(plan.formattedDateRange),
+                trailing: const Icon(Icons.add_circle_outline),
+                onTap: () => Navigator.of(context).pop(plan),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selectedPlan == null) return;
+
+    final success = await SimplePlanService.addDestinationToPlan(
+      planId: selectedPlan.id,
+      destination: destination,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? '${destination.name} added to ${selectedPlan.title}'
+              : 'Failed to add ${destination.name} to plan',
+        ),
+        backgroundColor: success ? Colors.green[600] : Colors.red,
+      ),
+    );
   }
 
   @override
@@ -256,7 +339,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   }
 
   Widget _buildHeroImageWithOverlay() {
-    final imageUrl = _destination!.imageUrl;
+    final imageUrl = _destination?.imageUrl ?? '';
     return Container(
       height: 200,
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -264,7 +347,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -304,7 +387,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Icon(
@@ -315,44 +398,51 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
               ),
             ),
           ),
-          // Text overlay at bottom
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(12),
-                  bottomRight: Radius.circular(12),
+          // Text overlay at bottom (shown only when destination is loaded)
+          if (_destination != null)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.7),
+                    ],
+                  ),
                 ),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _destination!.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _destination!.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _destination!.location,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      _destination!.location,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -388,6 +478,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   }
 
   Widget _buildCategorySection() {
+    if (_destination == null) return SizedBox.shrink();
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
@@ -441,6 +532,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   }
 
   Widget _buildAboutSection() {
+    if (_destination == null) return SizedBox.shrink();
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -469,38 +561,46 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   }
 
   Widget _buildAddToPlanButton() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.green[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green[200]!),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: Colors.green,
-              borderRadius: BorderRadius.circular(12),
+    return InkWell(
+      onTap: _destination == null ? null : _showAddToPlanSheet,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.green[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green[200]!),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Colors.green,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 16),
             ),
-            child: const Icon(Icons.add, color: Colors.white, size: 16),
-          ),
-          const SizedBox(width: 12),
-          const Text(
-            'Add to Plan',
-            style: TextStyle(
-              color: Colors.green,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+            const SizedBox(width: 12),
+            const Text(
+              'Add to Plan',
+              style: TextStyle(
+                color: Colors.green,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          const Spacer(),
-          const Icon(Icons.keyboard_arrow_down, color: Colors.green, size: 20),
-        ],
+            const Spacer(),
+            const Icon(
+              Icons.keyboard_arrow_down,
+              color: Colors.green,
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -510,19 +610,21 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => RouteOptionsScreen(
-                destinationId: widget.destinationId,
-                destinationName: _destination?.name ?? 'Destination',
-                destination: _destination,
-                source: widget.source,
-              ),
-            ),
-          );
-        },
+        onPressed: _destination == null
+            ? null
+            : () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => RouteOptionsScreen(
+                      destinationId: widget.destinationId,
+                      destinationName: _destination?.name ?? 'Destination',
+                      destination: _destination,
+                      source: widget.source,
+                    ),
+                  ),
+                );
+              },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.blue,
           foregroundColor: Colors.white,

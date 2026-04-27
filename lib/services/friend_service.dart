@@ -1,6 +1,7 @@
 import 'package:halaph/db/local_db.dart';
 import 'package:halaph/models/friend.dart';
 import 'package:halaph/services/auth_service.dart';
+import 'package:halaph/services/remote_sync_service.dart';
 
 class FriendAddResult {
   final bool success;
@@ -23,15 +24,32 @@ class FriendService {
     final stored = await LocalDb.instance.loadProfileCode();
     if (stored != null && stored.isNotEmpty) return stored;
 
+    final remoteProfile = await RemoteSyncService.instance.loadNamespace(
+      'profile',
+    );
+    final remoteCode = remoteProfile?['code'] as String?;
+    if (remoteCode != null && remoteCode.isNotEmpty) {
+      await LocalDb.instance.saveProfileCode(remoteCode);
+      return remoteCode;
+    }
+
     final user = await AuthService().getCurrentUser();
     final seed = user?.email ?? user?.name ?? 'traveler';
     final generated = _generateCode(seed);
     await LocalDb.instance.saveProfileCode(generated);
+    await RemoteSyncService.instance.saveNamespace('profile', {
+      'code': generated,
+    });
     return generated;
   }
 
   Future<List<Friend>> getFriends() async {
-    final friends = await LocalDb.instance.loadFriends();
+    final localFriends = await LocalDb.instance.loadFriends();
+    final remoteFriends = await _loadRemoteFriends();
+    final friends = _mergeFriends(localFriends, remoteFriends);
+    if (remoteFriends.isNotEmpty) {
+      await LocalDb.instance.saveFriends(friends);
+    }
     friends.sort(
       (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
     );
@@ -71,7 +89,7 @@ class FriendService {
       code: code,
     );
     friends.add(friend);
-    await LocalDb.instance.saveFriends(friends);
+    await _saveFriends(friends);
     return FriendAddResult(
       success: true,
       message: 'Friend added successfully.',
@@ -82,7 +100,7 @@ class FriendService {
   Future<void> removeFriend(String friendId) async {
     final friends = await getFriends();
     friends.removeWhere((friend) => friend.id == friendId);
-    await LocalDb.instance.saveFriends(friends);
+    await _saveFriends(friends);
   }
 
   Future<void> updateFriendRole(String friendId, String role) async {
@@ -98,7 +116,35 @@ class FriendService {
         avatarUrl: friend.avatarUrl,
       );
     }).toList();
-    await LocalDb.instance.saveFriends(updated);
+    await _saveFriends(updated);
+  }
+
+  Future<List<Friend>> _loadRemoteFriends() async {
+    final payload = await RemoteSyncService.instance.loadNamespace('friends');
+    final rawFriends = payload?['friends'];
+    if (rawFriends is! List) return [];
+    return rawFriends
+        .whereType<Map>()
+        .map((entry) => Friend.fromJson(Map<String, dynamic>.from(entry)))
+        .toList();
+  }
+
+  Future<void> _saveFriends(List<Friend> friends) async {
+    await LocalDb.instance.saveFriends(friends);
+    await RemoteSyncService.instance.saveNamespace('friends', {
+      'friends': friends.map((friend) => friend.toJson()).toList(),
+    });
+  }
+
+  List<Friend> _mergeFriends(List<Friend> local, List<Friend> remote) {
+    final byCode = <String, Friend>{};
+    for (final friend in local) {
+      byCode[_normalizeCode(friend.code)] = friend;
+    }
+    for (final friend in remote) {
+      byCode[_normalizeCode(friend.code)] = friend;
+    }
+    return byCode.values.toList();
   }
 
   String _normalizeCode(String code) {

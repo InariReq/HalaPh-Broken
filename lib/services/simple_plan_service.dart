@@ -4,18 +4,35 @@ import 'package:flutter/material.dart';
 import 'package:halaph/db/local_db.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:halaph/models/destination.dart';
-import 'package:halaph/repositories/backend_repository.dart';
+import 'package:halaph/services/remote_sync_service.dart';
 
 class SimplePlanService {
   static final Map<String, TravelPlan> _plans = {};
-  static bool _initialized = false;
   static int _planIdCounter = 1;
 
-  static Future<void> initialize() => _ensureInit();
+  static Future<void> initialize() async {
+    final savedPlans = await LocalDb.instance.loadPlans();
+    final remotePlans = await _loadRemotePlans();
+    final mergedPlans = _mergePlans(savedPlans, remotePlans);
+    _plans
+      ..clear()
+      ..addEntries(mergedPlans.map((plan) => MapEntry(plan.id, plan)));
+    _planIdCounter = _nextPlanId(mergedPlans);
+    if (remotePlans.isNotEmpty) {
+      unawaited(LocalDb.instance.savePlans(mergedPlans));
+    }
+    if (RemoteSyncService.instance.isConfigured) {
+      unawaited(_saveRemotePlans(mergedPlans));
+    }
+  }
 
   static List<TravelPlan> getUserPlans({String? ownerId}) {
     final owner = ownerId ?? 'current_user';
-    return _plans.values.where((plan) => plan.createdBy == owner).toList()
+    return _plans.values
+        .where(
+          (plan) => plan.createdBy == owner && plan.participantIds.length <= 1,
+        )
+        .toList()
       ..sort((a, b) => b.startDate.compareTo(a.startDate));
   }
 
@@ -23,7 +40,9 @@ class SimplePlanService {
     final owner = ownerId ?? 'current_user';
     return _plans.values
         .where(
-          (plan) => plan.createdBy == owner && plan.participantIds.length > 1,
+          (plan) =>
+              plan.participantIds.contains(owner) &&
+              (plan.createdBy != owner || plan.participantIds.length > 1),
         )
         .toList()
       ..sort((a, b) => b.startDate.compareTo(a.startDate));
@@ -38,23 +57,6 @@ class SimplePlanService {
         )
         .toList()
       ..sort((a, b) => b.startDate.compareTo(a.startDate));
-  }
-
-  static Future<void> _initFromStorage() async {
-    if (_initialized) return;
-    await LocalDb.instance.init();
-    final plans = await LocalDb.instance.loadPlans();
-    _plans.clear();
-    for (var p in plans) {
-      _plans[p.id] = p;
-    }
-    _planIdCounter = _nextPlanId(_plans.keys);
-    _initialized = true;
-  }
-
-  static Future<void> _persistAll() async {
-    await LocalDb.instance.init();
-    await LocalDb.instance.savePlans(_plans.values.toList());
   }
 
   static TravelPlan createPlan({
@@ -83,17 +85,11 @@ class SimplePlanService {
     );
 
     _plans[id] = plan;
-    unawaited(_persistAll());
-    // Also synchronize with the backend (fire-and-forget; backend is mocked for now)
-    unawaited(BackendRepository().savePlan(plan));
+    unawaited(_persistPlans());
     return plan;
   }
 
   static TravelPlan? getPlanById(String id) => _plans[id];
-
-  static Future<void> _ensureInit() async {
-    await _initFromStorage();
-  }
 
   static bool updatePlan({
     required String planId,
@@ -127,16 +123,24 @@ class SimplePlanService {
     );
 
     _plans[planId] = updated;
-    unawaited(_persistAll());
-    unawaited(BackendRepository().savePlan(updated));
+    unawaited(_persistPlans());
     return true;
   }
+
+  static Future<bool> deletePlan(String id) async {
+    final removed = _plans.remove(id) != null;
+    if (removed) {
+      await _persistPlans();
+    }
+    return removed;
+  }
+
+  static List<TravelPlan> getAllPlans() => _plans.values.toList();
 
   static Future<bool> updatePlanParticipants({
     required String planId,
     required List<String> participantIds,
   }) async {
-    await _ensureInit();
     final existing = _plans[planId];
     if (existing == null) return false;
 
@@ -146,7 +150,8 @@ class SimplePlanService {
             .where((id) => id.trim().isNotEmpty)
             .map((id) => id.trim()),
       );
-    final updated = TravelPlan(
+
+    _plans[planId] = TravelPlan(
       id: existing.id,
       title: existing.title,
       startDate: existing.startDate,
@@ -157,20 +162,10 @@ class SimplePlanService {
       isShared: normalized.length > 1,
       bannerImage: existing.bannerImage,
     );
-    _plans[planId] = updated;
-    await _persistAll();
-    unawaited(BackendRepository().savePlan(updated));
+
+    await _persistPlans();
     return true;
   }
-
-  static Future<bool> deletePlan(String id) async {
-    await _ensureInit();
-    final existed = _plans.remove(id) != null;
-    await _persistAll();
-    return existed;
-  }
-
-  static List<TravelPlan> getAllPlans() => _plans.values.toList();
 
   static Future<TravelPlan> savePlan({
     required String title,
@@ -182,7 +177,6 @@ class SimplePlanService {
     List<String> participantIds = const [],
     String? bannerImage,
   }) async {
-    await _ensureInit();
     final id = 'plan$_planIdCounter';
     _planIdCounter++;
 
@@ -218,9 +212,12 @@ class SimplePlanService {
     final banner =
         bannerImage ??
         'https://picsum.photos/seed/${title.hashCode}_${startDate.millisecondsSinceEpoch}/400/200';
-
     final participants = <String>{createdBy}
-      ..addAll(participantIds.where((id) => id.trim().isNotEmpty));
+      ..addAll(
+        participantIds
+            .where((id) => id.trim().isNotEmpty)
+            .map((id) => id.trim()),
+      );
 
     final plan = TravelPlan(
       id: id,
@@ -235,14 +232,66 @@ class SimplePlanService {
     );
 
     _plans[id] = plan;
-    await _persistAll();
-    unawaited(BackendRepository().savePlan(plan));
+    await _persistPlans();
     return plan;
   }
 
   static void clearAllPlans() {
     _plans.clear();
     _planIdCounter = 1;
+    unawaited(_persistPlans());
+  }
+
+  static Future<bool> addDestinationToPlan({
+    required String planId,
+    required Destination destination,
+    int dayNumber = 1,
+    String startTime = '10:30 AM',
+  }) async {
+    final existing = _plans[planId];
+    if (existing == null) return false;
+
+    final safeDay = dayNumber.clamp(1, existing.totalDays).toInt();
+    final targetDate = existing.startDate.add(Duration(days: safeDay - 1));
+    final (hour, minute) = _parseTime(startTime);
+    final newItem = ItineraryItem(
+      id: '${planId}_item_${DateTime.now().microsecondsSinceEpoch}',
+      destination: destination,
+      startTime: TimeOfDay(hour: hour, minute: minute),
+      endTime: TimeOfDay(hour: (hour + 1) % 24, minute: minute),
+      dayNumber: safeDay,
+      notes: 'Visit ${destination.name}',
+    );
+
+    final itinerary = existing.itinerary
+        .map((day) => DayItinerary(date: day.date, items: List.of(day.items)))
+        .toList();
+    final dayIndex = itinerary.indexWhere(
+      (day) => _sameDate(day.date, targetDate),
+    );
+    if (dayIndex >= 0) {
+      itinerary[dayIndex] = DayItinerary(
+        date: itinerary[dayIndex].date,
+        items: [...itinerary[dayIndex].items, newItem],
+      );
+    } else {
+      itinerary.add(DayItinerary(date: targetDate, items: [newItem]));
+      itinerary.sort((a, b) => a.date.compareTo(b.date));
+    }
+
+    _plans[planId] = TravelPlan(
+      id: existing.id,
+      title: existing.title,
+      startDate: existing.startDate,
+      endDate: existing.endDate,
+      participantIds: existing.participantIds,
+      createdBy: existing.createdBy,
+      itinerary: itinerary,
+      isShared: existing.isShared,
+      bannerImage: existing.bannerImage,
+    );
+    await _persistPlans();
+    return true;
   }
 
   static List<DayItinerary> _buildItinerary(
@@ -293,10 +342,11 @@ class SimplePlanService {
 
       if (parts.length > 1) {
         final period = parts[1].toUpperCase();
-        if (period == 'PM' && hour != 12)
+        if (period == 'PM' && hour != 12) {
           hour += 12;
-        else if (period == 'AM' && hour == 12)
+        } else if (period == 'AM' && hour == 12) {
           hour = 0;
+        }
       }
       return (hour, minute);
     } catch (_) {
@@ -304,16 +354,54 @@ class SimplePlanService {
     }
   }
 
-  static int _nextPlanId(Iterable<String> existingIds) {
-    int maxId = 0;
-    for (final id in existingIds) {
-      if (id.startsWith('plan')) {
-        final numeric = int.tryParse(id.substring(4));
-        if (numeric != null && numeric > maxId) {
-          maxId = numeric;
-        }
-      }
+  static Future<void> _persistPlans() async {
+    final plans = _plans.values.toList();
+    await LocalDb.instance.savePlans(plans);
+    unawaited(_saveRemotePlans(plans));
+  }
+
+  static Future<List<TravelPlan>> _loadRemotePlans() async {
+    final payload = await RemoteSyncService.instance.loadNamespace('plans');
+    final rawPlans = payload?['plans'];
+    if (rawPlans is! List) return [];
+    return rawPlans
+        .whereType<Map>()
+        .map((entry) => TravelPlan.fromJson(Map<String, dynamic>.from(entry)))
+        .toList();
+  }
+
+  static Future<void> _saveRemotePlans(List<TravelPlan> plans) async {
+    await RemoteSyncService.instance.saveNamespace('plans', {
+      'plans': plans.map((plan) => plan.toJson()).toList(),
+    });
+  }
+
+  static List<TravelPlan> _mergePlans(
+    List<TravelPlan> localPlans,
+    List<TravelPlan> remotePlans,
+  ) {
+    final byId = <String, TravelPlan>{};
+    for (final plan in localPlans) {
+      byId[plan.id] = plan;
     }
-    return maxId + 1;
+    for (final plan in remotePlans) {
+      byId[plan.id] = plan;
+    }
+    return byId.values.toList();
+  }
+
+  static int _nextPlanId(List<TravelPlan> plans) {
+    var highest = 0;
+    for (final plan in plans) {
+      final match = RegExp(r'^plan(\d+)$').firstMatch(plan.id);
+      if (match == null) continue;
+      final number = int.tryParse(match.group(1) ?? '');
+      if (number != null && number > highest) highest = number;
+    }
+    return highest + 1;
+  }
+
+  static bool _sameDate(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 }

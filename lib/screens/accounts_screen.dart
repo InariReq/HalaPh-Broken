@@ -5,7 +5,7 @@ import 'package:halaph/models/user.dart';
 
 class AccountsScreen extends StatefulWidget {
   final VoidCallback? onLoginSuccess;
-  const AccountsScreen({Key? key, this.onLoginSuccess}) : super(key: key);
+  const AccountsScreen({super.key, this.onLoginSuccess});
 
   @override
   State<AccountsScreen> createState() => _AccountsScreenState();

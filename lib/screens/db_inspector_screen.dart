@@ -3,7 +3,7 @@ import 'package:halaph/db/local_db.dart';
 import 'package:halaph/models/plan.dart';
 
 class DbInspectorScreen extends StatefulWidget {
-  const DbInspectorScreen({Key? key}) : super(key: key);
+  const DbInspectorScreen({super.key});
 
   @override
   State<DbInspectorScreen> createState() => _DbInspectorScreenState();

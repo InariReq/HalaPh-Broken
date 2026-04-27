@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:halaph/models/destination.dart';
+// ignore: unused_import
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gm;
 
 class MapAdapter {

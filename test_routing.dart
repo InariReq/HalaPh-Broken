@@ -25,14 +25,22 @@ void main() async {
       print('  Mode: ${route.mode}');
       print('  Duration: ${route.duration.inMinutes} minutes');
       print('  Distance: ${route.distance.toStringAsFixed(2)} km');
-      print('  Fare: ${route.cost == 0.0 ? 'Free' : 'PHP ${route.cost.toStringAsFixed(2)}'}');
+      print('  Regular Fare: ${route.fareDetails.regularFare}');
+      print('  Student Fare: ${route.fareDetails.studentFare}');
+      print('  PWD Fare: ${route.fareDetails.pwdFare}');
+      print('  Senior Fare: ${route.fareDetails.seniorFare}');
       print('  Instructions: ${route.instructions.length}');
-      
+
+      if (route.routeDetails != null) {
+        print('  Route: ${route.routeDetails!.routeName}');
+        print('  Key Points: ${route.routeDetails!.keyPoints.join(" → ")}');
+      }
+
       for (int j = 0; j < route.instructions.length; j++) {
         print('    Step ${j + 1}: ${route.instructions[j]}');
       }
     }
-    
+
     print('\n=== TEST COMPLETE ===');
   } catch (e) {
     print('Error: $e');

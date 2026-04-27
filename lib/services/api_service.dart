@@ -1,9 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:halaph/services/budget_routing_service.dart';
+import 'package:halaph/services/google_maps_api_service.dart';
 
 class ApiService {
   // Using a mock API for now - replace with real API later
-  static const String mockApiBaseUrl = 'https://jsonplaceholder.typicode.com'; // Free mock API
+  static const String mockApiBaseUrl =
+      'https://jsonplaceholder.typicode.com'; // Free mock API
   static const Duration timeout = Duration(seconds: 30);
 
   // HTTP Client
@@ -15,9 +19,7 @@ class ApiService {
       final response = await _client
           .get(
             Uri.parse('$mockApiBaseUrl$endpoint'),
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: {'Content-Type': 'application/json'},
           )
           .timeout(timeout);
 
@@ -37,9 +39,7 @@ class ApiService {
       final response = await _client
           .get(
             Uri.parse('$mockApiBaseUrl$endpoint'),
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: {'Content-Type': 'application/json'},
           )
           .timeout(timeout);
 
@@ -54,14 +54,15 @@ class ApiService {
   }
 
   // Generic POST request (for future use)
-  static Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> post(
+    String endpoint,
+    Map<String, dynamic> data,
+  ) async {
     try {
       final response = await _client
           .post(
             Uri.parse('$mockApiBaseUrl$endpoint'),
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: {'Content-Type': 'application/json'},
             body: json.encode(data),
           )
           .timeout(timeout);
@@ -81,13 +82,15 @@ class ApiService {
     try {
       // Make real HTTP call to test API connectivity
       final response = await getMockApiList('/posts');
-      print('API call successful, got ${response.length} posts from real API');
-      print('Returning mock Philippines destinations for now');
+      debugPrint(
+        'API call successful, got ${response.length} posts from real API',
+      );
+      debugPrint('Returning mock Philippines destinations for now');
       // Return mock Philippines destinations (same for both screens)
       return _getMockDestinationData();
     } catch (e) {
       // Return mock data if API fails
-      print('API failed, using mock data: $e');
+      debugPrint('API failed, using mock data: $e');
       return _getMockDestinationData();
     }
   }
@@ -98,7 +101,7 @@ class ApiService {
       return response;
     } catch (e) {
       // Return empty data if API fails
-      print('Get destination API failed: $e');
+      debugPrint('Get destination API failed: $e');
       return {};
     }
   }
@@ -107,11 +110,11 @@ class ApiService {
   static Future<List<dynamic>> searchDestinations(String query) async {
     try {
       final response = await getMockApiList('/posts');
-      print('Search API call successful, got ${response.length} posts');
-      print('API service is deprecated - returning empty list');
+      debugPrint('Search API call successful, got ${response.length} posts');
+      debugPrint('API service is deprecated - returning empty list');
       return [];
     } catch (e) {
-      print('Search API failed: $e');
+      debugPrint('Search API failed: $e');
       throw Exception('Search API failed: $e');
     }
   }
@@ -128,7 +131,7 @@ class ApiService {
         'rating': 4.5,
         'minCost': 100,
         'maxCost': 300,
-        'city_id': 'manila'
+        'city_id': 'manila',
       },
       {
         'id': '2',
@@ -139,7 +142,7 @@ class ApiService {
         'rating': 4.3,
         'minCost': 200,
         'maxCost': 500,
-        'city_id': 'cebu'
+        'city_id': 'cebu',
       },
       {
         'id': '3',
@@ -150,7 +153,7 @@ class ApiService {
         'rating': 4.7,
         'minCost': 300,
         'maxCost': 800,
-        'city_id': 'boracay'
+        'city_id': 'boracay',
       },
       {
         'id': '4',
@@ -161,7 +164,7 @@ class ApiService {
         'rating': 4.8,
         'minCost': 400,
         'maxCost': 1000,
-        'city_id': 'palawan'
+        'city_id': 'palawan',
       },
       {
         'id': '5',
@@ -172,43 +175,55 @@ class ApiService {
         'rating': 4.4,
         'minCost': 150,
         'maxCost': 400,
-        'city_id': 'bohol'
-      }
+        'city_id': 'bohol',
+      },
     ];
   }
 
-  // Transport endpoints (placeholder for future implementation)
-  static Future<List<dynamic>> getTransportOptions(String from, String to) async {
-    // For now, return mock transport data
-    // Later implement real Philippines transport API
-    return [
-      {
-        'type': 'Jeepney',
-        'duration': '25 min',
-        'cost': 12.00,
-        'description': 'Local jeepney route'
-      },
-      {
-        'type': 'Bus',
-        'duration': '35 min', 
-        'cost': 20.00,
-        'description': 'City bus service'
-      },
-      {
-        'type': 'MRT',
-        'duration': '15 min',
-        'cost': 15.00,
-        'description': 'Metro rail transit'
-      }
-    ];
+  static Future<List<dynamic>> getTransportOptions(
+    String from,
+    String to,
+  ) async {
+    final origin = await GoogleMapsApiService.geocodeAddress(from);
+    final destination = await GoogleMapsApiService.geocodeAddress(to);
+    if (origin == null || destination == null) return [];
+
+    final routes = await BudgetRoutingService.calculateBudgetRoutes(
+      origin: origin,
+      destination: destination,
+    );
+    return routes
+        .map(
+          (route) => {
+            'type': route.mode.name,
+            'duration': '${route.duration.inMinutes} min',
+            'distanceKm': route.distance,
+            'cost': route.cost,
+            'fareRegular': route.fareDetails.regular,
+            'fareStudent': route.fareDetails.student,
+            'farePwd': route.fareDetails.pwd,
+            'fareSenior': route.fareDetails.senior,
+            'description': route.summary,
+            'route': route.routeDetails?.routeName,
+            'instructions': route.instructions,
+          },
+        )
+        .toList();
   }
 
   // User endpoints
-  static Future<Map<String, dynamic>> login(String email, String password) async {
+  static Future<Map<String, dynamic>> login(
+    String email,
+    String password,
+  ) async {
     return await post('/auth/login', {'email': email, 'password': password});
   }
 
-  static Future<Map<String, dynamic>> register(String email, String password, String name) async {
+  static Future<Map<String, dynamic>> register(
+    String email,
+    String password,
+    String name,
+  ) async {
     return await post('/auth/register', {
       'email': email,
       'password': password,

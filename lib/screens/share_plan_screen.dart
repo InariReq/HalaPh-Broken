@@ -4,7 +4,7 @@ import 'package:halaph/repositories/backend_repository.dart';
 
 class SharePlanScreen extends StatefulWidget {
   final String planId;
-  const SharePlanScreen({Key? key, required this.planId}) : super(key: key);
+  const SharePlanScreen({super.key, required this.planId});
 
   @override
   State<SharePlanScreen> createState() => _SharePlanScreenState();
@@ -20,9 +20,12 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
   }
 
   Future<String> _loadShareLink(String planId) async {
-    final repo = BackendRepository();
-    final link = await repo.sharePlan(planId);
-    return link;
+    try {
+      final repo = BackendRepository();
+      final link = await repo.sharePlan(planId);
+      if (link.isNotEmpty) return link;
+    } catch (_) {}
+    return 'https://halaph.app/plan?planId=$planId';
   }
 
   @override
@@ -31,7 +34,9 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
       future: _shareLinkFuture,
       builder: (context, snapshot) {
         final shareUrl = snapshot.data ?? '';
-        final display = shareUrl.isNotEmpty ? shareUrl : 'Generating share link...';
+        final display = shareUrl.isNotEmpty
+            ? shareUrl
+            : 'Generating share link...';
         return Scaffold(
           appBar: AppBar(
             title: const Text('Share Plan'),
@@ -45,12 +50,20 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Share your plan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                Text(
+                  'Share your plan',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
                 SizedBox(height: 12),
-                Text('Plan Link: $display', style: TextStyle(color: Colors.grey[700])),
+                Text(
+                  'Plan Link: $display',
+                  style: TextStyle(color: Colors.grey[700]),
+                ),
                 SizedBox(height: 20),
                 ElevatedButton.icon(
-                  onPressed: shareUrl.isNotEmpty ? () => Share.share(shareUrl) : null,
+                  onPressed: shareUrl.isNotEmpty
+                      ? () => Share.share(shareUrl)
+                      : null,
                   icon: Icon(Icons.share),
                   label: Text('Share Link'),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),

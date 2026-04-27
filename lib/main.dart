@@ -35,9 +35,23 @@ import 'screens/friends_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _loadEnvSafe();
-  await LocalDb.instance.init();
-  await SimplePlanService.initialize();
+
+  // Initialize local storage before screens read plans, friends, and favorites.
+  await _initializeWithTimeout();
+
   runApp(const HalaPhApp());
+}
+
+Future<void> _initializeWithTimeout() async {
+  // Run initialization in background with timeout
+  try {
+    await Future.wait<void>([
+      LocalDb.instance.init(),
+      SimplePlanService.initialize(),
+    ]).timeout(const Duration(seconds: 5));
+  } catch (e) {
+    debugPrint('Init timeout or error: $e');
+  }
 }
 
 Future<void> _loadEnvSafe() async {

@@ -20,6 +20,8 @@ class _MapScreenState extends State<MapScreen> {
   bool _isLoading = true;
   LatLng? _userLocation;
   List<Destination> _allDestinations = [];
+  Set<DestinationCategory> _selectedCategories = DestinationCategory.values
+      .toSet();
 
   @override
   void initState() {
@@ -45,47 +47,25 @@ class _MapScreenState extends State<MapScreen> {
           _userLocation = const LatLng(12.8797, 121.7740);
         }
       } catch (e) {
-        print('Could not get user location: $e');
+        debugPrint('Could not get user location: $e');
         _userLocation = const LatLng(12.8797, 121.7740);
       }
 
-      // Create markers with error handling
-      try {
-        _markers = MapService.createDestinationMarkers(_allDestinations);
-      } catch (e) {
-        print('Error creating markers: $e');
-        _markers = {}; // Empty markers if creation fails
-      }
-
-      // Add user location marker if available
-      if (_userLocation != null) {
-        try {
-          _markers.add(
-            Marker(
-              markerId: const MarkerId('user_location'),
-              position: _userLocation!,
-              infoWindow: const InfoWindow(title: 'Your Location'),
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                BitmapDescriptor.hueBlue,
-              ),
-            ),
-          );
-        } catch (e) {
-          print('Error adding user location marker: $e');
-        }
-      }
-
+      final markers = _buildMarkers();
+      if (!mounted) return;
       setState(() {
+        _markers = markers;
         _isLoading = false;
       });
 
       // Move camera to show all destinations or selected destination
       _moveCameraToInitialPosition();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
-      print('Error initializing map: $e');
+      debugPrint('Error initializing map: $e');
       // Show error message to user
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -96,6 +76,38 @@ class _MapScreenState extends State<MapScreen> {
         );
       }
     }
+  }
+
+  Set<Marker> _buildMarkers() {
+    final visibleDestinations = _filteredDestinations();
+    final markers = MapService.createDestinationMarkers(visibleDestinations);
+
+    if (_userLocation != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('user_location'),
+          position: _userLocation!,
+          infoWindow: const InfoWindow(title: 'Your Location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        ),
+      );
+    }
+    return markers;
+  }
+
+  List<Destination> _filteredDestinations() {
+    return _allDestinations
+        .where(
+          (destination) => _selectedCategories.contains(destination.category),
+        )
+        .toList();
+  }
+
+  void _applyCategoryFilter(Set<DestinationCategory> categories) {
+    setState(() {
+      _selectedCategories = categories;
+      _markers = _buildMarkers();
+    });
   }
 
   void _moveCameraToInitialPosition() {
@@ -110,7 +122,7 @@ class _MapScreenState extends State<MapScreen> {
     } else if (_userLocation != null && _allDestinations.isNotEmpty) {
       // Find nearby destinations and show them
       final nearbyDestinations = MapService.findNearbyDestinations(
-        _allDestinations,
+        _filteredDestinations(),
         _userLocation!,
         50.0, // 50km radius
       );
@@ -199,29 +211,60 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _showFilterDialog() {
+    final draftCategories = Set<DestinationCategory>.from(_selectedCategories);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Filter by Category'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: DestinationCategory.values.map((category) {
-            return CheckboxListTile(
-              title: Text(category.toString().split('.').last),
-              value: true, // For now, show all categories
-              onChanged: (value) {
-                // TODO: Implement filtering logic
-                Navigator.of(context).pop();
-              },
-            );
-          }).toList(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Filter by Category'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: DestinationCategory.values.map((category) {
+                  return CheckboxListTile(
+                    title: Text(DestinationService.getCategoryName(category)),
+                    value: draftCategories.contains(category),
+                    onChanged: (value) {
+                      setDialogState(() {
+                        if (value == true) {
+                          draftCategories.add(category);
+                        } else {
+                          draftCategories.remove(category);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  setDialogState(() {
+                    draftCategories
+                      ..clear()
+                      ..addAll(DestinationCategory.values);
+                  });
+                },
+                child: const Text('All'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: draftCategories.isEmpty
+                    ? null
+                    : () {
+                        _applyCategoryFilter(draftCategories);
+                        Navigator.of(context).pop();
+                      },
+                child: const Text('Apply'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -262,9 +305,9 @@ class _MapScreenState extends State<MapScreen> {
                 child: ListView.builder(
                   controller: scrollController,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: _allDestinations.length,
+                  itemCount: _filteredDestinations().length,
                   itemBuilder: (context, index) {
-                    final destination = _allDestinations[index];
+                    final destination = _filteredDestinations()[index];
                     final distance = _userLocation != null
                         ? MapService.calculateDistance(
                             _userLocation!,

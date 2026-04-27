@@ -6,10 +6,10 @@ import 'package:halaph/models/destination.dart';
 class MapService {
   // Philippines coordinates (center of the country)
   static const LatLng _philippinesCenter = LatLng(12.8797, 121.7740);
-  
+
   // Public getter for Philippines center
   static LatLng get philippinesCenter => _philippinesCenter;
-  
+
   // Popular destination coordinates
   static const Map<String, LatLng> _destinationCoordinates = {
     'manila': LatLng(14.5995, 120.9842),
@@ -63,27 +63,43 @@ class MapService {
 
   // Get coordinates for a destination
   static LatLng getDestinationCoordinates(Destination destination) {
+    if (destination.coordinates != null) return destination.coordinates!;
+
     // Try to find exact match
     final lowerCaseName = destination.name.toLowerCase();
     final lowerCaseLocation = destination.location.toLowerCase();
-    
+
     // Check destination name first
     for (final entry in _destinationCoordinates.entries) {
-      if (lowerCaseName.contains(entry.key) || 
+      if (lowerCaseName.contains(entry.key) ||
           lowerCaseLocation.contains(entry.key)) {
         return entry.value;
       }
     }
-    
+
     // Fallback to city-based coordinates
-    if (lowerCaseLocation.contains('manila')) return _destinationCoordinates['manila']!;
-    if (lowerCaseLocation.contains('cebu')) return _destinationCoordinates['cebu']!;
-    if (lowerCaseLocation.contains('boracay')) return _destinationCoordinates['boracay']!;
-    if (lowerCaseLocation.contains('palawan')) return _destinationCoordinates['palawan']!;
-    if (lowerCaseLocation.contains('bohol')) return _destinationCoordinates['bohol']!;
-    if (lowerCaseLocation.contains('davao')) return _destinationCoordinates['davao']!;
-    if (lowerCaseLocation.contains('siargao')) return _destinationCoordinates['siargao']!;
-    
+    if (lowerCaseLocation.contains('manila')) {
+      return _destinationCoordinates['manila']!;
+    }
+    if (lowerCaseLocation.contains('cebu')) {
+      return _destinationCoordinates['cebu']!;
+    }
+    if (lowerCaseLocation.contains('boracay')) {
+      return _destinationCoordinates['boracay']!;
+    }
+    if (lowerCaseLocation.contains('palawan')) {
+      return _destinationCoordinates['palawan']!;
+    }
+    if (lowerCaseLocation.contains('bohol')) {
+      return _destinationCoordinates['bohol']!;
+    }
+    if (lowerCaseLocation.contains('davao')) {
+      return _destinationCoordinates['davao']!;
+    }
+    if (lowerCaseLocation.contains('siargao')) {
+      return _destinationCoordinates['siargao']!;
+    }
+
     // Default to Philippines center
     return _philippinesCenter;
   }
@@ -131,8 +147,10 @@ class MapService {
     double dLon = _deg2rad(point2.longitude - point1.longitude);
     double a =
         math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_deg2rad(point1.latitude)) * math.cos(_deg2rad(point2.latitude)) *
-        math.sin(dLon / 2) * math.sin(dLon / 2);
+        math.cos(_deg2rad(point1.latitude)) *
+            math.cos(_deg2rad(point2.latitude)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
     double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return earthRadius * c;
   }
@@ -159,23 +177,32 @@ class MapService {
     if (coordinates.isEmpty) {
       return CameraUpdate.newLatLngZoom(_philippinesCenter, 6.0);
     }
-    
+
     if (coordinates.length == 1) {
       return CameraUpdate.newLatLngZoom(coordinates.first, 12.0);
     }
-    
+
     double minLat = coordinates.first.latitude;
     double maxLat = coordinates.first.latitude;
     double minLng = coordinates.first.longitude;
     double maxLng = coordinates.first.longitude;
-    
+
     for (final coord in coordinates) {
       minLat = math.min(minLat, coord.latitude);
       maxLat = math.max(maxLat, coord.latitude);
       minLng = math.min(minLng, coord.longitude);
       maxLng = math.max(maxLng, coord.longitude);
     }
-    
+
+    if ((maxLat - minLat).abs() < 0.0005) {
+      maxLat += 0.0005;
+      minLat -= 0.0005;
+    }
+    if ((maxLng - minLng).abs() < 0.0005) {
+      maxLng += 0.0005;
+      minLng -= 0.0005;
+    }
+
     return CameraUpdate.newLatLngBounds(
       LatLngBounds(
         southwest: LatLng(minLat, minLng),

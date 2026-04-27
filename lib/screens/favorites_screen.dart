@@ -4,15 +4,18 @@ import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
+import 'package:halaph/screens/explore_details_screen.dart';
+import 'package:halaph/screens/route_options_screen.dart';
 
 class FavoritesScreen extends StatefulWidget {
-  const FavoritesScreen({Key? key}) : super(key: key);
+  const FavoritesScreen({super.key});
 
   @override
   State<FavoritesScreen> createState() => _FavoritesScreenState();
 }
 
-class _FavoritesScreenState extends State<FavoritesScreen> with WidgetsBindingObserver {
+class _FavoritesScreenState extends State<FavoritesScreen>
+    with WidgetsBindingObserver {
   final _favoritesService = FavoritesService();
   List<Destination> _favorites = [];
   bool _loading = true;
@@ -46,13 +49,15 @@ class _FavoritesScreenState extends State<FavoritesScreen> with WidgetsBindingOb
     setState(() => _loading = true);
     try {
       final ids = await _favoritesService.getFavorites();
-      final dests = await Future.wait(ids.map((id) async {
-        final dest = await DestinationService.getDestination(id);
-        if (dest == null) {
-          return await DestinationService.getDestinationByPlaceId(id);
-        }
-        return dest;
-      }));
+      final dests = await Future.wait(
+        ids.map((id) async {
+          final dest = await DestinationService.getDestination(id);
+          if (dest == null) {
+            return await DestinationService.getDestinationByPlaceId(id);
+          }
+          return dest;
+        }),
+      );
       if (mounted) {
         setState(() {
           _favorites = dests.where((e) => e != null).map((e) => e!).toList();
@@ -92,60 +97,101 @@ class _FavoritesScreenState extends State<FavoritesScreen> with WidgetsBindingOb
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _favorites.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.favorite_border, size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No favorites yet',
-                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tap the heart icon on places to add them here',
-                        style: TextStyle(color: Colors.grey[500]),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.favorite_border,
+                    size: 64,
+                    color: Colors.grey[400],
                   ),
-                )
-              : ListView.builder(
-                  itemCount: _favorites.length,
-                  itemBuilder: (context, index) {
-                    final d = _favorites[index];
-                    return Dismissible(
-                      key: Key(d.id),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 16),
-                        child: const Icon(Icons.delete, color: Colors.white),
-                      ),
-                      onDismissed: (_) => _removeFavorite(d.id),
-                      child: ListTile(
-                        leading: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: d.imageUrl.isNotEmpty
-                              ? Image.network(d.imageUrl, width: 48, height: 48, fit: BoxFit.cover)
-                              : Container(
-                                  width: 48,
-                                  height: 48,
-                                  color: Colors.grey[200],
-                                  child: const Icon(Icons.place, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No favorites yet',
+                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tap the heart icon on places to add them here',
+                    style: TextStyle(color: Colors.grey[500]),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              itemCount: _favorites.length,
+              itemBuilder: (context, index) {
+                final d = _favorites[index];
+                return Dismissible(
+                  key: Key(d.id),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    color: Colors.red,
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 16),
+                    child: const Icon(Icons.delete, color: Colors.white),
+                  ),
+                  onDismissed: (_) => _removeFavorite(d.id),
+                  child: ListTile(
+                    onTap: () => ExploreDetailsScreen.showAsBottomSheet(
+                      context,
+                      destinationId: d.id,
+                      source: 'favorites',
+                      destination: d,
+                    ),
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: d.imageUrl.isNotEmpty
+                          ? Image.network(
+                              d.imageUrl,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                            )
+                          : Container(
+                              width: 48,
+                              height: 48,
+                              color: Colors.grey[200],
+                              child: const Icon(
+                                Icons.place,
+                                color: Colors.grey,
+                              ),
+                            ),
+                    ),
+                    title: Text(d.name),
+                    subtitle: Text(d.location),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.directions),
+                          tooltip: 'View routes',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => RouteOptionsScreen(
+                                  destinationId: d.id,
+                                  destinationName: d.name,
+                                  source: 'favorites',
+                                  destination: d,
                                 ),
+                              ),
+                            );
+                          },
                         ),
-                        title: Text(d.name),
-                        subtitle: Text(d.location),
-                        trailing: IconButton(
+                        IconButton(
                           icon: const Icon(Icons.favorite, color: Colors.red),
+                          tooltip: 'Remove favorite',
                           onPressed: () => _removeFavorite(d.id),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }

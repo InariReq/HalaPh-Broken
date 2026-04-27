@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/google_maps_api_service.dart';
@@ -20,11 +21,8 @@ class TravelCostService {
   // Cost estimation constants (in PHP)
   static const double _grabBaseFare = 40.0;
   static const double _grabPerKm = 13.0;
-  static const double _gasPerKm = 5.0; // Estimated gas cost for private vehicle
   static const double _jeepneyFare = 12.0; // Minimum jeepney fare
   static const double _jeepneyPerKm = 1.5;
-  static const double _tricycleBaseFare = 50.0; // For short distances
-  static const double _tricyclePerKm = 15.0;
 
   static Future<List<TravelCostEstimate>> getTravelCostEstimates(
     LatLng destination,
@@ -60,7 +58,7 @@ class TravelCostService {
 
       return estimates;
     } catch (e) {
-      print('Error getting travel cost estimates: $e');
+      debugPrint('Error getting travel cost estimates: $e');
       return [];
     }
   }

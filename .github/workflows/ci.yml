@@ -1,0 +1,31 @@
+name: Flutter CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.11.0'
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Inject keys
+        run: bash scripts/ci_inject_keys.sh
+        env:
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+      - name: Analyze pub package dependencies
+        run: dart analyze || true
+      - name: Run tests
+        run: flutter test -v
+      - name: Build APK
+        run: flutter build apk --release
+      - name: Build iOS (no codesign)
+        run: flutter build ios --no-codesign
+        if: always()

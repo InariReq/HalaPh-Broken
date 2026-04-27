@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -73,22 +74,18 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     
     try {
-      print('=== HOME SCREEN: Loading trending destinations ===');
+      debugPrint('=== HOME SCREEN: Loading trending destinations ===');
       final destinations = await DestinationService.getTrendingDestinations();
-      print('Home screen loaded ${destinations.length} trending destinations');
+      debugPrint('Home screen loaded ${destinations.length} trending destinations');
       
       // Debug: Check if we got any real data
       if (destinations.isEmpty) {
-        print('❌ NO DESTINATIONS RETURNED');
+        debugPrint('❌ NO DESTINATIONS RETURNED');
       } else {
-        print('✅ Got ${destinations.length} destinations');
+        debugPrint('✅ Got ${destinations.length} destinations');
         for (var dest in destinations.take(3)) {
-          print('- ${dest.name} (${dest.category}) - ID: ${dest.id ?? "NULL_ID"}');
+          debugPrint('- ${dest.name} (${dest.category}) - ID: ${dest.id}');
         }
-        
-        // Debug: Check if destinations have valid IDs
-        bool hasValidIds = destinations.every((dest) => dest.id.isNotEmpty);
-        print('All destinations have valid IDs: $hasValidIds');
       }
       
       setState(() {
@@ -97,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       _loadTravelCosts(destinations);
     } catch (e) {
-      print('Error loading trending destinations: $e');
+      debugPrint('Error loading trending destinations: $e');
       setState(() {
         _isLoading = false;
       });
@@ -115,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
             });
           }
         } catch (e) {
-          print('Error loading travel costs for ${destination.name}: $e');
+          debugPrint('Error loading travel costs for ${destination.name}: $e');
         }
       }
     }
@@ -202,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -248,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Colors.transparent,
               child: InkWell(
                 onTap: () {
-                  print('Create Plan tapped!');
+                  debugPrint('Create Plan tapped!');
                   // Navigate to create plan
                   GoRouter.of(context).push('/create-plan');
                 },
@@ -345,38 +342,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-  Widget _buildFallbackImage(DestinationCategory category) {
-    Color startColor, endColor;
-
-    switch (category) {
-      case DestinationCategory.park:
-        startColor = const Color(0xFF81C784);
-        endColor = const Color(0xFF4CAF50);
-        break;
-      case DestinationCategory.landmark:
-        startColor = const Color(0xFF64B5F6);
-        endColor = const Color(0xFF2196F3);
-        break;
-      case DestinationCategory.food:
-        startColor = const Color(0xFFFFB74D);
-        endColor = const Color(0xFFFF9800);
-        break;
-      case DestinationCategory.activities:
-        startColor = const Color(0xFFBA68C8);
-        endColor = const Color(0xFF9C27B0);
-        break;
-      case DestinationCategory.museum:
-        startColor = const Color(0xFFF06292);
-        endColor = const Color(0xFFE91E63);
-        break;
-      case DestinationCategory.market:
-        startColor = const Color(0xFF4DB6AC);
-        endColor = const Color(0xFF009688);
-        break;
-      default:
-        startColor = const Color(0xFF90A4AE);
-        endColor = const Color(0xFF607D8B);
-    }
+Widget _buildFallbackImage(DestinationCategory category) {
+    final (startColor, endColor) = switch (category) {
+      DestinationCategory.park => (const Color(0xFF81C784), const Color(0xFF4CAF50)),
+      DestinationCategory.landmark => (const Color(0xFF64B5F6), const Color(0xFF2196F3)),
+      DestinationCategory.food => (const Color(0xFFFFB74D), const Color(0xFFFF9800)),
+      DestinationCategory.activities => (const Color(0xFFBA68C8), const Color(0xFF9C27B0)),
+      DestinationCategory.museum => (const Color(0xFFF06292), const Color(0xFFE91E63)),
+      DestinationCategory.market => (const Color(0xFF4DB6AC), const Color(0xFF009688)),
+    };
 
     return Container(
       decoration: BoxDecoration(
@@ -410,12 +384,12 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -449,7 +423,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             errorWidget: (context, url, error) {
-                              print('CachedNetworkImage error for ${destination.name}: $error');
+                              debugPrint('CachedNetworkImage error for ${destination.name}: $error');
                               return _buildFallbackImage(destination.category);
                             },
                           )
@@ -473,7 +447,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.7),
+                          Colors.black.withValues(alpha: 0.7),
                         ],
                       ),
                     ),
@@ -512,7 +486,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(
@@ -546,7 +520,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Explore More button
                   GestureDetector(
                     onTap: () {
-                      print('=== HOME SCREEN TAP: ${destination.name} - ID: ${destination.id} ===');
+                      debugPrint('=== HOME SCREEN TAP: ${destination.name} - ID: ${destination.id} ===');
                       ExploreDetailsScreen.showAsBottomSheet(
                         context,
                         destinationId: destination.id,

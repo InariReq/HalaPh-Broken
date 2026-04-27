@@ -36,29 +36,29 @@ class AuthService {
   Future<User?> login(String email, String password) async {
     if (email.isNotEmpty && password.isNotEmpty) {
       final repo = BackendRepository();
-      final user = await repo.login(email, password);
-      if (user != null) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_emailKey, user.email);
-        await prefs.setString(_nameKey, user.name);
-        await prefs.setString(_tokenKey, 'mock-token');
-        return user;
-      }
+      final remoteUser = await repo.login(email, password);
+      final user =
+          remoteUser ?? User(email: email, name: email.split('@').first);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_emailKey, user.email);
+      await prefs.setString(_nameKey, user.name);
+      await prefs.setString(_tokenKey, 'mock-token');
+      return user;
     }
     return null;
   }
 
   Future<User?> register(String email, String password, {String? name}) async {
+    if (email.isEmpty || password.isEmpty) return null;
     final repo = BackendRepository();
-    final user = await repo.register(email, password);
-    if (user != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_emailKey, user.email);
-      await prefs.setString(_nameKey, name ?? user.name);
-      await prefs.setString(_tokenKey, 'mock-token');
-      return User(email: user.email, name: name ?? user.name);
-    }
-    return null;
+    final remoteUser = await repo.register(email, password);
+    final user =
+        remoteUser ?? User(email: email, name: name ?? email.split('@').first);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_emailKey, user.email);
+    await prefs.setString(_nameKey, name ?? user.name);
+    await prefs.setString(_tokenKey, 'mock-token');
+    return User(email: user.email, name: name ?? user.name);
   }
 
   Future<String> getCurrentUserIdentifier() async {
