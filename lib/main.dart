@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -7,7 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'models/destination.dart';
 import 'services/simple_plan_service.dart';
 import 'services/auth_service.dart';
-import 'db/local_db.dart';
+import 'services/firebase_app_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/favorites_screen.dart';
 
@@ -24,7 +25,6 @@ import 'screens/my_plans_screen.dart';
 import 'screens/profile_screen.dart';
 
 import 'screens/map_screen.dart';
-import 'screens/db_inspector_screen.dart';
 import 'screens/accounts_screen.dart';
 import 'screens/share_plan_screen.dart';
 import 'screens/route_options_screen.dart';
@@ -35,23 +35,9 @@ import 'screens/friends_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _loadEnvSafe();
-
-  // Initialize local storage before screens read plans, friends, and favorites.
-  await _initializeWithTimeout();
+  await FirebaseAppService.initialize();
 
   runApp(const HalaPhApp());
-}
-
-Future<void> _initializeWithTimeout() async {
-  // Run initialization in background with timeout
-  try {
-    await Future.wait<void>([
-      LocalDb.instance.init(),
-      SimplePlanService.initialize(),
-    ]).timeout(const Duration(seconds: 5));
-  } catch (e) {
-    debugPrint('Init timeout or error: $e');
-  }
 }
 
 Future<void> _loadEnvSafe() async {
@@ -82,6 +68,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Future<void> _checkLogin() async {
     final auth = AuthService();
     final user = await auth.getCurrentUser();
+    if (user != null) {
+      unawaited(SimplePlanService.initialize());
+    }
     if (mounted) {
       setState(() {
         _isLoggedIn = user != null;
@@ -91,6 +80,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   void _onLoginSuccess() {
+    unawaited(SimplePlanService.initialize());
     setState(() => _isLoggedIn = true);
   }
 
@@ -133,10 +123,6 @@ final GoRouter _router = GoRouter(
       },
     ),
     GoRoute(path: '/view', builder: (context, state) => const MapScreen()),
-    GoRoute(
-      path: '/db-inspector',
-      builder: (context, state) => const DbInspectorScreen(),
-    ),
     GoRoute(
       path: '/create-plan',
       builder: (context, state) => const CreatePlanScreen(),

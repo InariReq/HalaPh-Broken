@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'db/local_db.dart';
 import 'screens/splash_screen.dart';
+import 'services/firebase_app_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
-  await LocalDb.instance.init();
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (_) {}
+  await FirebaseAppService.initialize();
   runApp(const HalaPhApp());
 }
 

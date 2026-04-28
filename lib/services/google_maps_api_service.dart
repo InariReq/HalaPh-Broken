@@ -185,6 +185,7 @@ class GoogleMapsApiService {
     required LatLng origin,
     required LatLng destination,
   }) async {
+    _loadApiKey();
     if (!isConfigured) {
       _logMissingApiKey();
       return [];

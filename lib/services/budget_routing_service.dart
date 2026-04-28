@@ -20,6 +20,8 @@ class PhilippineFares {
   static const double lrt1Base = 15.0;
   static const double lrt2Base = 15.0;
   static const double mrt3Base = 15.0;
+  static const double trainPerStation = 1.5;
+  static const double trainMax = 35.0;
 
   // FX/Van Fares (2026 rates)
   static const double fxBase = 30.0; // Estimated minimum fare
@@ -105,6 +107,10 @@ class RouteDetails {
   final List<String> keyPoints;
   final String description;
   final String boardingInstructions;
+  final String? boardingStop;
+  final String? dropOffStop;
+  final LatLng? boardingLocation;
+  final LatLng? dropOffLocation;
 
   const RouteDetails({
     required this.routeName,
@@ -112,6 +118,10 @@ class RouteDetails {
     required this.keyPoints,
     required this.description,
     required this.boardingInstructions,
+    this.boardingStop,
+    this.dropOffStop,
+    this.boardingLocation,
+    this.dropOffLocation,
   });
 }
 
@@ -135,7 +145,171 @@ class PopularRoute {
   });
 }
 
+class _RailStation {
+  final String name;
+  final LatLng location;
+
+  const _RailStation(this.name, this.location);
+}
+
+class _RailLine {
+  final String code;
+  final String name;
+  final String colorHex;
+  final List<_RailStation> stations;
+
+  const _RailLine({
+    required this.code,
+    required this.name,
+    required this.colorHex,
+    required this.stations,
+  });
+}
+
+class _RailTransfer {
+  final String firstLineCode;
+  final String firstStationName;
+  final String secondLineCode;
+  final String secondStationName;
+  final int walkMinutes;
+
+  const _RailTransfer({
+    required this.firstLineCode,
+    required this.firstStationName,
+    required this.secondLineCode,
+    required this.secondStationName,
+    required this.walkMinutes,
+  });
+}
+
+class _RailStationMatch {
+  final _RailLine line;
+  final _RailStation station;
+  final int stationIndex;
+  final double distanceKm;
+
+  const _RailStationMatch({
+    required this.line,
+    required this.station,
+    required this.stationIndex,
+    required this.distanceKm,
+  });
+}
+
+class _RailSegment {
+  final _RailLine line;
+  final _RailStation from;
+  final _RailStation to;
+  final int stopCount;
+
+  const _RailSegment({
+    required this.line,
+    required this.from,
+    required this.to,
+    required this.stopCount,
+  });
+}
+
 class BudgetRoutingService {
+  static const List<_RailLine> _railLines = [
+    _RailLine(
+      code: 'LRT-1',
+      name: 'LRT-1',
+      colorHex: '#F7931E',
+      stations: [
+        _RailStation('Fernando Poe Jr.', LatLng(14.6576, 121.0197)),
+        _RailStation('Balintawak', LatLng(14.6570, 121.0030)),
+        _RailStation('Monumento', LatLng(14.6544, 120.9838)),
+        _RailStation('5th Avenue', LatLng(14.6447, 120.9836)),
+        _RailStation('R. Papa', LatLng(14.6362, 120.9822)),
+        _RailStation('Abad Santos', LatLng(14.6307, 120.9814)),
+        _RailStation('Blumentritt', LatLng(14.6226, 120.9829)),
+        _RailStation('Tayuman', LatLng(14.6167, 120.9827)),
+        _RailStation('Bambang', LatLng(14.6112, 120.9825)),
+        _RailStation('Doroteo Jose', LatLng(14.6054, 120.9822)),
+        _RailStation('Carriedo', LatLng(14.5991, 120.9813)),
+        _RailStation('Central Terminal', LatLng(14.5927, 120.9816)),
+        _RailStation('United Nations', LatLng(14.5826, 120.9847)),
+        _RailStation('Pedro Gil', LatLng(14.5766, 120.9880)),
+        _RailStation('Quirino', LatLng(14.5703, 120.9916)),
+        _RailStation('Vito Cruz', LatLng(14.5635, 120.9946)),
+        _RailStation('Gil Puyat', LatLng(14.5542, 120.9971)),
+        _RailStation('Libertad', LatLng(14.5476, 120.9986)),
+        _RailStation('EDSA', LatLng(14.5386, 121.0007)),
+        _RailStation('Baclaran', LatLng(14.5342, 120.9984)),
+        _RailStation('Redemptorist-Aseana', LatLng(14.5307, 120.9933)),
+        _RailStation('MIA', LatLng(14.5208, 120.9938)),
+        _RailStation('Asia World', LatLng(14.5160, 120.9905)),
+        _RailStation('Ninoy Aquino', LatLng(14.5064, 120.9929)),
+        _RailStation('Dr. Santos', LatLng(14.4854, 120.9922)),
+      ],
+    ),
+    _RailLine(
+      code: 'LRT-2',
+      name: 'LRT-2',
+      colorHex: '#662D91',
+      stations: [
+        _RailStation('Recto', LatLng(14.6038, 120.9831)),
+        _RailStation('Legarda', LatLng(14.6009, 120.9925)),
+        _RailStation('Pureza', LatLng(14.6017, 121.0053)),
+        _RailStation('V. Mapa', LatLng(14.6040, 121.0170)),
+        _RailStation('J. Ruiz', LatLng(14.6107, 121.0262)),
+        _RailStation('Gilmore', LatLng(14.6137, 121.0349)),
+        _RailStation('Betty Go-Belmonte', LatLng(14.6187, 121.0423)),
+        _RailStation('Araneta Center-Cubao', LatLng(14.6227, 121.0522)),
+        _RailStation('Anonas', LatLng(14.6280, 121.0647)),
+        _RailStation('Katipunan', LatLng(14.6313, 121.0722)),
+        _RailStation('Santolan', LatLng(14.6223, 121.0865)),
+        _RailStation('Marikina-Pasig', LatLng(14.6204, 121.1008)),
+        _RailStation('Antipolo', LatLng(14.6258, 121.1216)),
+      ],
+    ),
+    _RailLine(
+      code: 'MRT-3',
+      name: 'MRT-3',
+      colorHex: '#0071BC',
+      stations: [
+        _RailStation('North Avenue', LatLng(14.6526, 121.0328)),
+        _RailStation('Quezon Avenue', LatLng(14.6425, 121.0387)),
+        _RailStation('GMA Kamuning', LatLng(14.6350, 121.0433)),
+        _RailStation('Araneta Center-Cubao', LatLng(14.6191, 121.0526)),
+        _RailStation('Santolan-Annapolis', LatLng(14.6072, 121.0566)),
+        _RailStation('Ortigas', LatLng(14.5875, 121.0567)),
+        _RailStation('Shaw Boulevard', LatLng(14.5811, 121.0534)),
+        _RailStation('Boni', LatLng(14.5738, 121.0481)),
+        _RailStation('Guadalupe', LatLng(14.5666, 121.0451)),
+        _RailStation('Buendia', LatLng(14.5542, 121.0349)),
+        _RailStation('Ayala', LatLng(14.5491, 121.0278)),
+        _RailStation('Magallanes', LatLng(14.5411, 121.0198)),
+        _RailStation('Taft Avenue', LatLng(14.5376, 121.0014)),
+      ],
+    ),
+  ];
+
+  static const List<_RailTransfer> _railTransfers = [
+    _RailTransfer(
+      firstLineCode: 'LRT-1',
+      firstStationName: 'Doroteo Jose',
+      secondLineCode: 'LRT-2',
+      secondStationName: 'Recto',
+      walkMinutes: 6,
+    ),
+    _RailTransfer(
+      firstLineCode: 'LRT-1',
+      firstStationName: 'EDSA',
+      secondLineCode: 'MRT-3',
+      secondStationName: 'Taft Avenue',
+      walkMinutes: 7,
+    ),
+    _RailTransfer(
+      firstLineCode: 'LRT-2',
+      firstStationName: 'Araneta Center-Cubao',
+      secondLineCode: 'MRT-3',
+      secondStationName: 'Araneta Center-Cubao',
+      walkMinutes: 8,
+    ),
+  ];
+
   // Popular jeepney, bus, and FX routes in Metro Manila
   static final List<PopularRoute> popularRoutes = [
     // Jeepney Routes
@@ -271,14 +445,21 @@ class BudgetRoutingService {
         }
       }
 
-      // 4. Add FX route if applicable
+      // 4. Add MRT/LRT route if both endpoints are near rail access
+      final trainRoute = _calculateTrainRoute(origin, destination);
+      if (trainRoute != null) {
+        routes.add(trainRoute);
+        debugPrint('Added train route: ₱${trainRoute.cost.toStringAsFixed(2)}');
+      }
+
+      // 5. Add FX route if applicable
       final fxRoute = await _calculateFxRoute(origin, destination);
       if (fxRoute != null) {
         routes.add(fxRoute);
         debugPrint('Added FX route: ₱${fxRoute.cost.toStringAsFixed(2)}');
       }
 
-      // 5. Always add walking route
+      // 6. Always add walking route
       final walkingRoute = _calculateWalkingRoute(origin, destination);
       routes.add(walkingRoute);
       debugPrint('Added walking route: FREE');
@@ -585,6 +766,310 @@ class BudgetRoutingService {
       debugPrint('FX route calculation failed: $e');
       return null;
     }
+  }
+
+  static BudgetRoute? _calculateTrainRoute(LatLng origin, LatLng destination) {
+    try {
+      final originStation = _nearestRailStation(origin);
+      final destinationStation = _nearestRailStation(destination);
+      if (originStation == null || destinationStation == null) return null;
+
+      const maxAccessKm = 2.7;
+      const maxEgressKm = 3.2;
+      if (originStation.distanceKm > maxAccessKm ||
+          destinationStation.distanceKm > maxEgressKm) {
+        return null;
+      }
+
+      final segments = _buildRailSegments(originStation, destinationStation);
+      if (segments.isEmpty) return null;
+
+      final railStopCount = segments.fold<int>(
+        0,
+        (total, segment) => total + segment.stopCount,
+      );
+      if (railStopCount == 0 && segments.length == 1) return null;
+
+      final transferMinutes = _transferMinutesForSegments(segments);
+      final walkMinutes =
+          ((originStation.distanceKm + destinationStation.distanceKm) /
+                  4.5 *
+                  60)
+              .round();
+      final trainMinutes = math.max(6, railStopCount * 3);
+      final duration = Duration(
+        minutes: walkMinutes + trainMinutes + transferMinutes,
+      );
+      final lineCodes = segments.map((segment) => segment.line.code).toSet();
+      final fareDetails = _calculateTrainFare(segments);
+      final polyline = _dedupePolylinePoints([
+        origin,
+        for (final segment in segments) ...[
+          segment.from.location,
+          segment.to.location,
+        ],
+        destination,
+      ]);
+      final keyPoints = _dedupeStrings([
+        originStation.station.name,
+        for (final segment in segments) ...[segment.from.name, segment.to.name],
+        destinationStation.station.name,
+      ]);
+      final instructions = <String>[
+        'Walk to ${originStation.station.name} ${originStation.line.code} station.',
+        for (var i = 0; i < segments.length; i++) ...[
+          'Ride ${segments[i].line.name} from ${segments[i].from.name} to ${segments[i].to.name}${segments[i].stopCount > 0 ? ' (${segments[i].stopCount} stops)' : ''}.',
+          if (i < segments.length - 1)
+            'Transfer from ${segments[i].line.code} to ${segments[i + 1].line.code}. Follow station signs before boarding the next train.',
+        ],
+        'Exit at ${destinationStation.station.name}, then walk to your destination.',
+      ];
+      final routeName = lineCodes.join(' + ');
+
+      return BudgetRoute(
+        id: 'train-${DateTime.now().millisecondsSinceEpoch}',
+        mode: TravelMode.train,
+        start: origin,
+        end: destination,
+        duration: duration,
+        distance: _calculateDistance(origin, destination),
+        cost: fareDetails.regular,
+        instructions: instructions,
+        polyline: polyline,
+        summary: segments.length == 1
+            ? 'Train - ${segments.first.line.name}'
+            : 'Train - MRT/LRT transfer route',
+        tips: [
+          'Use a Beep card or single-journey ticket at the station.',
+          'Allow extra walking time for station transfers and exits.',
+          if (segments.length > 1)
+            'This route has ${segments.length - 1} rail transfer${segments.length == 2 ? '' : 's'}.',
+        ],
+        fareDetails: fareDetails,
+        routeDetails: RouteDetails(
+          routeName: routeName,
+          routeCode: routeName.replaceAll(' + ', '-'),
+          keyPoints: keyPoints,
+          description:
+              'Estimated Manila rail route using nearby MRT/LRT stations.',
+          boardingInstructions:
+              'Enter ${originStation.station.name} station and board ${segments.first.line.code}.',
+          boardingStop: originStation.station.name,
+          dropOffStop: destinationStation.station.name,
+          boardingLocation: originStation.station.location,
+          dropOffLocation: destinationStation.station.location,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Train route calculation failed: $e');
+      return null;
+    }
+  }
+
+  static _RailStationMatch? _nearestRailStation(LatLng point) {
+    _RailStationMatch? nearest;
+    for (final line in _railLines) {
+      for (var i = 0; i < line.stations.length; i++) {
+        final station = line.stations[i];
+        final distance = _calculateDistance(point, station.location);
+        if (nearest == null || distance < nearest.distanceKm) {
+          nearest = _RailStationMatch(
+            line: line,
+            station: station,
+            stationIndex: i,
+            distanceKm: distance,
+          );
+        }
+      }
+    }
+    return nearest;
+  }
+
+  static List<_RailSegment> _buildRailSegments(
+    _RailStationMatch origin,
+    _RailStationMatch destination,
+  ) {
+    if (origin.line.code == destination.line.code) {
+      return [
+        _segmentForStations(origin.line, origin.station, destination.station),
+      ];
+    }
+
+    final linePath = _railLinePath(origin.line.code, destination.line.code);
+    if (linePath.length < 2) return const [];
+
+    final segments = <_RailSegment>[];
+    var currentLine = origin.line;
+    var currentStation = origin.station;
+
+    for (var i = 1; i < linePath.length; i++) {
+      final nextLine = linePath[i];
+      final transfer = _transferBetween(currentLine.code, nextLine.code);
+      if (transfer == null) return const [];
+      final fromTransferStation = _stationForTransfer(transfer, currentLine);
+      final toTransferStation = _stationForTransfer(transfer, nextLine);
+      if (fromTransferStation == null || toTransferStation == null) {
+        return const [];
+      }
+      final segment = _segmentForStations(
+        currentLine,
+        currentStation,
+        fromTransferStation,
+      );
+      if (segment.stopCount > 0) segments.add(segment);
+      currentLine = nextLine;
+      currentStation = toTransferStation;
+    }
+
+    final finalSegment = _segmentForStations(
+      currentLine,
+      currentStation,
+      destination.station,
+    );
+    if (finalSegment.stopCount > 0) segments.add(finalSegment);
+    return segments;
+  }
+
+  static _RailSegment _segmentForStations(
+    _RailLine line,
+    _RailStation from,
+    _RailStation to,
+  ) {
+    final fromIndex = _stationIndex(line, from.name);
+    final toIndex = _stationIndex(line, to.name);
+    return _RailSegment(
+      line: line,
+      from: from,
+      to: to,
+      stopCount: (toIndex - fromIndex).abs(),
+    );
+  }
+
+  static int _stationIndex(_RailLine line, String stationName) {
+    return line.stations.indexWhere((station) => station.name == stationName);
+  }
+
+  static List<_RailLine> _railLinePath(String fromCode, String toCode) {
+    final queue = <List<String>>[
+      [fromCode],
+    ];
+    final visited = <String>{fromCode};
+
+    while (queue.isNotEmpty) {
+      final path = queue.removeAt(0);
+      final current = path.last;
+      if (current == toCode) {
+        return path
+            .map(_railLineByCode)
+            .whereType<_RailLine>()
+            .toList(growable: false);
+      }
+      for (final nextCode in _connectedRailLineCodes(current)) {
+        if (visited.add(nextCode)) {
+          queue.add([...path, nextCode]);
+        }
+      }
+    }
+
+    return const [];
+  }
+
+  static Iterable<String> _connectedRailLineCodes(String lineCode) sync* {
+    for (final transfer in _railTransfers) {
+      if (transfer.firstLineCode == lineCode) {
+        yield transfer.secondLineCode;
+      } else if (transfer.secondLineCode == lineCode) {
+        yield transfer.firstLineCode;
+      }
+    }
+  }
+
+  static _RailLine? _railLineByCode(String code) {
+    for (final line in _railLines) {
+      if (line.code == code) return line;
+    }
+    return null;
+  }
+
+  static _RailTransfer? _transferBetween(String firstCode, String secondCode) {
+    for (final transfer in _railTransfers) {
+      final forward =
+          transfer.firstLineCode == firstCode &&
+          transfer.secondLineCode == secondCode;
+      final backward =
+          transfer.firstLineCode == secondCode &&
+          transfer.secondLineCode == firstCode;
+      if (forward || backward) return transfer;
+    }
+    return null;
+  }
+
+  static _RailStation? _stationForTransfer(
+    _RailTransfer transfer,
+    _RailLine line,
+  ) {
+    final stationName = transfer.firstLineCode == line.code
+        ? transfer.firstStationName
+        : transfer.secondStationName;
+    for (final station in line.stations) {
+      if (station.name == stationName) return station;
+    }
+    return null;
+  }
+
+  static int _transferMinutesForSegments(List<_RailSegment> segments) {
+    if (segments.length <= 1) return 0;
+    var minutes = 0;
+    for (var i = 0; i < segments.length - 1; i++) {
+      final transfer = _transferBetween(
+        segments[i].line.code,
+        segments[i + 1].line.code,
+      );
+      minutes += transfer?.walkMinutes ?? 8;
+    }
+    return minutes;
+  }
+
+  static FareDetails _calculateTrainFare(List<_RailSegment> segments) {
+    final regularFare = segments.fold<double>(0, (total, segment) {
+      final baseFare = switch (segment.line.code) {
+        'LRT-1' => PhilippineFares.lrt1Base,
+        'LRT-2' => PhilippineFares.lrt2Base,
+        'MRT-3' => PhilippineFares.mrt3Base,
+        _ => PhilippineFares.mrt3Base,
+      };
+      final segmentFare =
+          (baseFare + segment.stopCount * PhilippineFares.trainPerStation)
+              .clamp(baseFare, PhilippineFares.trainMax)
+              .toDouble();
+      return total + segmentFare;
+    });
+
+    return FareDetails(
+      regular: regularFare,
+      student: regularFare * (1 - PhilippineFares.studentDiscount),
+      pwd: regularFare * (1 - PhilippineFares.pwdDiscount),
+      senior: regularFare * (1 - PhilippineFares.seniorDiscount),
+    );
+  }
+
+  static List<LatLng> _dedupePolylinePoints(List<LatLng> points) {
+    final deduped = <LatLng>[];
+    for (final point in points) {
+      if (deduped.isEmpty || _calculateDistance(deduped.last, point) > 0.03) {
+        deduped.add(point);
+      }
+    }
+    return deduped;
+  }
+
+  static List<String> _dedupeStrings(List<String> values) {
+    final seen = <String>{};
+    final deduped = <String>[];
+    for (final value in values) {
+      if (seen.add(value)) deduped.add(value);
+    }
+    return deduped;
   }
 
   // Calculate walking route

@@ -9,6 +9,8 @@ import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/models/user.dart';
+import 'package:halaph/models/destination.dart';
+import 'package:halaph/screens/explore_details_screen.dart';
 
 // Data models for easier implementation
 class UserProfile {
@@ -28,14 +30,18 @@ class UserProfile {
 class FavoritePlace {
   final String id;
   final String name;
+  final String location;
   final String type;
   final String? imageUrl;
+  final Destination? destination;
 
   FavoritePlace({
     required this.id,
     required this.name,
+    this.location = '',
     required this.type,
     this.imageUrl,
+    this.destination,
   });
 }
 
@@ -135,10 +141,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
         title: const Text(
           'My Profile',
           style: TextStyle(
@@ -153,7 +161,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed:
                 widget.onSettingsTap ??
                 () {
-                  GoRouter.of(context).go('/accounts');
+                  GoRouter.of(context).push('/accounts');
                 },
           ),
         ],
@@ -191,18 +199,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final ids = await FavoritesService().getFavorites();
       final loaded = <FavoritePlace>[];
       for (final id in ids) {
-        final dest = await DestinationService.getDestination(id);
+        var dest = await DestinationService.getDestination(id);
+        dest ??= await DestinationService.getDestinationByPlaceId(id);
         if (dest != null) {
           loaded.add(
             FavoritePlace(
               id: id,
               name: dest.name,
-              type: dest.category.name,
+              location: dest.location,
+              type: DestinationService.getCategoryName(dest.category),
               imageUrl: dest.imageUrl,
+              destination: dest,
             ),
           );
         } else {
-          loaded.add(FavoritePlace(id: id, name: id, type: 'Place'));
+          loaded.add(
+            FavoritePlace(
+              id: id,
+              name: 'Saved place',
+              location: 'Details unavailable',
+              type: 'Place',
+            ),
+          );
         }
       }
       if (mounted) {
@@ -510,7 +528,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed:
                   widget.onViewAllFavoritesTap ??
                   () {
-                    GoRouter.of(context).go('/favorites');
+                    GoRouter.of(context).push('/favorites');
                   },
               child: const Text(
                 'View All',
@@ -525,72 +543,102 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: 140,
+          height: 174,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: _favorites.length,
             itemBuilder: (context, index) {
               final favorite = _favorites[index];
-              return Container(
-                width: 110,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8F9FA),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE0E0E0)),
+              return InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => ExploreDetailsScreen.showAsBottomSheet(
+                  context,
+                  destinationId: favorite.id,
+                  source: 'profile',
+                  destination: favorite.destination,
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: favorite.imageUrl != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                favorite.imageUrl!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Icon(
-                                    Icons.place,
-                                    size: 28,
-                                    color: Colors.grey[600],
-                                  );
-                                },
-                              ),
-                            )
-                          : Icon(
-                              Icons.place,
-                              size: 28,
-                              color: Colors.grey[600],
-                            ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        favorite.name,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                child: Container(
+                  width: 148,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE0E0E0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(12),
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        child: Container(
+                          height: 82,
+                          width: double.infinity,
+                          color: Colors.grey[200],
+                          child: favorite.imageUrl != null
+                              ? Image.network(
+                                  favorite.imageUrl!,
+                                  width: double.infinity,
+                                  height: 82,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Icon(
+                                      Icons.place,
+                                      size: 30,
+                                      color: Colors.grey[600],
+                                    );
+                                  },
+                                )
+                              : Icon(
+                                  Icons.place,
+                                  size: 30,
+                                  color: Colors.grey[600],
+                                ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      favorite.type,
-                      style: const TextStyle(fontSize: 10, color: Colors.grey),
-                    ),
-                  ],
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              favorite.name,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black87,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              favorite.location,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey,
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              favorite.type,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF2196F3),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -601,7 +649,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildTripHistoryButton() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
         onPressed:
@@ -648,7 +696,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildLogoutButton() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: () async {
@@ -703,12 +751,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildAccountsButton() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: () {
-          // Navigate to accounts screen
-          GoRouter.of(context).go('/accounts');
+          GoRouter.of(context).push('/accounts');
         },
         icon: const Icon(Icons.account_circle),
         label: const Text('Accounts'),

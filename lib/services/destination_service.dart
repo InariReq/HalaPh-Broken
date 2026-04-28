@@ -228,76 +228,92 @@ class DestinationService {
   static Future<List<Destination>> getTrendingDestinations() async {
     debugPrint('\n=== APP CALLED getTrendingDestinations ===');
     try {
-      debugPrint('=== GETTING TRENDING DESTINATIONS FROM GOOGLE PLACES ===');
+      debugPrint('=== GETTING NEARBY TRENDING DESTINATIONS ===');
 
-      // Get current location for nearby search
       final currentLocation = await getCurrentLocation();
+      const nearbyRadiusMeters = 8000.0;
+      const nearbyRadiusKm = nearbyRadiusMeters / 1000;
       debugPrint('=== LOCATION DEBUG ===');
       debugPrint(
         'Searching from location: ${currentLocation.latitude}, ${currentLocation.longitude}',
       );
 
-      // Detect current city
       final currentCity = getCurrentCity(currentLocation);
       debugPrint('=== CITY DETECTION ===');
       debugPrint('Current city detected as: $currentCity');
 
-      // Search for trending places in the current city
-      final trendingQueries = [
-        'tourist attractions in $currentCity',
-        'popular restaurants in $currentCity',
-        'shopping malls in $currentCity',
-        'parks in $currentCity',
-        'museums in $currentCity',
+      const nearbyPlaceTypes = [
+        'tourist_attraction',
+        'restaurant',
+        'shopping_mall',
+        'park',
+        'museum',
       ];
-
-      debugPrint('=== SEARCH QUERIES ===');
-      for (String query in trendingQueries) {
-        debugPrint('Query: $query');
-      }
 
       List<Destination> allTrendingPlaces = [];
 
-      for (String query in trendingQueries) {
+      for (final placeType in nearbyPlaceTypes) {
         try {
-          final places = await GoogleMapsApiService.searchPlaces(
-            query: query,
+          final places = await GoogleMapsApiService.findNearbyPlaces(
             location: currentLocation,
+            placeType: placeType,
+            radius: nearbyRadiusMeters,
           );
-          debugPrint('Found ${places.length} places for query: "$query"');
+          final nearbyPlaces = places.where((place) {
+            return _calculateDistance(currentLocation, place.location) <=
+                nearbyRadiusKm;
+          }).toList()..sort((a, b) => b.rating.compareTo(a.rating));
 
-          // Take top 2 from each category to get variety
+          debugPrint(
+            'Found ${nearbyPlaces.length} nearby places for type "$placeType"',
+          );
+
           final convertedPlaces = await Future.wait(
-            places
-                .map((place) => _convertGooglePlaceToDestination(place))
-                .take(2),
+            nearbyPlaces
+                .take(3)
+                .map((place) => _convertGooglePlaceToDestination(place)),
           );
           allTrendingPlaces.addAll(convertedPlaces);
         } catch (e) {
-          debugPrint('Error searching for "$query": $e');
+          debugPrint('Error searching nearby "$placeType": $e');
         }
       }
 
-      // Deduplicate using public helper and then sort
       final deduped = deduplicateDestinationsById(allTrendingPlaces);
-      // Sort by rating and take top 6
-      deduped.sort((a, b) => b.rating.compareTo(a.rating));
+      deduped.removeWhere((destination) {
+        final coordinates = destination.coordinates;
+        if (coordinates == null) return true;
+        return _calculateDistance(currentLocation, coordinates) >
+            nearbyRadiusKm;
+      });
+      deduped.sort((a, b) {
+        final ratingCompare = b.rating.compareTo(a.rating);
+        if (ratingCompare != 0) return ratingCompare;
+        final aDistance = _calculateDistance(
+          currentLocation,
+          a.coordinates ?? currentLocation,
+        );
+        final bDistance = _calculateDistance(
+          currentLocation,
+          b.coordinates ?? currentLocation,
+        );
+        return aDistance.compareTo(bDistance);
+      });
       final topPlaces = deduped.take(6).toList();
 
       if (topPlaces.isNotEmpty) {
         debugPrint(
-          'Returning ${topPlaces.length} trending places from Google Places',
+          'Returning ${topPlaces.length} nearby trending places from Google Places',
         );
         return topPlaces;
       } else {
-        debugPrint('No Google Places results, returning empty list');
+        debugPrint('No nearby Google Places results, returning empty list');
         return [];
       }
     } catch (e) {
-      debugPrint('Google Places trending failed: $e');
+      debugPrint('Google Places nearby trending failed: $e');
       debugPrint('No fallback data available - returning empty list');
 
-      // Return empty list - no mock data
       return [];
     }
   }

@@ -83,10 +83,12 @@ class _FavoritesScreenState extends State<FavoritesScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Favorites'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

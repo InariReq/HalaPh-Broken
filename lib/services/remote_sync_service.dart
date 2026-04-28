@@ -1,9 +1,7 @@
-import 'dart:convert';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:halaph/services/auth_service.dart';
-import 'package:http/http.dart' as http;
+import 'package:halaph/services/firebase_app_service.dart';
 
 class RemoteSyncService {
   RemoteSyncService._internal();
@@ -11,60 +9,66 @@ class RemoteSyncService {
 
   static const Duration _timeout = Duration(seconds: 5);
 
-  String get _baseUrl {
-    try {
-      return (dotenv.env['API_BASE_URL'] ?? '').trim();
-    } catch (_) {
-      return '';
-    }
-  }
-
-  bool get isConfigured => _baseUrl.isNotEmpty;
+  bool get isConfigured => FirebaseAppService.isInitialized;
 
   Future<Map<String, dynamic>?> loadNamespace(String namespace) async {
-    if (!isConfigured) return null;
     try {
-      final uri = await _syncUri(namespace);
-      final response = await http.get(uri).timeout(_timeout);
-      if (response.statusCode == 404) return <String, dynamic>{};
-      if (response.statusCode != 200) return null;
-      final decoded = jsonDecode(response.body);
-      if (decoded is Map<String, dynamic>) return decoded;
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      final doc = await _firebaseDoc(namespace);
+      if (doc == null) return null;
+      final snapshot = await doc.get().timeout(_timeout);
+      if (!snapshot.exists) return null;
+      final data = Map<String, dynamic>.from(snapshot.data() ?? {});
+      data.remove('_updatedAt');
+      return data;
     } catch (error) {
-      debugPrint('Remote sync load failed for $namespace: $error');
+      debugPrint('Firebase sync load failed for $namespace: $error');
+      return null;
     }
-    return null;
   }
 
   Future<bool> saveNamespace(
     String namespace,
     Map<String, dynamic> payload,
   ) async {
-    if (!isConfigured) return false;
     try {
-      final uri = await _syncUri(namespace);
-      final response = await http
-          .put(
-            uri,
-            headers: const {'Content-Type': 'application/json'},
-            body: jsonEncode(payload),
-          )
-          .timeout(_timeout);
-      return response.statusCode >= 200 && response.statusCode < 300;
+      final data = Map<String, dynamic>.from(payload);
+      data['_updatedAt'] = FieldValue.serverTimestamp();
+      final doc = await _firebaseDoc(namespace);
+      if (doc == null) return false;
+      await doc.set(data, SetOptions(merge: true)).timeout(_timeout);
+      return true;
     } catch (error) {
-      debugPrint('Remote sync save failed for $namespace: $error');
+      debugPrint('Firebase sync save failed for $namespace: $error');
       return false;
     }
   }
 
-  Future<Uri> _syncUri(String namespace) async {
-    final userId = await AuthService().getCurrentUserIdentifier();
-    final base = _baseUrl.endsWith('/')
-        ? _baseUrl.substring(0, _baseUrl.length - 1)
-        : _baseUrl;
-    return Uri.parse(
-      '$base/sync/${Uri.encodeComponent(userId)}/${Uri.encodeComponent(namespace)}',
-    );
+  Future<bool> deleteNamespace(String namespace) async {
+    try {
+      final doc = await _firebaseDoc(namespace);
+      if (doc == null) return false;
+      await doc.delete().timeout(_timeout);
+      return true;
+    } catch (error) {
+      debugPrint('Firebase sync delete failed for $namespace: $error');
+      return false;
+    }
+  }
+
+  Future<DocumentReference<Map<String, dynamic>>?> _firebaseDoc(
+    String namespace,
+  ) async {
+    final user = await _firebaseUser();
+    if (user == null) return null;
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('sync')
+        .doc(namespace);
+  }
+
+  Future<firebase_auth.User?> _firebaseUser() async {
+    if (!await FirebaseAppService.initialize()) return null;
+    return firebase_auth.FirebaseAuth.instance.currentUser;
   }
 }

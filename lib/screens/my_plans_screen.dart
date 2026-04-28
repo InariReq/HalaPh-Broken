@@ -23,10 +23,13 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   }
 
   Future<void> _loadPlans() async {
-    final myCode = await _friendService.getMyCode();
+    final results = await Future.wait<dynamic>([
+      _friendService.getMyCode(),
+      SimplePlanService.initialize(),
+    ]);
     if (!mounted) return;
     setState(() {
-      _myCode = myCode;
+      _myCode = results[0] as String;
       _isLoading = false;
     });
   }

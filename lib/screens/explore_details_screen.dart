@@ -161,6 +161,9 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
     final destination = _destination;
     if (destination == null) return;
 
+    await SimplePlanService.initialize();
+    if (!mounted) return;
+
     final plans = SimplePlanService.getAllPlans();
     if (plans.isEmpty) {
       final createPlan = await showModalBottomSheet<bool>(

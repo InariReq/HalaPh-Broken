@@ -1,6 +1,7 @@
-import 'package:halaph/db/local_db.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:halaph/models/friend.dart';
-import 'package:halaph/services/auth_service.dart';
+import 'package:halaph/services/firebase_app_service.dart';
 import 'package:halaph/services/remote_sync_service.dart';
 
 class FriendAddResult {
@@ -20,40 +21,56 @@ class FriendService {
   factory FriendService() => _instance;
   FriendService._internal();
 
+  String? _cachedUserId;
+  String? _cachedCode;
+  List<Friend>? _cachedFriends;
+
   Future<String> getMyCode() async {
-    final stored = await LocalDb.instance.loadProfileCode();
-    if (stored != null && stored.isNotEmpty) return stored;
+    final userId = await _currentUserId();
+    if (userId == null) return 'HP-0000';
+
+    if (_cachedUserId == userId && _cachedCode != null) {
+      return _cachedCode!;
+    }
 
     final remoteProfile = await RemoteSyncService.instance.loadNamespace(
       'profile',
     );
     final remoteCode = remoteProfile?['code'] as String?;
     if (remoteCode != null && remoteCode.isNotEmpty) {
-      await LocalDb.instance.saveProfileCode(remoteCode);
+      _cachedUserId = userId;
+      _cachedCode = remoteCode;
+      await _publishPublicProfile(remoteCode);
       return remoteCode;
     }
 
-    final user = await AuthService().getCurrentUser();
-    final seed = user?.email ?? user?.name ?? 'traveler';
+    final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    final seed = firebaseUser?.email ?? firebaseUser?.displayName ?? 'traveler';
     final generated = _generateCode(seed);
-    await LocalDb.instance.saveProfileCode(generated);
+    _cachedUserId = userId;
+    _cachedCode = generated;
     await RemoteSyncService.instance.saveNamespace('profile', {
       'code': generated,
     });
+    await _publishPublicProfile(generated);
     return generated;
   }
 
   Future<List<Friend>> getFriends() async {
-    final localFriends = await LocalDb.instance.loadFriends();
-    final remoteFriends = await _loadRemoteFriends();
-    final friends = _mergeFriends(localFriends, remoteFriends);
-    if (remoteFriends.isNotEmpty) {
-      await LocalDb.instance.saveFriends(friends);
+    final userId = await _currentUserId();
+    if (userId == null) return const <Friend>[];
+
+    if (_cachedUserId == userId && _cachedFriends != null) {
+      return List<Friend>.from(_cachedFriends!);
     }
+
+    final friends = await _loadRemoteFriends();
     friends.sort(
       (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
     );
-    return friends;
+    _cachedUserId = userId;
+    _cachedFriends = List<Friend>.from(friends);
+    return List<Friend>.from(_cachedFriends!);
   }
 
   Future<FriendAddResult> addFriendByCode(String rawCode) async {
@@ -82,11 +99,22 @@ class FriendService {
       );
     }
 
+    final publicProfile = await findPublicProfileByCode(code);
+    if (publicProfile == null) {
+      return const FriendAddResult(
+        success: false,
+        message: 'No account found for that friend code.',
+      );
+    }
+
     final friend = Friend(
-      id: 'friend_${DateTime.now().microsecondsSinceEpoch}',
-      name: 'Friend $code',
+      id: publicProfile.uid ?? code,
+      uid: publicProfile.uid,
+      name: publicProfile.name,
       role: 'Viewer',
-      code: code,
+      code: publicProfile.code,
+      email: publicProfile.email,
+      avatarUrl: publicProfile.avatarUrl,
     );
     friends.add(friend);
     await _saveFriends(friends);
@@ -109,6 +137,7 @@ class FriendService {
       if (friend.id != friendId) return friend;
       return Friend(
         id: friend.id,
+        uid: friend.uid,
         name: friend.name,
         role: role,
         code: friend.code,
@@ -130,21 +159,116 @@ class FriendService {
   }
 
   Future<void> _saveFriends(List<Friend> friends) async {
-    await LocalDb.instance.saveFriends(friends);
+    final userId = await _currentUserId();
+    if (userId == null) return;
+
+    _cachedUserId = userId;
+    _cachedFriends = List<Friend>.from(friends);
     await RemoteSyncService.instance.saveNamespace('friends', {
       'friends': friends.map((friend) => friend.toJson()).toList(),
     });
   }
 
-  List<Friend> _mergeFriends(List<Friend> local, List<Friend> remote) {
-    final byCode = <String, Friend>{};
-    for (final friend in local) {
-      byCode[_normalizeCode(friend.code)] = friend;
+  Future<Friend?> findPublicProfileByCode(String rawCode) async {
+    final code = _normalizeCode(rawCode);
+    if (code.isEmpty) return null;
+    if (!await FirebaseAppService.initialize()) return null;
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('publicProfiles')
+          .doc(code)
+          .get()
+          .timeout(const Duration(seconds: 5));
+      if (!snapshot.exists) return null;
+      final data = snapshot.data() ?? const <String, dynamic>{};
+      final uid = data['uid'] as String?;
+      if (uid == null || uid.isEmpty) return null;
+      return Friend(
+        id: uid,
+        uid: uid,
+        name: (data['name'] as String?)?.trim().isNotEmpty == true
+            ? data['name'] as String
+            : 'Friend $code',
+        role: 'Viewer',
+        code: code,
+        email: data['email'] as String?,
+        avatarUrl: data['avatarUrl'] as String?,
+      );
+    } catch (_) {
+      return null;
     }
-    for (final friend in remote) {
-      byCode[_normalizeCode(friend.code)] = friend;
+  }
+
+  Future<List<String>> resolveParticipantUids(Iterable<String> codes) async {
+    final currentUid = await _currentUserId();
+    if (currentUid == null) return const <String>[];
+
+    final uids = <String>{currentUid};
+    final myCode = _normalizeCode(await getMyCode());
+    final friends = await getFriends();
+    final byCode = {
+      for (final friend in friends) _normalizeCode(friend.code): friend,
+    };
+
+    for (final rawCode in codes) {
+      final code = _normalizeCode(rawCode);
+      if (code.isEmpty) continue;
+      if (code == myCode) {
+        uids.add(currentUid);
+        continue;
+      }
+
+      final cachedFriend = byCode[code];
+      if (cachedFriend?.uid?.isNotEmpty == true) {
+        uids.add(cachedFriend!.uid!);
+        continue;
+      }
+
+      final profile = await findPublicProfileByCode(code);
+      if (profile?.uid?.isNotEmpty == true) {
+        uids.add(profile!.uid!);
+      }
     }
-    return byCode.values.toList();
+    return uids.toList();
+  }
+
+  void clearCache() {
+    _cachedUserId = null;
+    _cachedCode = null;
+    _cachedFriends = null;
+  }
+
+  Future<String?> _currentUserId() async {
+    if (!await FirebaseAppService.initialize()) return null;
+    final userId = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+    if (_cachedUserId != null && _cachedUserId != userId) {
+      clearCache();
+    }
+    return userId;
+  }
+
+  Future<void> _publishPublicProfile(String rawCode) async {
+    final code = _normalizeCode(rawCode);
+    final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (code.isEmpty || firebaseUser == null) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('publicProfiles')
+          .doc(code)
+          .set({
+            'uid': firebaseUser.uid,
+            'code': code,
+            'name':
+                firebaseUser.displayName ??
+                firebaseUser.email?.split('@').first ??
+                'Traveler',
+            'email': firebaseUser.email,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {}
   }
 
   String _normalizeCode(String code) {

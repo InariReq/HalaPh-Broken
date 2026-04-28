@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:halaph/repositories/backend_repository.dart';
+import 'package:halaph/services/simple_plan_service.dart';
 
 class SharePlanScreen extends StatefulWidget {
   final String planId;
@@ -20,12 +20,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
   }
 
   Future<String> _loadShareLink(String planId) async {
-    try {
-      final repo = BackendRepository();
-      final link = await repo.sharePlan(planId);
-      if (link.isNotEmpty) return link;
-    } catch (_) {}
-    return 'https://halaph.app/plan?planId=$planId';
+    return SimplePlanService.shareLink(planId);
   }
 
   @override

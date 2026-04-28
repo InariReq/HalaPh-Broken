@@ -48,7 +48,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Future<void> _loadPlan() async {
-    await _friendService.getMyCode();
+    await Future.wait<dynamic>([
+      _friendService.getMyCode(),
+      SimplePlanService.initialize(),
+    ]);
 
     if (widget.planId != null) {
       _plan = SimplePlanService.getPlanById(widget.planId!);

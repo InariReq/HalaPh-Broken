@@ -170,19 +170,24 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     LatLng origin,
   ) async {
     final routeDetails =
+        route.routeDetails ??
         _localRouteDetailsForMode(route.mode) ??
-        _genericRouteDetailsForMode(route.mode) ??
-        route.routeDetails;
-    final boardingPoint = await _findNearbyBoardingPoint(route.mode, origin);
+        _genericRouteDetailsForMode(route.mode);
+    final boardingPoint =
+        routeDetails != null && routeDetails.boardingLocation == null
+        ? await _findNearbyBoardingPoint(route.mode, origin)
+        : null;
     final boardStop = routeDetails == null
         ? null
-        : boardingPoint?.name ?? _fallbackBoardingStop(route.mode);
+        : routeDetails.boardingStop ??
+              boardingPoint?.name ??
+              _fallbackBoardingStop(route.mode);
     final boardLocation = routeDetails == null
         ? null
-        : boardingPoint?.location ?? origin;
+        : routeDetails.boardingLocation ?? boardingPoint?.location ?? origin;
     final dropOffStop = routeDetails == null
         ? null
-        : 'Near ${widget.destinationName}';
+        : routeDetails.dropOffStop ?? 'Near ${widget.destinationName}';
     final estimatedGuide = _buildEstimatedGuide(
       route: route,
       details: routeDetails,
@@ -196,7 +201,8 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         'This is a multi-ride guide. Confirm each signboard before boarding.',
       if (route.mode == TravelMode.jeepney ||
           route.mode == TravelMode.bus ||
-          route.mode == TravelMode.fx)
+          route.mode == TravelMode.fx ||
+          route.mode == TravelMode.train)
         'Student, PWD, and senior fares use the standard 20% discount.',
     ];
 
@@ -247,6 +253,66 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         dropOffStop: dropOffStop,
         boardLocation: boardLocation,
         dropOffLocation: route.mode == TravelMode.walking ? null : destination,
+        fareDetails: route.fareDetails,
+        totalCost: route.cost,
+      );
+    }
+
+    if (route.mode == TravelMode.train) {
+      final firstBoardStop =
+          boardStop ??
+          details.boardingStop ??
+          _fallbackBoardingStop(route.mode);
+      final firstBoardLocation =
+          boardLocation ?? details.boardingLocation ?? route.start;
+      final finalDropStop =
+          dropOffStop ??
+          details.dropOffStop ??
+          'near ${widget.destinationName}';
+      final finalDropLocation = details.dropOffLocation ?? destination;
+      final railStart = details.keyPoints.isNotEmpty
+          ? details.keyPoints.first
+          : firstBoardStop;
+      final railEnd = details.keyPoints.isNotEmpty
+          ? details.keyPoints.last
+          : finalDropStop;
+
+      return _EstimatedGuide(
+        instructions: route.instructions,
+        guideLegs: [
+          _GuideLegViewModel(
+            mode: TravelMode.walking,
+            title: 'Walk to station',
+            from: 'Your location',
+            to: firstBoardStop,
+            instruction: 'Go to $firstBoardStop station.',
+          ),
+          _GuideLegViewModel(
+            mode: TravelMode.train,
+            title: 'Ride ${details.routeName}',
+            from: railStart,
+            to: railEnd,
+            instruction:
+                'Board ${details.routeName} and follow station signs for any transfers.',
+            routeSign: details.routeName,
+            fare: route.fareDetails.regularFare,
+          ),
+          _GuideLegViewModel(
+            mode: TravelMode.walking,
+            title: 'Walk to destination',
+            from: finalDropStop,
+            to: widget.destinationName,
+            instruction:
+                'Exit at $finalDropStop, then walk to ${widget.destinationName}.',
+          ),
+        ],
+        transitLegs: const [],
+        transferPoints: const [],
+        routeLabel: details.routeName,
+        boardStop: firstBoardStop,
+        dropOffStop: finalDropStop,
+        boardLocation: firstBoardLocation,
+        dropOffLocation: finalDropLocation,
         fareDetails: route.fareDetails,
         totalCost: route.cost,
       );

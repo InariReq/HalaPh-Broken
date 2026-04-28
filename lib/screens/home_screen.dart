@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -66,18 +65,19 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
   }
 
-  
   Future<void> _loadTrendingDestinations() async {
     setState(() {
       _isLoading = true;
       _trendingDestinations = []; // Clear cache first
     });
-    
+
     try {
       debugPrint('=== HOME SCREEN: Loading trending destinations ===');
       final destinations = await DestinationService.getTrendingDestinations();
-      debugPrint('Home screen loaded ${destinations.length} trending destinations');
-      
+      debugPrint(
+        'Home screen loaded ${destinations.length} trending destinations',
+      );
+
       // Debug: Check if we got any real data
       if (destinations.isEmpty) {
         debugPrint('❌ NO DESTINATIONS RETURNED');
@@ -87,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
           debugPrint('- ${dest.name} (${dest.category}) - ID: ${dest.id}');
         }
       }
-      
+
       setState(() {
         _trendingDestinations = destinations;
         _isLoading = false;
@@ -105,7 +105,9 @@ class _HomeScreenState extends State<HomeScreen> {
     for (final destination in destinations) {
       if (destination.coordinates != null) {
         try {
-          final costs = await TravelCostService.getTravelCostEstimates(destination.coordinates!);
+          final costs = await TravelCostService.getTravelCostEstimates(
+            destination.coordinates!,
+          );
           if (mounted) {
             setState(() {
               _travelCosts[destination.id] = costs;
@@ -161,17 +163,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     const Text(
                       'Discover Philippines',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
                     ),
                     const SizedBox(width: 8),
-                    Icon(
-                      Icons.location_on,
-                      size: 20,
-                      color: Colors.grey[600],
-                    ),
+                    Icon(Icons.location_on, size: 20, color: Colors.grey[600]),
                   ],
                 ),
               ],
@@ -180,10 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
           CircleAvatar(
             radius: 20,
             backgroundColor: Colors.blue[100],
-            child: Icon(
-              Icons.person,
-              color: Colors.blue[600],
-            ),
+            child: Icon(Icons.person, color: Colors.blue[600]),
           ),
         ],
       ),
@@ -210,11 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.coffee,
-                color: Colors.brown[600],
-                size: 24,
-              ),
+              Icon(Icons.coffee, color: Colors.brown[600], size: 24),
               const SizedBox(width: 8),
               const Text(
                 'Next Up',
@@ -229,10 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 12),
           Text(
             'No current plans',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
-            ),
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
           ),
           const SizedBox(height: 12),
           Container(
@@ -251,7 +236,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Text(
                     'Create Plan',
                     style: TextStyle(
@@ -279,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Trending Destinations',
+                'Nearby Trending Places',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -299,7 +287,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 16),
         // Real trending destinations
-        _isLoading 
+        _isLoading
             ? const Center(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 40),
@@ -307,49 +295,66 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               )
             : _trendingDestinations.isEmpty
-                ? Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!),
-                    ),
-                    child: const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.trending_up, size: 48, color: Colors.grey),
-                          SizedBox(height: 8),
-                          Text(
-                            'No trending destinations available',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ],
+            ? Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                height: 200,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.trending_up, size: 48, color: Colors.grey),
+                      SizedBox(height: 8),
+                      Text(
+                        'No nearby places available',
+                        style: TextStyle(color: Colors.grey),
                       ),
-                    ),
-                  )
-                : Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      children: _trendingDestinations.map((destination) {
-                        return _buildTrendingCard(destination);
-                      }).toList(),
-                    ),
+                    ],
                   ),
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: _trendingDestinations.map((destination) {
+                    return _buildTrendingCard(destination);
+                  }).toList(),
+                ),
+              ),
       ],
     );
   }
 
-
-Widget _buildFallbackImage(DestinationCategory category) {
+  Widget _buildFallbackImage(DestinationCategory category) {
     final (startColor, endColor) = switch (category) {
-      DestinationCategory.park => (const Color(0xFF81C784), const Color(0xFF4CAF50)),
-      DestinationCategory.landmark => (const Color(0xFF64B5F6), const Color(0xFF2196F3)),
-      DestinationCategory.food => (const Color(0xFFFFB74D), const Color(0xFFFF9800)),
-      DestinationCategory.activities => (const Color(0xFFBA68C8), const Color(0xFF9C27B0)),
-      DestinationCategory.museum => (const Color(0xFFF06292), const Color(0xFFE91E63)),
-      DestinationCategory.market => (const Color(0xFF4DB6AC), const Color(0xFF009688)),
+      DestinationCategory.park => (
+        const Color(0xFF81C784),
+        const Color(0xFF4CAF50),
+      ),
+      DestinationCategory.landmark => (
+        const Color(0xFF64B5F6),
+        const Color(0xFF2196F3),
+      ),
+      DestinationCategory.food => (
+        const Color(0xFFFFB74D),
+        const Color(0xFFFF9800),
+      ),
+      DestinationCategory.activities => (
+        const Color(0xFFBA68C8),
+        const Color(0xFF9C27B0),
+      ),
+      DestinationCategory.museum => (
+        const Color(0xFFF06292),
+        const Color(0xFFE91E63),
+      ),
+      DestinationCategory.market => (
+        const Color(0xFF4DB6AC),
+        const Color(0xFF009688),
+      ),
     };
 
     return Container(
@@ -368,7 +373,11 @@ Widget _buildFallbackImage(DestinationCategory category) {
             SizedBox(height: 8),
             Text(
               'No Photo Available',
-              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -403,12 +412,16 @@ Widget _buildFallbackImage(DestinationCategory category) {
             // Image with overlay
             Stack(
               children: [
-                Container(
+                SizedBox(
                   width: double.infinity,
                   height: 200,
                   child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                    child: destination.imageUrl.isNotEmpty && destination.imageUrl.startsWith('http')
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                    child:
+                        destination.imageUrl.isNotEmpty &&
+                            destination.imageUrl.startsWith('http')
                         ? CachedNetworkImage(
                             imageUrl: destination.imageUrl,
                             fit: BoxFit.cover,
@@ -423,7 +436,9 @@ Widget _buildFallbackImage(DestinationCategory category) {
                               ),
                             ),
                             errorWidget: (context, url, error) {
-                              debugPrint('CachedNetworkImage error for ${destination.name}: $error');
+                              debugPrint(
+                                'CachedNetworkImage error for ${destination.name}: $error',
+                              );
                               return _buildFallbackImage(destination.category);
                             },
                           )
@@ -490,7 +505,9 @@ Widget _buildFallbackImage(DestinationCategory category) {
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(
-                        _favoriteIds.contains(destination.id) ? Icons.favorite : Icons.favorite_border,
+                        _favoriteIds.contains(destination.id)
+                            ? Icons.favorite
+                            : Icons.favorite_border,
                         color: Colors.red,
                         size: 18,
                       ),
@@ -520,7 +537,9 @@ Widget _buildFallbackImage(DestinationCategory category) {
                   // Explore More button
                   GestureDetector(
                     onTap: () {
-                      debugPrint('=== HOME SCREEN TAP: ${destination.name} - ID: ${destination.id} ===');
+                      debugPrint(
+                        '=== HOME SCREEN TAP: ${destination.name} - ID: ${destination.id} ===',
+                      );
                       ExploreDetailsScreen.showAsBottomSheet(
                         context,
                         destinationId: destination.id,
@@ -528,7 +547,10 @@ Widget _buildFallbackImage(DestinationCategory category) {
                       );
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.blue[600],
                         borderRadius: BorderRadius.circular(20),

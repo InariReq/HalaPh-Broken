@@ -1,5 +1,6 @@
 class Friend {
   final String id;
+  final String? uid;
   final String name;
   final String role;
   final String code;
@@ -8,6 +9,7 @@ class Friend {
 
   Friend({
     required this.id,
+    this.uid,
     required this.name,
     required this.role,
     required this.code,
@@ -18,6 +20,7 @@ class Friend {
   factory Friend.fromJson(Map<String, dynamic> json) {
     return Friend(
       id: json['id'] ?? '',
+      uid: json['uid'],
       name: json['name'] ?? '',
       role: json['role'] ?? 'Viewer',
       code: json['code'] ?? '',
@@ -29,6 +32,7 @@ class Friend {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'uid': uid,
       'name': name,
       'role': role,
       'code': code,
