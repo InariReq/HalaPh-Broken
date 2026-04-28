@@ -1,0 +1,6 @@
+// Minimal placeholder Gradle file for launcher icon generation compatibility
+android {
+  defaultConfig {
+    minSdkVersion(21)
+  }
+}
