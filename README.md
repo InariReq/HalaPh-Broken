@@ -47,3 +47,4 @@ Run on iPhone and macOS for local DB inspector and app development
 - bash scripts/run_dev_all.sh <DEVICE_ID>
 # HalaPh-Broken
 # HalaPh-Main
+# HalaPh-Main
