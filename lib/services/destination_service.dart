@@ -242,37 +242,51 @@ class DestinationService {
   static DateTime? _locationCacheTime;
   static const _cacheValidity = Duration(minutes: 5);
 
+  static bool _useTestLocation = false;
+  static LatLng? _manualTestLocation;
+
   // Get current location with retry logic and caching
   static Future<LatLng> getCurrentLocation() async {
+    // MANUAL OVERRIDE FOR TESTING
+    if (_useTestLocation && _manualTestLocation != null) {
+      debugPrint(
+        '🟢 USING MANUAL TEST LOCATION: ${_manualTestLocation!.latitude}, ${_manualTestLocation!.longitude}',
+      );
+      return _manualTestLocation!;
+    }
+
     try {
       // Use cached location if recent
       if (_cachedLocation != null &&
           _locationCacheTime != null &&
           DateTime.now().difference(_locationCacheTime!) < _cacheValidity) {
         debugPrint(
-          'Using cached location: ${_cachedLocation!.latitude}, ${_cachedLocation!.longitude}',
+          '🟢 Using cached location: ${_cachedLocation!.latitude}, ${_cachedLocation!.longitude}',
         );
         return _cachedLocation!;
       }
 
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      debugPrint('📍 Location service enabled: $serviceEnabled');
       if (!serviceEnabled) {
-        debugPrint('Location services are disabled');
+        debugPrint('🔴 Location services are disabled - using default');
         return _cachedLocation ?? _defaultSearchLocation;
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
+      debugPrint('📍 Current permission status: $permission');
       if (permission == LocationPermission.denied) {
-        debugPrint('Requesting location permission...');
+        debugPrint('🟡 Requesting location permission...');
         permission = await Geolocator.requestPermission();
+        debugPrint('📍 After request, permission: $permission');
         if (permission == LocationPermission.denied) {
-          debugPrint('Location permission denied');
+          debugPrint('🔴 Location permission denied - using default');
           return _cachedLocation ?? _defaultSearchLocation;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        debugPrint('Location permission permanently denied');
+        debugPrint('🔴 Location permission permanently denied - using default');
         return _cachedLocation ?? _defaultSearchLocation;
       }
 
@@ -280,7 +294,7 @@ class DestinationService {
       Position? position;
       for (int attempt = 1; attempt <= 3; attempt++) {
         try {
-          debugPrint('Getting location, attempt $attempt...');
+          debugPrint('📍 Getting location, attempt $attempt...');
           final settings = LocationSettings(
             accuracy: LocationAccuracy.high,
             timeLimit: const Duration(seconds: 15),
@@ -288,9 +302,12 @@ class DestinationService {
           position = await Geolocator.getCurrentPosition(
             locationSettings: settings,
           );
+          debugPrint(
+            '🟢 Got position: ${position.latitude}, ${position.longitude}',
+          );
           break;
         } catch (e) {
-          debugPrint('Location attempt $attempt failed: $e');
+          debugPrint('🔴 Location attempt $attempt failed: $e');
           if (attempt < 3) {
             await Future.delayed(Duration(seconds: attempt));
           }
@@ -300,10 +317,15 @@ class DestinationService {
       if (position == null) {
         // Try last known position
         try {
-          debugPrint('Trying last known position...');
+          debugPrint('📍 Trying last known position...');
           position = await Geolocator.getLastKnownPosition();
+          if (position != null) {
+            debugPrint(
+              '🟢 Got last known: ${position.latitude}, ${position.longitude}',
+            );
+          }
         } catch (e) {
-          debugPrint('Failed to get last known position: $e');
+          debugPrint('🔴 Failed to get last known position: $e');
         }
       }
 
@@ -312,17 +334,32 @@ class DestinationService {
         _cachedLocation = location;
         _locationCacheTime = DateTime.now();
         debugPrint(
-          'Current location: ${position.latitude}, ${position.longitude}',
+          '🟢 CURRENT LOCATION SET: ${position.latitude}, ${position.longitude}',
         );
         return location;
       }
 
-      debugPrint('Failed to get location, using default');
+      debugPrint('🔴 ALL LOCATION METHODS FAILED - using default location');
       return _cachedLocation ?? _defaultSearchLocation;
     } catch (e) {
-      debugPrint('Error getting location: $e');
+      debugPrint('🔴 Error getting location: $e');
       return _cachedLocation ?? _defaultSearchLocation;
     }
+  }
+
+  // FOR TESTING: Set a manual location (call this from UI or main)
+  static void setTestLocation(double lat, double lng) {
+    _useTestLocation = true;
+    _manualTestLocation = LatLng(lat, lng);
+    debugPrint('🧪 TEST LOCATION SET: $lat, $lng');
+  }
+
+  static void clearTestLocation() {
+    _useTestLocation = false;
+    _manualTestLocation = null;
+    _cachedLocation = null;
+    _locationCacheTime = null;
+    debugPrint('🧪 Test location cleared');
   }
 
   // Get destination by ID (Google Place ID)

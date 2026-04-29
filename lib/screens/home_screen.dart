@@ -252,6 +252,32 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: TextStyle(fontSize: 12, color: Colors.orange[700]),
                     ),
                   ),
+                // TEST BUTTONS: Remove after debugging
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        DestinationService.setTestLocation(14.5995, 120.9842); // Manila
+                        setState(() {
+                          _locationEnabled = true;
+                          _locationStatus = 'Test: Manila';
+                        });
+                        _loadTrendingDestinations();
+                      },
+                      child: const Text('Set Manila', style: TextStyle(fontSize: 10)),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        DestinationService.clearTestLocation();
+                        setState(() {
+                          _locationEnabled = false;
+                          _locationStatus = 'Test cleared';
+                        });
+                      },
+                      child: const Text('Clear', style: TextStyle(fontSize: 10)),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
