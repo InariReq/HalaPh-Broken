@@ -7,6 +7,7 @@ import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
+import 'package:halaph/services/simple_plan_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -23,15 +24,37 @@ class _HomeScreenState extends State<HomeScreen> {
   final Set<String> _favoriteIds = {};
   final FavoritesService _favoritesService = FavoritesService();
   StreamSubscription? _subscription;
+  TravelPlan? _nextPlan;
+  bool _plansLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadTrendingDestinations();
     _loadFavorites();
+    _loadUpcomingPlan();
     _subscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
       _loadFavorites();
     });
+  }
+
+  Future<void> _loadUpcomingPlan() async {
+    setState(() {
+      _plansLoading = true;
+    });
+    try {
+      await SimplePlanService.initialize();
+      final nextPlan = SimplePlanService.getNextUpcomingPlan();
+      setState(() {
+        _nextPlan = nextPlan;
+        _plansLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading upcoming plan: $e');
+      setState(() {
+        _plansLoading = false;
+      });
+    }
   }
 
   @override
@@ -183,6 +206,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildCurrentPlan(BuildContext context) {
+    if (_plansLoading) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_nextPlan != null) {
+      return _buildNextPlanCard(context, _nextPlan!);
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(16),
@@ -231,7 +277,6 @@ class _HomeScreenState extends State<HomeScreen> {
               child: InkWell(
                 onTap: () {
                   debugPrint('Create Plan tapped!');
-                  // Navigate to create plan
                   GoRouter.of(context).push('/create-plan');
                 },
                 borderRadius: BorderRadius.circular(8),
@@ -255,6 +300,159 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildNextPlanCard(BuildContext context, TravelPlan plan) {
+    final now = DateTime.now();
+    final daysUntil = plan.startDate.difference(now).inDays;
+    final dayText = daysUntil == 0 
+        ? 'Today' 
+        : daysUntil == 1 
+            ? 'Tomorrow' 
+            : 'In $daysUntil days';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: () {
+          GoRouter.of(context).push('/plan-details?planId=${plan.id}');
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.blue[400],
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        dayText,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue[700],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Icon(
+                      Icons.calendar_month,
+                      size: 48,
+                      color: Colors.white.withValues(alpha: 0.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.coffee, color: Colors.brown[600], size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Next Up',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    plan.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatDateRange(plan.startDate, plan.endDate),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (plan.itinerary.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.place, size: 14, color: Colors.blue[600]),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            '${plan.itinerary.length} destination${plan.itinerary.length > 1 ? 's' : ''}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.blue[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDateRange(DateTime start, DateTime end) {
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    if (start.day == end.day && start.month == end.month && start.year == end.year) {
+      return '${months[start.month - 1]} ${start.day}, ${start.year}';
+    }
+    if (start.month == end.month && start.year == end.year) {
+      return '${months[start.month - 1]} ${start.day}-${end.day}, ${start.year}';
+    }
+    return '${months[start.month - 1]} ${start.day} - ${months[end.month - 1]} ${end.day}, ${end.year}';
   }
 
   Widget _buildTrendingSection(BuildContext context) {

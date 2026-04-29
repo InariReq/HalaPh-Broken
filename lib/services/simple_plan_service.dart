@@ -77,6 +77,32 @@ class SimplePlanService {
       ..sort((a, b) => b.startDate.compareTo(a.startDate));
   }
 
+  static TravelPlan? getNextUpcomingPlan({String? userId}) {
+    final now = DateTime.now();
+    final user = userId ?? 'current_user';
+    
+    final upcoming = _plans.values.where((plan) {
+      final isUserPartOfPlan = plan.createdBy == user || plan.participantIds.contains(user);
+      final hasNotStarted = plan.startDate.isAfter(now) || plan.startDate.day == now.day;
+      return isUserPartOfPlan && hasNotStarted;
+    }).toList()
+      ..sort((a, b) => a.startDate.compareTo(b.startDate));
+    
+    return upcoming.isNotEmpty ? upcoming.first : null;
+  }
+
+  static List<TravelPlan> getAllUpcomingPlans({String? userId}) {
+    final now = DateTime.now();
+    final user = userId ?? 'current_user';
+    
+    return _plans.values.where((plan) {
+      final isUserPartOfPlan = plan.createdBy == user || plan.participantIds.contains(user);
+      final hasNotStarted = plan.startDate.isAfter(now) || plan.startDate.day == now.day;
+      return isUserPartOfPlan && hasNotStarted;
+    }).toList()
+      ..sort((a, b) => a.startDate.compareTo(b.startDate));
+  }
+
   static TravelPlan createPlan({
     required String title,
     required DateTime startDate,

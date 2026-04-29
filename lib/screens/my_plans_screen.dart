@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
@@ -24,14 +25,22 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
 
   Future<void> _loadPlans() async {
     final results = await Future.wait<dynamic>([
-      _friendService.getMyCode(),
-      SimplePlanService.initialize(),
+      _friendService.getMyCode().catchError((_) => 'demo_user'),
+      SimplePlanService.initialize().catchError((e) {
+        debugPrint('SimplePlanService.init error: $e');
+      }),
     ]);
     if (!mounted) return;
+    
     setState(() {
       _myCode = results[0] as String;
       _isLoading = false;
     });
+    
+    debugPrint('Loaded plans for user: $_myCode');
+    final personalPlans = SimplePlanService.getUserPlans(ownerId: _myCode);
+    final sharedPlans = SimplePlanService.getCollaborativePlans(ownerId: _myCode);
+    debugPrint('Personal plans: ${personalPlans.length}, Shared plans: ${sharedPlans.length}');
   }
 
   @override
