@@ -201,7 +201,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final loaded = <FavoritePlace>[];
       for (final id in ids) {
         var dest = await DestinationService.getDestination(id);
-        dest ??= await DestinationService.getDestinationByPlaceId(id);
+        dest ??= await DestinationService.getDestination(id);
         if (dest != null) {
           loaded.add(
             FavoritePlace(

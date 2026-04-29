@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/services/osm_service.dart';
@@ -94,12 +95,29 @@ class TravelCostService {
     }
   }
 
+  static double _calculateDistance(LatLng point1, LatLng point2) {
+    const double earthRadius = 6371;
+    double lat1Rad = point1.latitude * (pi / 180);
+    double lat2Rad = point2.latitude * (pi / 180);
+    double deltaLatRad = (point2.latitude - point1.latitude) * (pi / 180);
+    double deltaLngRad = (point2.longitude - point1.longitude) * (pi / 180);
+
+    double a =
+        sin(deltaLatRad / 2) * sin(deltaLatRad / 2) +
+        cos(lat1Rad) *
+            cos(lat2Rad) *
+            sin(deltaLngRad / 2) *
+            sin(deltaLngRad / 2);
+    double c = 2 * asin(sqrt(a).clamp(0.0, 1.0));
+    return earthRadius * c;
+  }
+
   static List<TravelCostEstimate> _fallbackEstimates(
     LatLng? origin,
     LatLng destination,
   ) {
     final distance = origin != null
-        ? DestinationService._calculateDistance(origin, destination)
+        ? _calculateDistance(origin, destination)
         : 5.0;
 
     return [

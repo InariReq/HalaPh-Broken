@@ -377,34 +377,33 @@ class DestinationService {
     }
   }
 
-  // Search destinations using FREE OpenStreetMap APIs
+  // Search destinations using Google Places API
   static Future<List<Destination>> searchDestinations(String? query) async {
     try {
       final location = await _getSearchLocation();
-      debugPrint('🌍 OSM: Searching for "$query" (FREE)');
+      debugPrint('🔍 Searching for "$query" using Google Places API');
 
-      // Use Nominatim text search (FREE, no billing)
-      final results = await OSMService.searchPlacesByText(
-        query: query ?? 'tourist attractions',
-        lat: location.latitude,
-        lon: location.longitude,
-        limit: 20,
+      // Use Google Places Text Search for real destinations
+      final places = await GoogleMapsApiService.searchPlaces(
+        query: query ?? 'popular destinations in Philippines',
+        location: location,
+        radius: 100000, // 100km radius to cover more of Philippines
       );
 
-      if (results.isNotEmpty) {
-        debugPrint('🌍 Got ${results.length} results from OSM (FREE)');
-        return results;
+      if (places.isNotEmpty) {
+        debugPrint('✅ Got ${places.length} results from Google Places API');
+        return places.map((place) => _convertGooglePlaceToDestination(place)).toList();
       }
 
-      debugPrint('🌍 No OSM results, using fallback');
+      debugPrint('⚠️ No Google Places results, using fallback');
       return fallbackDestinations(query: query);
     } catch (e) {
-      debugPrint('🌍 OSM search error: $e');
+      debugPrint('❌ Google Places search error: $e');
       return fallbackDestinations(query: query);
     }
   }
 
-  // Get trending destinations - Use FREE OpenStreetMap APIs
+  // Get trending destinations - Use Google Places API for real places
   static Future<List<Destination>> getTrendingDestinations() async {
     debugPrint('=== getTrendingDestinations called ===');
     try {
@@ -416,52 +415,85 @@ class DestinationService {
         '📍 Searching from location: ${currentLocation.latitude}, ${currentLocation.longitude} (Real: $isRealLocation)',
       );
 
-      // If using default location, skip nearby search
-      if (!isRealLocation) {
-        debugPrint(
-          '🔴 Using default location - using fallback destinations',
+      // Use Google Places API to find popular destinations
+      debugPrint('🔍 Using Google Places API for real destinations');
+
+      List<Destination> places = [];
+
+      // Search for popular place types people actually visit
+      final searchQueries = [
+        'tourist attractions in Philippines',
+        'popular restaurants in Philippines',
+        'parks in Philippines',
+        'museums in Philippines',
+        'shopping malls in Philippines',
+      ];
+
+      for (final query in searchQueries) {
+        final results = await GoogleMapsApiService.searchPlaces(
+          query: query,
+          location: isRealLocation ? currentLocation : null,
+          radius: isRealLocation ? 50000 : 500000, // Wider search if no real location
         );
-        return fallbackDestinations(limit: 6);
+        places.addAll(results.map((place) => _convertGooglePlaceToDestination(place)));
       }
 
-      debugPrint('🌍 Using OSM Overpass API (FREE, no billing)');
+      // Deduplicate by ID
+      final deduped = deduplicateDestinationsById(places);
 
-      // Search for real nearby places using OSM (FREE!)
-      final osmPlaces = await OSMService.searchNearbyPlaces(
-        lat: currentLocation.latitude,
-        lon: currentLocation.longitude,
-        radius: 5000,
-        limit: 30,
-      );
-
-      if (osmPlaces.isNotEmpty) {
-        debugPrint(
-          '🌍 Returning ${osmPlaces.length} nearby places from OSM (FREE)',
-        );
-        return osmPlaces.take(6).toList();
-      } else {
-        debugPrint('🌍 No OSM results, trying Nominatim text search...');
-        final textResults = await OSMService.searchPlacesByText(
-          query: 'tourist attractions',
-          lat: currentLocation.latitude,
-          lon: currentLocation.longitude,
-          limit: 6,
-        );
-
-        if (textResults.isNotEmpty) {
-          debugPrint(
-            '🌍 Returning ${textResults.length} places from Nominatim (FREE)',
-          );
-          return textResults;
-        }
+      if (deduped.isNotEmpty) {
+        debugPrint('✅ Got ${deduped.length} real places from Google Places API');
+        return deduped.take(20).toList();
       }
 
-      debugPrint('🌍 All OSM methods failed, using fallback places');
-      return fallbackDestinations(limit: 6, near: currentLocation);
+      debugPrint('⚠️ No Google Places results, using fallback');
+      return fallbackDestinations(limit: 20);
     } catch (e) {
-      debugPrint('🌍 OSM error: $e');
-      return fallbackDestinations(limit: 6);
+      debugPrint('❌ Error fetching trending destinations: $e');
+      return fallbackDestinations(limit: 20);
     }
+  }
+
+  // Convert GooglePlace to Destination
+  static Destination _convertGooglePlaceToDestination(GooglePlace place) {
+    return Destination(
+      id: 'google_${place.placeId}',
+      name: place.name,
+      description: place.vicinity ?? 'A popular destination in the Philippines',
+      location: place.vicinity ?? 'Philippines',
+      coordinates: place.location,
+      imageUrl: place.photos.isNotEmpty
+          ? GoogleMapsApiService.getPhotoUrl(
+              place.photos.first.photoReference,
+              maxWidth: 800,
+              maxHeight: 600,
+            )
+          : '',
+      category: _mapGoogleTypeToCategory(place.types),
+      rating: 4.0,
+      tags: place.types,
+      budget: BudgetInfo(minCost: 0, maxCost: 1000, currency: 'PHP'),
+    );
+  }
+
+  // Map Google Places types to our DestinationCategory
+  static DestinationCategory _mapGoogleTypeToCategory(List<String> types) {
+    if (types.any((t) => t.contains('restaurant') || t.contains('food') || t.contains('cafe'))) {
+      return DestinationCategory.food;
+    }
+    if (types.any((t) => t.contains('park') || t.contains('natural'))) {
+      return DestinationCategory.park;
+    }
+    if (types.any((t) => t.contains('museum') || t.contains('art_gallery'))) {
+      return DestinationCategory.museum;
+    }
+    if (types.any((t) => t.contains('shopping_mall') || t.contains('store') || t.contains('market'))) {
+      return DestinationCategory.market;
+    }
+    if (types.any((t) => t.contains('tourist_attraction') || t.contains('landmark') || t.contains('monument'))) {
+      return DestinationCategory.landmark;
+    }
+    return DestinationCategory.activities;
   }
 
   static List<Destination> fallbackDestinations({
@@ -562,14 +594,10 @@ class DestinationService {
             return aDistance.compareTo(bDistance);
           });
 
-      return Future.wait(
-        nearbyPlaces
-            .take(3)
-            .map(
-              (place) =>
-                  _convertGooglePlaceToDestination(place, fetchDetails: false),
-            ),
-      );
+      return nearbyPlaces
+          .take(3)
+          .map((place) => _convertGooglePlaceToDestination(place))
+          .toList();
     } catch (e) {
       debugPrint('Error searching nearby "$placeType": $e');
       return const <Destination>[];
@@ -620,75 +648,6 @@ class DestinationService {
       case DestinationCategory.market:
         return 'Markets';
     }
-  }
-
-  static Future<Destination> _convertGooglePlaceToDestination(
-    GooglePlace place, {
-    bool fetchDetails = true,
-  }) async {
-    debugPrint('Converting Google Place: ${place.name}');
-
-    String description = place.vicinity;
-    String location = place.vicinity;
-
-    if (fetchDetails) {
-      try {
-        final placeDetails = await GoogleMapsApiService.getPlaceDetails(
-          place.placeId,
-        );
-        if (placeDetails != null) {
-          if (placeDetails.formattedAddress.isNotEmpty) {
-            location = placeDetails.formattedAddress;
-          }
-          if (placeDetails.editorialSummary != null &&
-              placeDetails.editorialSummary!.isNotEmpty) {
-            description = placeDetails.editorialSummary!;
-          } else {
-            description = _generateDescription(
-              place.name,
-              _parseCategory(place.types),
-            );
-          }
-        } else {
-          description = _generateDescription(
-            place.name,
-            _parseCategory(place.types),
-          );
-        }
-      } catch (e) {
-        description = _generateDescription(
-          place.name,
-          _parseCategory(place.types),
-        );
-      }
-    } else if (description.trim().isEmpty) {
-      description = _generateDescription(
-        place.name,
-        _parseCategory(place.types),
-      );
-    }
-
-    String imageUrl = '';
-    if (place.photos.isNotEmpty) {
-      final photoReference = place.photos.first.photoReference;
-      imageUrl = GoogleMapsApiService.getPhotoUrl(
-        photoReference,
-        maxWidth: 800,
-        maxHeight: 600,
-      );
-    }
-
-    return Destination(
-      id: place.placeId,
-      name: place.name,
-      description: description,
-      location: location,
-      imageUrl: imageUrl,
-      coordinates: place.location,
-      category: _parseCategory(place.types),
-      rating: place.rating,
-      budget: BudgetInfo(minCost: 0, maxCost: 0, currency: 'PHP'),
-    );
   }
 
   static Destination _convertPlaceDetailsToDestination(
@@ -786,12 +745,9 @@ class DestinationService {
         query: searchQuery,
         location: searchLocation,
       ).timeout(_placesSearchTimeout, onTimeout: () => const <GooglePlace>[]);
-      final realPlaces = await Future.wait(
-        googlePlaces.map(
-          (place) =>
-              _convertGooglePlaceToDestination(place, fetchDetails: false),
-        ),
-      );
+      final realPlaces = googlePlaces
+          .map((place) => _convertGooglePlaceToDestination(place))
+          .toList();
       return realPlaces.isNotEmpty
           ? realPlaces
           : fallbackDestinations(
@@ -857,13 +813,10 @@ class DestinationService {
         query: searchQuery,
         location: currentLocation,
       ).timeout(_placesSearchTimeout, onTimeout: () => const <GooglePlace>[]);
-      final realPlaces = await Future.wait(
-        googlePlaces.map(
-          (place) =>
-              _convertGooglePlaceToDestination(place, fetchDetails: false),
-        ),
-      );
-
+      final realPlaces = googlePlaces
+          .map((place) => _convertGooglePlaceToDestination(place))
+          .toList();
+      
       if (category != null && realPlaces.isNotEmpty) {
         final filtered = realPlaces
             .where((dest) => dest.category == category)

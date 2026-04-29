@@ -148,7 +148,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       destination = await DestinationService.getDestination(
         widget.destinationId,
       );
-      destination ??= await DestinationService.getDestinationByPlaceId(
+      destination ??= await DestinationService.getDestination(
         widget.destinationId,
       );
     }
