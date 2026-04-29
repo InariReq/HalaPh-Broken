@@ -339,6 +339,7 @@ class GoogleMapsApiService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        debugPrint('Places search status: ${data['status']}');
 
         if (data['status'] == 'OK') {
           final places = (data['results'] as List)
@@ -346,6 +347,13 @@ class GoogleMapsApiService {
               .toList();
           debugPrint('Found ${places.length} nearby $placeType places');
           return places;
+        } else if (data['status'] == 'REQUEST_DENIED') {
+          debugPrint('⚠️ Google Places API requires billing. Using fallback data.');
+          return [];
+        } else {
+          debugPrint(
+            'Places search failed: ${data['status']} - ${data['error_message'] ?? 'No error message'}',
+          );
         }
       }
     } catch (e) {

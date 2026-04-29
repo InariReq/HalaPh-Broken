@@ -394,18 +394,28 @@ class DestinationService {
     }
   }
 
-  // Get trending destinations - REAL Google Places API only
+    // Get trending destinations - REAL Google Places API only
   static Future<List<Destination>> getTrendingDestinations() async {
     debugPrint('=== getTrendingDestinations called ===');
     try {
       final currentLocation = await _getSearchLocation();
 
+      // Check if we're using a real location or default
+      final isRealLocation = !isInvalidLocation(currentLocation);
+      debugPrint(
+        '📍 Searching from location: ${currentLocation.latitude}, ${currentLocation.longitude} (Real: $isRealLocation)',
+      );
+
       const nearbyRadiusMeters = 5000.0; // 5km
       const nearbyRadiusKm = 5.0;
 
-      debugPrint(
-        'Searching from location: ${currentLocation.latitude}, ${currentLocation.longitude}',
-      );
+      // If using default location, DON'T search nearby (will get useless results)
+      if (!isRealLocation) {
+        debugPrint(
+          '🔴 Using default location - skipping nearby search, using fallback destinations',
+        );
+        return fallbackDestinations(limit: 6);
+      }
 
       // Search for real nearby places people can actually visit now.
       const nearbyPlaceTypes = [
@@ -432,9 +442,9 @@ class DestinationService {
             _placesSearchTimeout,
             onTimeout: () => const <List<Destination>>[],
           );
-      final allTrendingPlaces = batches.expand((places) => places).toList();
+      final alTrendingPlaces = batches.expand((places) => places).toList();
 
-      final deduped = deduplicateDestinationsById(allTrendingPlaces);
+      final deduped = deduplicateDestinationsById(alTrendingPlaces);
       deduped.removeWhere((destination) {
         final coordinates = destination.coordinates;
         if (coordinates == null) return true;
@@ -460,13 +470,18 @@ class DestinationService {
 
       if (topPlaces.isNotEmpty) {
         debugPrint(
-          'Returning ${topPlaces.length} nearby trending places from Google Places',
+          '🟢 Returning ${topPlaces.length} nearby trending places from Google Places',
         );
         return topPlaces;
       } else {
-        debugPrint('No nearby Google Places results, using fallback places');
+        debugPrint('🔴 No nearby Google Places results, using fallback places');
         return fallbackDestinations(limit: 6, near: currentLocation);
       }
+    } catch (e) {
+      debugPrint('🔴 Google Places nearby trending failed: $e');
+      return fallbackDestinations(limit: 6);
+    }
+  }
     } catch (e) {
       debugPrint('Google Places nearby trending failed: $e');
       return fallbackDestinations(limit: 6);
