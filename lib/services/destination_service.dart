@@ -381,20 +381,34 @@ class DestinationService {
     }
   }
 
-  // Search destinations using Google Places API
+  // Search destinations using FREE OpenStreetMap APIs
   static Future<List<Destination>> searchDestinations(String? query) async {
     try {
-      return await searchRealPlaces(
-        query: query ?? '',
-        location: await _getSearchLocation(),
+      final location = await _getSearchLocation();
+      debugPrint('🌍 OSM: Searching for "$query" (FREE)');
+
+      // Use Nominatim text search (FREE, no billing)
+      final results = await OSMService.searchPlacesByText(
+        query: query ?? 'tourist attractions',
+        lat: location.latitude,
+        lon: location.longitude,
+        limit: 20,
       );
+
+      if (results.isNotEmpty) {
+        debugPrint('🌍 Got ${results.length} results from OSM (FREE)');
+        return results;
+      }
+
+      debugPrint('🌍 No OSM results, using fallback');
+      return fallbackDestinations(query: query);
     } catch (e) {
-      debugPrint('Search failed completely: $e');
+      debugPrint('🌍 OSM search error: $e');
       return fallbackDestinations(query: query);
     }
   }
 
-    // Get trending destinations - REAL Google Places API only
+  // Get trending destinations - Use FREE OpenStreetMap APIs
   static Future<List<Destination>> getTrendingDestinations() async {
     debugPrint('=== getTrendingDestinations called ===');
     try {
@@ -406,16 +420,53 @@ class DestinationService {
         '📍 Searching from location: ${currentLocation.latitude}, ${currentLocation.longitude} (Real: $isRealLocation)',
       );
 
-      const nearbyRadiusMeters = 5000.0; // 5km
-      const nearbyRadiusKm = 5.0;
-
-      // If using default location, DON'T search nearby (will get useless results)
+      // If using default location, skip nearby search
       if (!isRealLocation) {
         debugPrint(
-          '🔴 Using default location - skipping nearby search, using fallback destinations',
+          '🔴 Using default location - using fallback destinations',
         );
         return fallbackDestinations(limit: 6);
       }
+
+      debugPrint('🌍 Using OSM Overpass API (FREE, no billing)');
+
+      // Search for real nearby places using OSM (FREE!)
+      final osmPlaces = await OSMService.searchNearbyPlaces(
+        lat: currentLocation.latitude,
+        lon: currentLocation.longitude,
+        radius: 5000,
+        limit: 30,
+      );
+
+      if (osmPlaces.isNotEmpty) {
+        debugPrint(
+          '🌍 Returning ${osmPlaces.length} nearby places from OSM (FREE)',
+        );
+        return osmPlaces.take(6).toList();
+      } else {
+        debugPrint('🌍 No OSM results, trying Nominatim text search...');
+        final textResults = await OSMService.searchPlacesByText(
+          query: 'tourist attractions',
+          lat: currentLocation.latitude,
+          lon: currentLocation.longitude,
+          limit: 6,
+        );
+
+        if (textResults.isNotEmpty) {
+          debugPrint(
+            '🌍 Returning ${textResults.length} places from Nominatim (FREE)',
+          );
+          return textResults;
+        }
+      }
+
+      debugPrint('🌍 All OSM methods failed, using fallback places');
+      return fallbackDestinations(limit: 6, near: currentLocation);
+    } catch (e) {
+      debugPrint('🌍 OSM error: $e');
+      return fallbackDestinations(limit: 6);
+    }
+  }
 
       // Search for real nearby places people can actually visit now.
       const nearbyPlaceTypes = [
