@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/models/plan.dart';
+import 'package:halaph/utils/navigation_utils.dart';
 
 class MyPlansScreen extends StatefulWidget {
   const MyPlansScreen({super.key});
@@ -31,16 +32,20 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       }),
     ]);
     if (!mounted) return;
-    
+
     setState(() {
       _myCode = results[0] as String;
       _isLoading = false;
     });
-    
+
     debugPrint('Loaded plans for user: $_myCode');
     final personalPlans = SimplePlanService.getUserPlans(ownerId: _myCode);
-    final sharedPlans = SimplePlanService.getCollaborativePlans(ownerId: _myCode);
-    debugPrint('Personal plans: ${personalPlans.length}, Shared plans: ${sharedPlans.length}');
+    final sharedPlans = SimplePlanService.getCollaborativePlans(
+      ownerId: _myCode,
+    );
+    debugPrint(
+      'Personal plans: ${personalPlans.length}, Shared plans: ${sharedPlans.length}',
+    );
   }
 
   @override
@@ -57,7 +62,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => safeNavigateBack(context),
         ),
         title: const Text(
           'My Plans',
@@ -296,9 +301,10 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   }
 
   void _showDeleteConfirmation(BuildContext context, TravelPlan plan) {
+    final messenger = ScaffoldMessenger.of(context);
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Delete Plan'),
           content: Text(
@@ -307,17 +313,18 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
               },
               child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () async {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
                 final success = await SimplePlanService.deletePlan(plan.id);
+                if (!mounted) return;
                 if (success) {
                   _loadPlans();
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     SnackBar(
                       content: Text(
                         'Plan "${plan.title}" deleted successfully',
@@ -325,7 +332,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                     ),
                   );
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(content: Text('Failed to delete plan')),
                   );
                 }

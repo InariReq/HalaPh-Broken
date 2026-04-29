@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:halaph/services/simple_plan_service.dart';
+import 'package:halaph/utils/navigation_utils.dart';
 
 class SharePlanScreen extends StatefulWidget {
   final String planId;
@@ -20,6 +21,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
   }
 
   Future<String> _loadShareLink(String planId) async {
+    if (planId.trim().isEmpty) return '';
     return SimplePlanService.shareLink(planId);
   }
 
@@ -29,15 +31,13 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
       future: _shareLinkFuture,
       builder: (context, snapshot) {
         final shareUrl = snapshot.data ?? '';
-        final display = shareUrl.isNotEmpty
-            ? shareUrl
-            : 'Generating share link...';
+        final display = shareUrl.isNotEmpty ? shareUrl : 'No plan selected.';
         return Scaffold(
           appBar: AppBar(
             title: const Text('Share Plan'),
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: Colors.black),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => safeNavigateBack(context),
             ),
           ),
           body: Padding(
@@ -57,7 +57,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
                 SizedBox(height: 20),
                 ElevatedButton.icon(
                   onPressed: shareUrl.isNotEmpty
-                      ? () => Share.share(shareUrl)
+                      ? () => Share.share('Join my Halaph plan: $shareUrl')
                       : null,
                   icon: Icon(Icons.share),
                   label: Text('Share Link'),

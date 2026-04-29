@@ -1,14 +1,13 @@
-import 'package:flutter/foundation.dart';
 import 'dart:math';
-import 'package:halaph/models/destination.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/google_maps_api_service.dart';
 
 class DestinationService {
-  // Get current city based on location
+  // Get current city based on location (for display only)
   static String getCurrentCity(LatLng location) {
-    // Major Philippines cities with their approximate coordinates
     final cities = {
       'Manila': LatLng(14.5995, 120.9842),
       'Quezon City': LatLng(14.6760, 121.0437),
@@ -41,7 +40,7 @@ class DestinationService {
       'Puerto Princesa': LatLng(9.8467, 118.7333),
     };
 
-    String closestCity = 'Quezon City'; // Default to largest city
+    String closestCity = 'Quezon City';
     double minDistance = double.infinity;
 
     cities.forEach((cityName, cityLocation) {
@@ -60,14 +59,11 @@ class DestinationService {
 
   // Calculate distance between two coordinates
   static double _calculateDistance(LatLng point1, LatLng point2) {
-    const double earthRadius = 6371; // Earth's radius in kilometers
-
-    double lat1Rad = point1.latitude * (3.14159265359 / 180);
-    double lat2Rad = point2.latitude * (3.14159265359 / 180);
-    double deltaLatRad =
-        (point2.latitude - point1.latitude) * (3.14159265359 / 180);
-    double deltaLngRad =
-        (point2.longitude - point1.longitude) * (3.14159265359 / 180);
+    const double earthRadius = 6371;
+    double lat1Rad = point1.latitude * (pi / 180);
+    double lat2Rad = point2.latitude * (pi / 180);
+    double deltaLatRad = (point2.latitude - point1.latitude) * (pi / 180);
+    double deltaLngRad = (point2.longitude - point1.longitude) * (pi / 180);
 
     double a =
         sin(deltaLatRad / 2) * sin(deltaLatRad / 2) +
@@ -76,119 +72,52 @@ class DestinationService {
             sin(deltaLngRad / 2) *
             sin(deltaLngRad / 2);
     double c = 2 * asin(sqrt(a).clamp(0.0, 1.0));
-
     return earthRadius * c;
   }
 
   // Get current location
   static Future<LatLng> getCurrentLocation() async {
-    debugPrint('=== DESTINATION SERVICE CALLED ===');
     try {
-      debugPrint('=== GETTING CURRENT LOCATION ===');
-
-      // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        debugPrint(
-          'Location services are disabled - using default Philippines location',
-        );
-        return _getDefaultPhilippinesLocation();
+        return const LatLng(0, 0); // Invalid location
       }
 
-      // Check location permissions
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
-        debugPrint('Location permissions denied - requesting...');
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          debugPrint(
-            'Location permissions still denied - using default Philippines location',
-          );
-          return _getDefaultPhilippinesLocation();
+          return const LatLng(0, 0);
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        debugPrint(
-          'Location permissions permanently denied - using default Philippines location',
-        );
-        return _getDefaultPhilippinesLocation();
+        return const LatLng(0, 0);
       }
 
-      // Get current position
-      debugPrint('✅ Getting GPS position...');
-      final Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+      final settings = LocationSettings(
+        accuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 10),
+      );
+      final Position position = await Geolocator.getCurrentPosition(
+        locationSettings: settings,
       );
 
       debugPrint(
-        '✅ Current location: ${position.latitude}, ${position.longitude}',
+        'Current location: ${position.latitude}, ${position.longitude}',
       );
       return LatLng(position.latitude, position.longitude);
     } catch (e) {
-      debugPrint(
-        'Error getting location: $e - using default Philippines location',
-      );
-      return _getDefaultPhilippinesLocation();
+      debugPrint('Error getting location: $e');
+      return const LatLng(0, 0);
     }
   }
 
-  static LatLng _getDefaultPhilippinesLocation() {
-    return const LatLng(12.8797, 121.7740); // Default to Philippines
-  }
-
-  // Get all destinations - using hardcoded data for now
-  static Future<List<Destination>> getDestinations() async {
-    // Return hardcoded Philippines destinations
-    return [
-      Destination(
-        id: '1',
-        name: 'Intramuros',
-        description: 'Historic walled city in Manila',
-        location: 'Manila, Philippines',
-        imageUrl:
-            'https://images.unsplash.com/photo-15168893845-c5ad698dfc3e?ixlib=rb-4.0.3&ixid=MnXHtFYYlgI',
-        coordinates: const LatLng(14.5995, 120.9842),
-        category: DestinationCategory.landmark,
-        rating: 4.6,
-        budget: BudgetInfo(minCost: 0, maxCost: 200, currency: 'PHP'),
-      ),
-      Destination(
-        id: '2',
-        name: 'Boracay',
-        description: 'White sand beach destination',
-        location: 'Aklan, Philippines',
-        imageUrl:
-            'https://images.unsplash.com/photo-1520200122962-40bd9afbaef7?ixlib=rb-4.0.3&ixid=MnXHtFYYlgI',
-        coordinates: const LatLng(13.2529, 123.7851),
-        category: DestinationCategory.activities,
-        rating: 4.8,
-        budget: BudgetInfo(minCost: 1000, maxCost: 5000, currency: 'PHP'),
-      ),
-      Destination(
-        id: '3',
-        name: 'Palawan',
-        description: 'Ultimate island paradise',
-        location: 'Palawan, Philippines',
-        imageUrl:
-            'https://images.unsplash.com/photo-1518477328608-e5e3b35a0db?ixlib=rb-4.0.3&ixid=MnXHtFYYlgI',
-        coordinates: const LatLng(9.8391, 118.7355),
-        category: DestinationCategory.activities,
-        rating: 4.9,
-        budget: BudgetInfo(minCost: 2000, maxCost: 8000, currency: 'PHP'),
-      ),
-    ];
-  }
-
-  // Get destination by ID
+  // Get destination by ID (Google Place ID)
   static Future<Destination?> getDestination(String id) async {
-    // First check hardcoded list
-    final destinations = await getDestinations();
     try {
-      return destinations.firstWhere((dest) => dest.id == id);
+      return await getDestinationByPlaceId(id);
     } catch (e) {
-      // If not found, it might be a Google Place ID - return null
       return null;
     }
   }
@@ -203,81 +132,60 @@ class DestinationService {
     }
   }
 
-  // Search destinations
+  // Search destinations using Google Places API
   static Future<List<Destination>> searchDestinations(String? query) async {
     try {
-      final destinations = await getDestinations();
-
-      if (query != null && query.isNotEmpty) {
-        final searchQuery = query.toLowerCase();
-        return destinations.where((dest) {
-          return dest.name.toLowerCase().contains(searchQuery) ||
-              dest.description.toLowerCase().contains(searchQuery) ||
-              dest.category.name.toLowerCase().contains(searchQuery);
-        }).toList();
-      } else {
-        return destinations;
-      }
+      return await searchRealPlaces(
+        query: query ?? '',
+        location: await getCurrentLocation(),
+      );
     } catch (e) {
-      // If API fails, return empty list
       debugPrint('Search failed completely: $e');
       return [];
     }
   }
 
+  // Get trending destinations - REAL Google Places API only
   static Future<List<Destination>> getTrendingDestinations() async {
-    debugPrint('\n=== APP CALLED getTrendingDestinations ===');
+    debugPrint('=== getTrendingDestinations called ===');
     try {
-      debugPrint('=== GETTING NEARBY TRENDING DESTINATIONS ===');
-
       final currentLocation = await getCurrentLocation();
-      const nearbyRadiusMeters = 8000.0;
-      const nearbyRadiusKm = nearbyRadiusMeters / 1000;
-      debugPrint('=== LOCATION DEBUG ===');
+
+      // If location is invalid, return empty
+      if (currentLocation.latitude == 0 && currentLocation.longitude == 0) {
+        debugPrint('Invalid location (0,0) - returning empty');
+        return [];
+      }
+
+      const nearbyRadiusMeters = 5000.0; // 5km
+      const nearbyRadiusKm = 5.0;
+
       debugPrint(
         'Searching from location: ${currentLocation.latitude}, ${currentLocation.longitude}',
       );
 
-      final currentCity = getCurrentCity(currentLocation);
-      debugPrint('=== CITY DETECTION ===');
-      debugPrint('Current city detected as: $currentCity');
-
+      // Search for real nearby places people can actually visit now.
       const nearbyPlaceTypes = [
-        'tourist_attraction',
-        'restaurant',
+        'cafe',
         'shopping_mall',
+        'restaurant',
+        'bakery',
         'park',
+        'tourist_attraction',
         'museum',
       ];
 
-      List<Destination> allTrendingPlaces = [];
-
-      for (final placeType in nearbyPlaceTypes) {
-        try {
-          final places = await GoogleMapsApiService.findNearbyPlaces(
-            location: currentLocation,
+      final batches = await Future.wait(
+        nearbyPlaceTypes.map(
+          (placeType) => _searchNearbyDestinations(
+            currentLocation: currentLocation,
             placeType: placeType,
-            radius: nearbyRadiusMeters,
-          );
-          final nearbyPlaces = places.where((place) {
-            return _calculateDistance(currentLocation, place.location) <=
-                nearbyRadiusKm;
-          }).toList()..sort((a, b) => b.rating.compareTo(a.rating));
-
-          debugPrint(
-            'Found ${nearbyPlaces.length} nearby places for type "$placeType"',
-          );
-
-          final convertedPlaces = await Future.wait(
-            nearbyPlaces
-                .take(3)
-                .map((place) => _convertGooglePlaceToDestination(place)),
-          );
-          allTrendingPlaces.addAll(convertedPlaces);
-        } catch (e) {
-          debugPrint('Error searching nearby "$placeType": $e');
-        }
-      }
+            radiusMeters: nearbyRadiusMeters,
+            maxDistanceKm: nearbyRadiusKm,
+          ),
+        ),
+      );
+      final allTrendingPlaces = batches.expand((places) => places).toList();
 
       final deduped = deduplicateDestinationsById(allTrendingPlaces);
       deduped.removeWhere((destination) {
@@ -286,6 +194,7 @@ class DestinationService {
         return _calculateDistance(currentLocation, coordinates) >
             nearbyRadiusKm;
       });
+
       deduped.sort((a, b) {
         final ratingCompare = b.rating.compareTo(a.rating);
         if (ratingCompare != 0) return ratingCompare;
@@ -299,6 +208,7 @@ class DestinationService {
         );
         return aDistance.compareTo(bDistance);
       });
+
       final topPlaces = deduped.take(6).toList();
 
       if (topPlaces.isNotEmpty) {
@@ -312,13 +222,11 @@ class DestinationService {
       }
     } catch (e) {
       debugPrint('Google Places nearby trending failed: $e');
-      debugPrint('No fallback data available - returning empty list');
-
       return [];
     }
   }
 
-  // Public helper to deduplicate destinations by id (stable order)
+  // Public helper to deduplicate destinations by id
   static List<Destination> deduplicateDestinationsById(List<Destination> list) {
     final seen = <String>{};
     final out = <Destination>[];
@@ -331,44 +239,79 @@ class DestinationService {
     return out;
   }
 
+  static Future<List<Destination>> _searchNearbyDestinations({
+    required LatLng currentLocation,
+    required String placeType,
+    required double radiusMeters,
+    required double maxDistanceKm,
+  }) async {
+    try {
+      debugPrint('Searching for nearby "$placeType"...');
+      final places = await GoogleMapsApiService.findNearbyPlaces(
+        location: currentLocation,
+        placeType: placeType,
+        radius: radiusMeters,
+      );
+      debugPrint(
+        'Google API returned ${places.length} raw results for "$placeType"',
+      );
+
+      final nearbyPlaces =
+          places.where((place) {
+            final hasName = place.name.trim().isNotEmpty;
+            final isNearby =
+                _calculateDistance(currentLocation, place.location) <=
+                maxDistanceKm;
+            final hasUsefulRating = place.rating == 0 || place.rating >= 3.8;
+            return hasName && isNearby && hasUsefulRating;
+          }).toList()..sort((a, b) {
+            final ratingCompare = b.rating.compareTo(a.rating);
+            if (ratingCompare != 0) return ratingCompare;
+            final aDistance = _calculateDistance(currentLocation, a.location);
+            final bDistance = _calculateDistance(currentLocation, b.location);
+            return aDistance.compareTo(bDistance);
+          });
+
+      return Future.wait(
+        nearbyPlaces
+            .take(3)
+            .map(
+              (place) =>
+                  _convertGooglePlaceToDestination(place, fetchDetails: false),
+            ),
+      );
+    } catch (e) {
+      debugPrint('Error searching nearby "$placeType": $e');
+      return const <Destination>[];
+    }
+  }
+
   static DestinationCategory _parseCategory(List<String> types) {
-    // Check for shopping/retail first (highest priority for places like SM)
     if (types.contains('shopping_mall') ||
         types.contains('market') ||
         types.contains('store') ||
         types.contains('supermarket')) {
       return DestinationCategory.market;
-    }
-    // Then check for food/restaurant
-    else if (types.contains('restaurant') ||
+    } else if (types.contains('restaurant') ||
         types.contains('food') ||
         types.contains('cafe') ||
         types.contains('bakery')) {
       return DestinationCategory.food;
-    }
-    // Then check for parks
-    else if (types.contains('park') || types.contains('natural_feature')) {
+    } else if (types.contains('park') || types.contains('natural_feature')) {
       return DestinationCategory.park;
-    }
-    // Then check for museums
-    else if (types.contains('museum') || types.contains('art_gallery')) {
+    } else if (types.contains('museum') || types.contains('art_gallery')) {
       return DestinationCategory.museum;
-    }
-    // Then check for activities/entertainment
-    else if (types.contains('amusement_park') ||
+    } else if (types.contains('amusement_park') ||
         types.contains('zoo') ||
         types.contains('aquarium') ||
         types.contains('stadium') ||
         types.contains('entertainment')) {
       return DestinationCategory.activities;
-    }
-    // Finally check for landmarks (lowest priority)
-    else if (types.contains('landmark') ||
+    } else if (types.contains('landmark') ||
         types.contains('tourist_attraction') ||
         types.contains('historic_site')) {
       return DestinationCategory.landmark;
     }
-    // Default to landmark if nothing matches
     return DestinationCategory.landmark;
   }
 
@@ -389,83 +332,59 @@ class DestinationService {
     }
   }
 
-  static Future<Destination?> getDestinationById(String id) async {
-    try {
-      // Try to get real destination data from API
-      // For now, return hardcoded destination data
-      return await getDestination(id);
-    } catch (e) {
-      debugPrint('API get destination failed: $e');
-      return null;
-    }
-  }
-
   static Future<Destination> _convertGooglePlaceToDestination(
-    GooglePlace place,
-  ) async {
-    debugPrint('=== CONVERTING GOOGLE PLACE ===');
-    debugPrint('Place name: ${place.name}');
-    debugPrint('Place ID: ${place.placeId}');
-    debugPrint('Number of photos: ${place.photos.length}');
+    GooglePlace place, {
+    bool fetchDetails = true,
+  }) async {
+    debugPrint('Converting Google Place: ${place.name}');
 
-    // Get detailed place information including address and description
     String description = place.vicinity;
     String location = place.vicinity;
 
-    try {
-      final placeDetails = await GoogleMapsApiService.getPlaceDetails(
-        place.placeId,
-      );
-      if (placeDetails != null) {
-        debugPrint('Got detailed information for ${place.name}');
-
-        // Use formatted address if available
-        if (placeDetails.formattedAddress.isNotEmpty) {
-          location = placeDetails.formattedAddress;
-        }
-
-        // Use editorial summary if available, otherwise generate description
-        if (placeDetails.editorialSummary != null &&
-            placeDetails.editorialSummary!.isNotEmpty) {
-          description = placeDetails.editorialSummary!;
+    if (fetchDetails) {
+      try {
+        final placeDetails = await GoogleMapsApiService.getPlaceDetails(
+          place.placeId,
+        );
+        if (placeDetails != null) {
+          if (placeDetails.formattedAddress.isNotEmpty) {
+            location = placeDetails.formattedAddress;
+          }
+          if (placeDetails.editorialSummary != null &&
+              placeDetails.editorialSummary!.isNotEmpty) {
+            description = placeDetails.editorialSummary!;
+          } else {
+            description = _generateDescription(
+              place.name,
+              _parseCategory(place.types),
+            );
+          }
         } else {
-          // Generate a description based on place type and name
           description = _generateDescription(
             place.name,
             _parseCategory(place.types),
           );
         }
-
-        debugPrint('Final location: $location');
-        debugPrint('Final description: $description');
+      } catch (e) {
+        description = _generateDescription(
+          place.name,
+          _parseCategory(place.types),
+        );
       }
-    } catch (e) {
-      debugPrint('Error getting place details: $e');
-      // Fallback to generated description
+    } else if (description.trim().isEmpty) {
       description = _generateDescription(
         place.name,
         _parseCategory(place.types),
       );
     }
 
-    // Get real photo from Google Places if available, otherwise use category placeholder
-    String imageUrl;
+    String imageUrl = '';
     if (place.photos.isNotEmpty) {
-      // Use the first photo from Google Places
       final photoReference = place.photos.first.photoReference;
-      debugPrint('Using photo reference: $photoReference');
-
       imageUrl = GoogleMapsApiService.getPhotoUrl(
         photoReference,
         maxWidth: 800,
         maxHeight: 600,
-      );
-      debugPrint('Using Google Places photo for ${place.name}: $imageUrl');
-    } else {
-      // Fallback to category-based placeholder
-      imageUrl = _getCategoryImage(_parseCategory(place.types));
-      debugPrint(
-        'No photos available for ${place.name}, using category placeholder: $imageUrl',
       );
     }
 
@@ -492,15 +411,13 @@ class DestinationService {
         ? details.editorialSummary!.trim()
         : _generateDescription(details.name, category);
 
-    final String imageUrl;
+    String imageUrl = '';
     if (details.photos.isNotEmpty) {
       imageUrl = GoogleMapsApiService.getPhotoUrl(
         details.photos.first.photoReference,
         maxWidth: 800,
         maxHeight: 600,
       );
-    } else {
-      imageUrl = _getCategoryImage(category);
     }
 
     return Destination(
@@ -516,7 +433,6 @@ class DestinationService {
     );
   }
 
-  // Generate descriptive text based on place name and category
   static String _generateDescription(
     String name,
     DestinationCategory category,
@@ -537,39 +453,19 @@ class DestinationService {
     };
   }
 
-  static String _getCategoryImage(DestinationCategory category) {
-    return switch (category) {
-      DestinationCategory.park =>
-        'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&ixid=MnXHtFYYlgI',
-      DestinationCategory.landmark =>
-        'https://images.unsplash.com/photo-15168893845-c5ad698dfc3e?ixlib=rb-4.0.3&ixid=MnXHtFYYlgI',
-      DestinationCategory.food =>
-        'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?ixlib=rb-4.0.3&ixid=MnXHtFYYlgI',
-      DestinationCategory.activities =>
-        'https://images.unsplash.com/photo-1520200122962-40bd9afbaef7?ixlib=rb-4.0.3&ixid=MnXHtFYYlgI',
-      DestinationCategory.museum =>
-        'https://images.unsplash.com/photo-1541961017774-22349e4a1262?ixlib=rb-4.0.3&ixid=MnXHtFYYlgI',
-      DestinationCategory.market =>
-        'https://images.unsplash.com/photo-1516448483748-2aa0cf52309a?ixlib=rb-4.0.3&ixid=MnXHtFYYlgI',
-    };
-  }
-
-  // NEW: Search real places using Google Places API
+  // Search real places using Google Places API
   static Future<List<Destination>> searchRealPlaces({
     required String query,
     LatLng? location,
     DestinationCategory? category,
   }) async {
     try {
-      // Get current location if none provided
       final searchLocation = location ?? await getCurrentLocation();
       debugPrint(
         'Using location: ${searchLocation.latitude}, ${searchLocation.longitude}',
       );
 
-      // Build search query based on category
       String searchQuery = query.isNotEmpty ? query : 'tourist attractions';
-
       if (category != null) {
         switch (category) {
           case DestinationCategory.food:
@@ -593,10 +489,9 @@ class DestinationService {
         }
       }
 
-      // Add Philippines to get local results but don't force Manila
       searchQuery = '$searchQuery Philippines';
-
       debugPrint('Using text search with query: "$searchQuery"');
+
       final googlePlaces = await GoogleMapsApiService.searchPlaces(
         query: searchQuery,
         location: searchLocation,
@@ -607,12 +502,11 @@ class DestinationService {
       return realPlaces;
     } catch (e) {
       debugPrint('Error searching real places: $e');
-      // Return empty list if all methods fail
       return [];
     }
   }
 
-  // NEW: Get autocomplete suggestions
+  // Get autocomplete suggestions
   static Future<List<String>> getAutocompleteSuggestions(
     String input, {
     LatLng? location,
@@ -648,20 +542,14 @@ class DestinationService {
     String? query,
     DestinationCategory? category,
   }) async {
-    debugPrint('\n=== APP CALLED searchDestinationsEnhanced ===');
     try {
-      debugPrint('=== ENHANCED SEARCH: query="$query", category=$category ===');
-
-      // Get current location for location-based search
       final currentLocation = await getCurrentLocation();
 
-      // Use category-specific search query if category is selected but no search query
       String searchQuery;
       if (query?.isNotEmpty == true) {
         searchQuery = query!;
       } else if (category != null) {
         searchQuery = _getCategoryQuery(category);
-        debugPrint('Using category-specific query: "$searchQuery"');
       } else {
         searchQuery = 'tourist attractions Philippines';
       }
@@ -673,33 +561,21 @@ class DestinationService {
       final realPlaces = await Future.wait(
         googlePlaces.map((place) => _convertGooglePlaceToDestination(place)),
       );
-      debugPrint('Google Places returned ${realPlaces.length} results');
 
-      // Filter by category if specified
       if (category != null && realPlaces.isNotEmpty) {
         final filtered = realPlaces
             .where((dest) => dest.category == category)
             .toList();
-        debugPrint(
-          'Filtered to ${filtered.length} results for category $category',
-        );
         return filtered;
       }
 
-      if (realPlaces.isNotEmpty) {
-        debugPrint('Returning ${realPlaces.length} Google Places results');
-        return realPlaces;
-      }
-
-      debugPrint('Google Places returned no results');
-      return [];
+      return realPlaces;
     } catch (e) {
       debugPrint('Enhanced search failed: $e');
       return [];
     }
   }
 
-  // Helper method to convert category to search query
   static String _getCategoryQuery(DestinationCategory category) {
     switch (category) {
       case DestinationCategory.food:
@@ -714,46 +590,6 @@ class DestinationService {
         return 'activities';
       case DestinationCategory.landmark:
         return 'tourist attractions';
-    }
-  }
-
-  // Helper method for original search logic
-  // ignore: unused_element
-  static Future<List<Destination>> _searchOriginalDestinations({
-    String? query,
-    DestinationCategory? category,
-  }) async {
-    try {
-      final destinations = await getDestinations();
-
-      return destinations.where((destination) {
-        // Filter by query
-        if (query != null && query.isNotEmpty) {
-          final searchTerm = query.toLowerCase();
-          final matchesName = destination.name.toLowerCase().contains(
-            searchTerm,
-          );
-          final matchesLocation = destination.location.toLowerCase().contains(
-            searchTerm,
-          );
-          final matchesDescription = destination.description
-              .toLowerCase()
-              .contains(searchTerm);
-
-          if (!matchesName && !matchesLocation && !matchesDescription) {
-            return false;
-          }
-        }
-
-        // Filter by category
-        if (category != null && destination.category != category) {
-          return false;
-        }
-
-        return true;
-      }).toList();
-    } catch (e) {
-      return [];
     }
   }
 }

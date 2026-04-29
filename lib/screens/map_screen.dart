@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/map_service.dart';
 import 'package:halaph/models/destination.dart';
+import 'package:halaph/utils/navigation_utils.dart';
 
 class MapScreen extends StatefulWidget {
   final List<Destination>? destinations;
@@ -35,7 +36,7 @@ class _MapScreenState extends State<MapScreen> {
       if (widget.destinations != null) {
         _allDestinations = widget.destinations!;
       } else {
-        _allDestinations = await DestinationService.getDestinations();
+        _allDestinations = await DestinationService.searchDestinations('');
       }
 
       // Try to get user location
@@ -162,7 +163,7 @@ class _MapScreenState extends State<MapScreen> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => safeNavigateBack(context),
         ),
         actions: [
           if (_userLocation != null)
@@ -319,7 +320,14 @@ class _MapScreenState extends State<MapScreen> {
                       margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundImage: NetworkImage(destination.imageUrl),
+                          backgroundColor: Colors.grey[200],
+                          backgroundImage:
+                              destination.imageUrl.startsWith('http')
+                              ? NetworkImage(destination.imageUrl)
+                              : null,
+                          child: destination.imageUrl.startsWith('http')
+                              ? null
+                              : Icon(Icons.place, color: Colors.grey[600]),
                         ),
                         title: Text(destination.name),
                         subtitle: Column(

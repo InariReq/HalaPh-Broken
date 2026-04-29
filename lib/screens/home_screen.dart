@@ -8,6 +8,7 @@ import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/services/simple_plan_service.dart';
+import 'package:halaph/models/plan.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -125,21 +126,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadTravelCosts(List<Destination> destinations) async {
+    final Map<String, List<TravelCostEstimate>> results = {};
     for (final destination in destinations) {
       if (destination.coordinates != null) {
         try {
           final costs = await TravelCostService.getTravelCostEstimates(
             destination.coordinates!,
           );
-          if (mounted) {
-            setState(() {
-              _travelCosts[destination.id] = costs;
-            });
-          }
+          results[destination.id] = costs;
         } catch (e) {
           debugPrint('Error loading travel costs for ${destination.name}: $e');
         }
       }
+    }
+    if (mounted && results.isNotEmpty) {
+      setState(() {
+        _travelCosts.addAll(results);
+      });
     }
   }
 
@@ -148,17 +151,14 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 24),
-              _buildCurrentPlan(context),
-              const SizedBox(height: 24),
-              _buildTrendingSection(context),
-            ],
-          ),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(child: _buildHeader(context)),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: _buildCurrentPlan(context)),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: _buildTrendingSection(context)),
+          ],
         ),
       ),
     );
@@ -441,18 +441,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  static const List<String> _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+
   String _formatDateRange(DateTime start, DateTime end) {
-    final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
     if (start.day == end.day && start.month == end.month && start.year == end.year) {
-      return '${months[start.month - 1]} ${start.day}, ${start.year}';
+      return '${_months[start.month - 1]} ${start.day}, ${start.year}';
     }
     if (start.month == end.month && start.year == end.year) {
-      return '${months[start.month - 1]} ${start.day}-${end.day}, ${start.year}';
+      return '${_months[start.month - 1]} ${start.day}-${end.day}, ${start.year}';
     }
-    return '${months[start.month - 1]} ${start.day} - ${months[end.month - 1]} ${end.day}, ${end.year}';
+    return '${_months[start.month - 1]} ${start.day} - ${_months[end.month - 1]} ${end.day}, ${end.year}';
   }
 
   Widget _buildTrendingSection(BuildContext context) {
@@ -484,13 +485,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        // Real trending destinations
         _isLoading
-            ? const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: CircularProgressIndicator(),
-                ),
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator()),
               )
             : _trendingDestinations.isEmpty
             ? Container(
@@ -515,12 +513,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               )
-            : Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: _trendingDestinations.map((destination) {
-                    return _buildTrendingCard(destination);
-                  }).toList(),
+            : SizedBox(
+                height: _trendingDestinations.length * 300,
+                child: ListView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _trendingDestinations.length,
+                  itemBuilder: (context, index) =>
+                      _buildTrendingCard(_trendingDestinations[index]),
                 ),
               ),
       ],

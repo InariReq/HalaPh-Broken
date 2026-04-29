@@ -1,14 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/destination_service.dart';
+import 'package:halaph/utils/navigation_utils.dart';
 
 class AddPlaceScreen extends StatefulWidget {
   final int? targetDay; // Optional day to add place to
-  
-  const AddPlaceScreen({
-    super.key,
-    this.targetDay,
-  });
+
+  const AddPlaceScreen({super.key, this.targetDay});
 
   @override
   State<AddPlaceScreen> createState() => _AddPlaceScreenState();
@@ -18,6 +18,8 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   final TextEditingController _searchController = TextEditingController();
   DestinationCategory? _selectedCategory;
   bool _isLoading = false;
+  Timer? _searchDebounce;
+  int _searchVersion = 0;
   List<Destination> _destinations = [];
   List<Destination> _favoriteDestinations = [];
   List<Destination> _recentlyExplored = [];
@@ -40,6 +42,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
@@ -50,17 +53,22 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   }
 
   Future<void> _searchDestinations() async {
+    if (!mounted) return;
+    final version = ++_searchVersion;
     setState(() => _isLoading = true);
     try {
       final destinations = await DestinationService.searchDestinationsEnhanced(
-        query: _searchController.text.trim().isEmpty ? null : _searchController.text.trim(),
+        query: _searchController.text.trim().isEmpty
+            ? null
+            : _searchController.text.trim(),
         category: _selectedCategory,
       );
-      
+
       // For demo purposes, let's mark some as favorites and recently explored
       final favorites = destinations.take(3).toList();
       final recent = destinations.skip(3).take(4).toList();
-      
+
+      if (!mounted || version != _searchVersion) return;
       setState(() {
         _destinations = destinations;
         _favoriteDestinations = favorites;
@@ -68,12 +76,11 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted || version != _searchVersion) return;
       setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load destinations: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load destinations: $e')),
+      );
     }
   }
 
@@ -85,11 +92,14 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   }
 
   void _onSearchChanged() {
-    _searchDestinations();
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      _searchDestinations();
+    });
   }
 
   void _addDestination(Destination destination) {
-    Navigator.pop(context, destination);
+    safePopWithResult(context, destination);
   }
 
   @override
@@ -102,10 +112,12 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => safeNavigateBack(context),
         ),
         title: Text(
-          widget.targetDay != null ? 'Add to Day ${widget.targetDay}' : 'Add Place',
+          widget.targetDay != null
+              ? 'Add to Day ${widget.targetDay}'
+              : 'Add Place',
           style: const TextStyle(
             color: Colors.black,
             fontSize: 18,
@@ -118,7 +130,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           // Search Bar (from explore screen)
           _buildSearchBar(),
           const SizedBox(height: 16),
-          
+
           // Category Filters (from explore screen)
           _buildFilterChips(),
           const SizedBox(height: 16),
@@ -138,7 +150,9 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                           if (_favoriteDestinations.isNotEmpty) ...[
                             _buildSectionHeader('Your Favorites'),
                             const SizedBox(height: 12),
-                            _buildHorizontalDestinationList(_favoriteDestinations),
+                            _buildHorizontalDestinationList(
+                              _favoriteDestinations,
+                            ),
                             const SizedBox(height: 24),
                           ],
 
@@ -202,7 +216,10 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 16,
+            ),
           ),
         ),
       ),
@@ -222,7 +239,8 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
               child: FilterChip(
                 label: Text(DestinationService.getCategoryName(category)),
                 selected: isSelected,
-                onSelected: (selected) => _filterByCategory(selected ? category : null),
+                onSelected: (selected) =>
+                    _filterByCategory(selected ? category : null),
                 backgroundColor: Colors.white,
                 selectedColor: Colors.blue[50],
                 labelStyle: TextStyle(
@@ -232,7 +250,10 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                 side: BorderSide(
                   color: isSelected ? Colors.blue[300]! : Colors.grey[300]!,
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 elevation: isSelected ? 2 : 0,
               ),
             );
@@ -308,11 +329,15 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
             height: 200,
             width: double.infinity,
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
               color: Colors.grey[300],
             ),
             child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
               child: destination.imageUrl.isNotEmpty
                   ? Image.network(
                       destination.imageUrl,
@@ -324,7 +349,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                   : _buildDefaultImage(),
             ),
           ),
-          
+
           // Info
           Padding(
             padding: const EdgeInsets.all(16),
@@ -348,10 +373,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                       const SizedBox(height: 4),
                       Text(
                         destination.location,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -367,11 +389,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                       color: Colors.blue,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.add,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+                    child: const Icon(Icons.add, color: Colors.white, size: 24),
                   ),
                 ),
               ],
@@ -386,11 +404,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     return Container(
       color: Colors.grey[300],
       child: Center(
-        child: Icon(
-          Icons.place,
-          size: 40,
-          color: Colors.grey[600],
-        ),
+        child: Icon(Icons.place, size: 40, color: Colors.grey[600]),
       ),
     );
   }

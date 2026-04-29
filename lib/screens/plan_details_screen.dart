@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -48,35 +49,38 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Future<void> _loadPlan() async {
-    await Future.wait<dynamic>([
-      _friendService.getMyCode(),
-      SimplePlanService.initialize(),
-    ]);
+    try {
+      unawaited(_friendService.getMyCode());
+      await SimplePlanService.initialize().timeout(const Duration(seconds: 10));
 
-    if (widget.planId != null) {
-      _plan = SimplePlanService.getPlanById(widget.planId!);
+      if (widget.planId != null) {
+        _plan = SimplePlanService.getPlanById(widget.planId!);
 
-      if (_plan != null) {
-        _titleController.text = _plan!.title;
-        _startDate = _plan!.startDate;
-        _endDate = _plan!.endDate;
+        if (_plan != null) {
+          _titleController.text = _plan!.title;
+          _startDate = _plan!.startDate;
+          _endDate = _plan!.endDate;
 
-        _itinerary = {};
-        _destinationTimes = {};
+          _itinerary = {};
+          _destinationTimes = {};
 
-        for (final dayIt in _plan!.itinerary) {
-          final dayNum = dayIt.date.difference(_plan!.startDate).inDays + 1;
-          _itinerary[dayNum] = dayIt.items.map((i) => i.destination).toList();
+          for (final dayIt in _plan!.itinerary) {
+            final dayNum = dayIt.date.difference(_plan!.startDate).inDays + 1;
+            _itinerary[dayNum] = dayIt.items.map((i) => i.destination).toList();
 
-          for (final item in dayIt.items) {
-            _destinationTimes[item.destination.id] = _formatTimeOfDay(
-              item.startTime,
-            );
+            for (final item in dayIt.items) {
+              _destinationTimes[item.destination.id] = _formatTimeOfDay(
+                item.startTime,
+              );
+            }
           }
         }
       }
+    } catch (error) {
+      debugPrint('Plan details load failed: $error');
     }
 
+    if (!mounted) return;
     setState(() {
       _isLoading = false;
     });
@@ -218,6 +222,15 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
             ),
           if (!_isEditing)
             IconButton(
+              icon: const Icon(Icons.ios_share, color: Colors.black),
+              onPressed: _plan == null
+                  ? null
+                  : () => context.push(
+                      '/share-plan?planId=${Uri.encodeComponent(_plan!.id)}',
+                    ),
+            ),
+          if (!_isEditing)
+            IconButton(
               icon: const Icon(Icons.delete, color: Colors.red),
               onPressed: () {
                 _showPlanDeleteConfirmation();
@@ -229,8 +242,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               onPressed: () {
                 setState(() {
                   _isEditing = false;
-                  _loadPlan(); // Reset to original data
                 });
+                _loadPlan(); // Reset to original data
               },
             ),
           if (_isEditing)
@@ -280,7 +293,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               ),
               const SizedBox(height: 32),
               ElevatedButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => context.go('/my-plans'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue[600],
                   foregroundColor: Colors.white,
@@ -334,13 +347,12 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         _plan!.itinerary.first.items.isNotEmpty) {
       return _plan!.itinerary.first.items.first.destination.imageUrl;
     }
-    // Fallback using plan title
-    final seed = _plan?.title ?? 'default';
-    return 'https://picsum.photos/seed/${seed.hashCode.abs()}/400/200';
+    return '';
   }
 
   Widget _buildBannerImage() {
     final imagePath = _getBannerImageUrl();
+    if (imagePath.isEmpty) return _buildFallbackBanner();
 
     // Check if it's a local file path
     if (imagePath.startsWith('/') || imagePath.contains('\\')) {
@@ -528,6 +540,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     );
 
     if (result != null) {
+      if (!mounted) return;
       setState(() {
         _itinerary[dayNumber] ??= [];
         _itinerary[dayNumber]!.add(result);
@@ -551,6 +564,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     );
 
     if (result != null) {
+      if (!mounted) return;
       setState(() {
         _itinerary[dayNumber] ??= [];
         _itinerary[dayNumber]!.add(result);
@@ -640,7 +654,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   const Padding(
                     padding: EdgeInsets.only(top: 8),
                     child: Text(
-                      'Tap "Add Friends" to get started',
+                      'Tap "Add Locations" to get started',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey,
@@ -1248,6 +1262,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     );
 
     if (result != null) {
+      if (!mounted) return;
       setState(() {
         _itinerary[day] ??= [];
         // Insert the new destination after the specified index
@@ -1286,6 +1301,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     );
 
     if (picked != null) {
+      if (!mounted) return;
       final hourStr = picked.hourOfPeriod.toString().padLeft(2, '0');
       final minuteStr = picked.minute.toString().padLeft(2, '0');
       final period = picked.period == DayPeriod.am ? 'AM' : 'PM';
@@ -1442,31 +1458,35 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
   void _showPlanDeleteConfirmation() {
     if (_plan == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Plan'),
         content: Text(
           'Are you sure you want to delete "${_plan?.title ?? 'Untitled Plan'}"? This action cannot be undone.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
-              if (_plan == null) return;
-              final success = await SimplePlanService.deletePlan(_plan!.id);
+              Navigator.pop(dialogContext);
+              final plan = _plan;
+              if (plan == null) return;
+              final success = await SimplePlanService.deletePlan(plan.id);
+              if (!mounted) return;
               if (success) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(content: Text('Plan deleted successfully')),
                 );
-                context.go('/my-plans'); // Navigate to My Plans after delete
+                router.go('/my-plans'); // Navigate to My Plans after delete
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(content: Text('Failed to delete plan')),
                 );
               }

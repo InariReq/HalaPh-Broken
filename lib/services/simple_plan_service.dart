@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:halaph/models/destination.dart';
+import 'package:halaph/services/firebase_app_service.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/remote_sync_service.dart';
 
@@ -28,6 +29,11 @@ class SimplePlanService {
   }
 
   static Future<void> _initialize({required bool forceRefresh}) async {
+    if (!await FirebaseAppService.initialize()) {
+      resetCache();
+      return;
+    }
+
     final userId = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
       resetCache();
@@ -36,12 +42,25 @@ class SimplePlanService {
 
     if (!forceRefresh && _loadedForUserId == userId) return;
 
-    final remotePlans = await _loadRemotePlans();
-    _plans
-      ..clear()
-      ..addEntries(remotePlans.map((plan) => MapEntry(plan.id, plan)));
-    _planIdCounter = _nextPlanId(remotePlans);
-    _loadedForUserId = userId;
+    try {
+      final remotePlans = await _loadRemotePlans().timeout(
+        const Duration(seconds: 10),
+      );
+      _plans
+        ..clear()
+        ..addEntries(remotePlans.map((plan) => MapEntry(plan.id, plan)));
+      _planIdCounter = _nextPlanId(remotePlans);
+      _loadedForUserId = userId;
+    } catch (error) {
+      debugPrint('Plan load failed: $error');
+      if (_loadedForUserId != userId) {
+        _plans.clear();
+        _planIdCounter = 1;
+        _ownerUids.clear();
+        _participantUids.clear();
+        _loadedForUserId = userId;
+      }
+    }
   }
 
   static List<TravelPlan> getUserPlans({String? ownerId}) {
@@ -79,28 +98,40 @@ class SimplePlanService {
 
   static TravelPlan? getNextUpcomingPlan({String? userId}) {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     final user = userId ?? 'current_user';
-    
+
     final upcoming = _plans.values.where((plan) {
-      final isUserPartOfPlan = plan.createdBy == user || plan.participantIds.contains(user);
-      final hasNotStarted = plan.startDate.isAfter(now) || plan.startDate.day == now.day;
+      final isUserPartOfPlan =
+          plan.createdBy == user || plan.participantIds.contains(user);
+      final planDay = DateTime(
+        plan.startDate.year,
+        plan.startDate.month,
+        plan.startDate.day,
+      );
+      final hasNotStarted = !planDay.isBefore(today);
       return isUserPartOfPlan && hasNotStarted;
-    }).toList()
-      ..sort((a, b) => a.startDate.compareTo(b.startDate));
-    
+    }).toList()..sort((a, b) => a.startDate.compareTo(b.startDate));
+
     return upcoming.isNotEmpty ? upcoming.first : null;
   }
 
   static List<TravelPlan> getAllUpcomingPlans({String? userId}) {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     final user = userId ?? 'current_user';
-    
+
     return _plans.values.where((plan) {
-      final isUserPartOfPlan = plan.createdBy == user || plan.participantIds.contains(user);
-      final hasNotStarted = plan.startDate.isAfter(now) || plan.startDate.day == now.day;
+      final isUserPartOfPlan =
+          plan.createdBy == user || plan.participantIds.contains(user);
+      final planDay = DateTime(
+        plan.startDate.year,
+        plan.startDate.month,
+        plan.startDate.day,
+      );
+      final hasNotStarted = !planDay.isBefore(today);
       return isUserPartOfPlan && hasNotStarted;
-    }).toList()
-      ..sort((a, b) => a.startDate.compareTo(b.startDate));
+    }).toList()..sort((a, b) => a.startDate.compareTo(b.startDate));
   }
 
   static TravelPlan createPlan({
@@ -128,7 +159,7 @@ class SimplePlanService {
     );
 
     _plans[id] = plan;
-    unawaited(_saveRemotePlan(plan));
+    _saveRemotePlanInBackground(plan);
     return plan;
   }
 
@@ -166,7 +197,7 @@ class SimplePlanService {
     );
 
     _plans[planId] = updated;
-    unawaited(_saveRemotePlan(updated));
+    _saveRemotePlanInBackground(updated);
     return true;
   }
 
@@ -220,8 +251,14 @@ class SimplePlanService {
     );
 
     _plans[planId] = updated;
-    await _saveRemotePlan(updated);
-    return true;
+    try {
+      await _saveRemotePlan(updated);
+      return true;
+    } catch (error) {
+      debugPrint('Failed to update plan collaborators: $error');
+      _plans[planId] = existing;
+      return false;
+    }
   }
 
   static Future<TravelPlan> savePlan({
@@ -265,15 +302,16 @@ class SimplePlanService {
       dayItineraries.add(DayItinerary(date: date, items: items));
     }
 
-    final banner =
-        bannerImage ??
-        'https://picsum.photos/seed/${title.hashCode}_${startDate.millisecondsSinceEpoch}/400/200';
-    final participants = <String>{createdBy}
+    // Normalize participant IDs (include creator + selected collaborators)
+    final participants = <String>{createdBy.trim()}
       ..addAll(
         participantIds
             .where((id) => id.trim().isNotEmpty)
             .map((id) => id.trim()),
       );
+
+    final banner =
+        _cleanImageUrl(bannerImage) ?? _firstDestinationImage(dayItineraries);
 
     final plan = TravelPlan(
       id: id,
@@ -439,15 +477,24 @@ class SimplePlanService {
           ? List<String>.from(data['participantUids'] as List)
           : <String>[userId];
     }
-    final byId = {for (final plan in plans) plan.id: plan};
-    final legacyPlans = await _loadLegacyPlans();
-    for (final plan in legacyPlans) {
-      if (byId.containsKey(plan.id)) continue;
-      plans.add(plan);
-      byId[plan.id] = plan;
-      unawaited(_saveRemotePlan(plan));
-    }
+    final knownIds = plans.map((plan) => plan.id).toSet();
+    unawaited(_migrateLegacyPlans(knownIds));
     return plans;
+  }
+
+  static Future<void> _migrateLegacyPlans(Set<String> knownIds) async {
+    try {
+      final legacyPlans = await _loadLegacyPlans().timeout(
+        const Duration(seconds: 3),
+      );
+      for (final plan in legacyPlans) {
+        if (knownIds.contains(plan.id)) continue;
+        knownIds.add(plan.id);
+        _saveRemotePlanInBackground(plan);
+      }
+    } catch (error) {
+      debugPrint('Legacy plan migration skipped: $error');
+    }
   }
 
   static Future<List<TravelPlan>> _loadLegacyPlans() async {
@@ -466,8 +513,10 @@ class SimplePlanService {
 
     final existingOwnerUid = _ownerUids[plan.id];
     final ownerUid = existingOwnerUid ?? currentUid;
-    var resolvedParticipantUids = await FriendService().resolveParticipantUids(
-      plan.participantIds,
+    var resolvedParticipantUids = await _resolveRemoteParticipants(
+      plan: plan,
+      ownerUid: ownerUid,
+      currentUid: currentUid,
     );
 
     if (currentUid != ownerUid) {
@@ -493,6 +542,50 @@ class SimplePlanService {
         .timeout(const Duration(seconds: 8));
     _ownerUids[plan.id] = ownerUid;
     _participantUids[plan.id] = resolvedParticipantUids;
+  }
+
+  static void _saveRemotePlanInBackground(TravelPlan plan) {
+    unawaited(
+      _saveRemotePlan(plan).catchError((Object error) {
+        debugPrint('Background plan sync failed: $error');
+      }),
+    );
+  }
+
+  static Future<List<String>> _resolveRemoteParticipants({
+    required TravelPlan plan,
+    required String ownerUid,
+    required String currentUid,
+  }) async {
+    if (currentUid != ownerUid) {
+      return {
+        ...(_participantUids[plan.id] ?? <String>[ownerUid]),
+        currentUid,
+      }.toList();
+    }
+
+    final participantCodes = plan.participantIds
+        .map(_normalizeCode)
+        .where((code) => code.isNotEmpty)
+        .toSet();
+    final creatorCode = _normalizeCode(plan.createdBy);
+    final collaboratorCodes = participantCodes
+        .where((code) => code != creatorCode)
+        .toList();
+
+    if (collaboratorCodes.isEmpty) {
+      return <String>[ownerUid];
+    }
+
+    final resolved = await FriendService()
+        .resolveParticipantUids(participantCodes)
+        .timeout(const Duration(seconds: 6));
+    if (resolved.length <= 1) {
+      throw Exception(
+        'Could not resolve selected friends. Add them by friend code first.',
+      );
+    }
+    return resolved;
   }
 
   static Future<bool> _deleteRemotePlan(String id) async {
@@ -528,8 +621,10 @@ class SimplePlanService {
   static CollectionReference<Map<String, dynamic>> get _plansCollection =>
       FirebaseFirestore.instance.collection('sharedPlans');
 
-  static String? _currentUserId() =>
-      firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+  static String? _currentUserId() {
+    if (!FirebaseAppService.isInitialized) return null;
+    return firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+  }
 
   static String _newPlanId() {
     final id = 'plan_${DateTime.now().microsecondsSinceEpoch}_$_planIdCounter';
@@ -537,6 +632,38 @@ class SimplePlanService {
     return id;
   }
 
-  static String _normalizeCode(String code) =>
-      code.trim().toUpperCase().replaceAll(' ', '');
+  static String _normalizeCode(String code) {
+    final compact = code.trim().toUpperCase().replaceAll(
+      RegExp(r'[^A-Z0-9]'),
+      '',
+    );
+    if (RegExp(r'^[A-Z]{2}[0-9]{4}$').hasMatch(compact)) {
+      return '${compact.substring(0, 2)}-${compact.substring(2)}';
+    }
+    return code.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '');
+  }
+
+  static String? _firstDestinationImage(List<DayItinerary> itinerary) {
+    for (final day in itinerary) {
+      for (final item in day.items) {
+        final imageUrl = _cleanImageUrl(item.destination.imageUrl);
+        if (imageUrl != null) return imageUrl;
+      }
+    }
+    return null;
+  }
+
+  static String? _cleanImageUrl(String? value) {
+    final url = value?.trim() ?? '';
+    if (url.isEmpty) return null;
+    if (_isRandomImageUrl(url)) return null;
+    return url;
+  }
+
+  static bool _isRandomImageUrl(String url) {
+    final lower = url.toLowerCase();
+    return lower.contains('picsum.photos') ||
+        lower.contains('source.unsplash.com') ||
+        lower.contains('randomuser.me');
+  }
 }

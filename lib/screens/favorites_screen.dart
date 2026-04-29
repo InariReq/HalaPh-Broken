@@ -6,6 +6,7 @@ import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/screens/route_options_screen.dart';
+import 'package:halaph/utils/navigation_utils.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -86,7 +87,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
         leading: Navigator.of(context).canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.black),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => safeNavigateBack(context),
               )
             : null,
         actions: [
@@ -144,7 +145,8 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                     ),
                     leading: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: d.imageUrl.isNotEmpty
+                      child:
+                          d.imageUrl.isNotEmpty && d.imageUrl.startsWith('http')
                           ? Image.network(
                               d.imageUrl,
                               width: 48,

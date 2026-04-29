@@ -11,6 +11,7 @@ import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/models/user.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
+import 'package:halaph/utils/navigation_utils.dart';
 
 // Data models for easier implementation
 class UserProfile {
@@ -144,7 +145,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         leading: Navigator.of(context).canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.black),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => safeNavigateBack(context),
               )
             : null,
         title: const Text(
@@ -576,7 +577,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           height: 82,
                           width: double.infinity,
                           color: Colors.grey[200],
-                          child: favorite.imageUrl != null
+                          child:
+                              favorite.imageUrl != null &&
+                                  favorite.imageUrl!.startsWith('http')
                               ? Image.network(
                                   favorite.imageUrl!,
                                   width: double.infinity,

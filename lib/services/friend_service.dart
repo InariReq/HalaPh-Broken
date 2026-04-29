@@ -38,15 +38,16 @@ class FriendService {
     );
     final remoteCode = remoteProfile?['code'] as String?;
     if (remoteCode != null && remoteCode.isNotEmpty) {
+      final normalizedCode = _normalizeCode(remoteCode);
       _cachedUserId = userId;
-      _cachedCode = remoteCode;
-      await _publishPublicProfile(remoteCode);
-      return remoteCode;
+      _cachedCode = normalizedCode;
+      await _publishPublicProfile(normalizedCode);
+      return normalizedCode;
     }
 
     final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
     final seed = firebaseUser?.email ?? firebaseUser?.displayName ?? 'traveler';
-    final generated = _generateCode(seed);
+    final generated = _generateCode(seed, firebaseUser?.uid);
     _cachedUserId = userId;
     _cachedCode = generated;
     await RemoteSyncService.instance.saveNamespace('profile', {
@@ -205,15 +206,18 @@ class FriendService {
     if (currentUid == null) return const <String>[];
 
     final uids = <String>{currentUid};
+    final normalizedCodes = codes.map(_normalizeCode).where((code) {
+      return code.isNotEmpty;
+    }).toSet();
+    if (normalizedCodes.isEmpty) return uids.toList();
+
     final myCode = _normalizeCode(await getMyCode());
     final friends = await getFriends();
     final byCode = {
       for (final friend in friends) _normalizeCode(friend.code): friend,
     };
 
-    for (final rawCode in codes) {
-      final code = _normalizeCode(rawCode);
-      if (code.isEmpty) continue;
+    for (final code in normalizedCodes) {
       if (code == myCode) {
         uids.add(currentUid);
         continue;
@@ -272,15 +276,26 @@ class FriendService {
   }
 
   String _normalizeCode(String code) {
-    return code.trim().toUpperCase().replaceAll(' ', '');
+    final compact = code.trim().toUpperCase().replaceAll(
+      RegExp(r'[^A-Z0-9]'),
+      '',
+    );
+    if (RegExp(r'^[A-Z]{2}[0-9]{4}$').hasMatch(compact)) {
+      return '${compact.substring(0, 2)}-${compact.substring(2)}';
+    }
+    return code.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '');
   }
 
-  String _generateCode(String seed) {
+  String _generateCode(String seed, String? uid) {
     final cleaned = seed.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
     final prefix = (cleaned.isEmpty ? 'HP' : cleaned)
         .padRight(2, 'H')
         .substring(0, 2);
-    final numeric = (seed.hashCode.abs() % 10000).toString().padLeft(4, '0');
+    final uniquenessSeed = uid?.isNotEmpty == true ? '$seed-$uid' : seed;
+    final numeric = (uniquenessSeed.hashCode.abs() % 10000).toString().padLeft(
+      4,
+      '0',
+    );
     return '$prefix-$numeric';
   }
 }

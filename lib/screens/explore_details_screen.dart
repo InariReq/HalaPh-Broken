@@ -8,6 +8,7 @@ import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/screens/route_options_screen.dart';
+import 'package:halaph/utils/navigation_utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class ExploreDetailsScreen extends StatefulWidget {
@@ -298,7 +299,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                     ),
                   ),
                   GestureDetector(
-                    onTap: () => Navigator.pop(context),
+                    onTap: () => safeNavigateBack(context),
                     child: Container(
                       width: 32,
                       height: 32,

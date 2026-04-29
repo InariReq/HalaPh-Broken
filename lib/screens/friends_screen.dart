@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:halaph/models/friend.dart';
 import 'package:halaph/services/friend_service.dart';
+import 'package:halaph/utils/navigation_utils.dart';
 
 class FriendsScreen extends StatefulWidget {
   final bool selectionMode;
@@ -23,6 +24,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   List<Friend> _members = [];
   String _myCode = '';
   bool _isLoading = true;
+  bool _isAddingFriend = false;
 
   @override
   void initState() {
@@ -32,16 +34,23 @@ class _FriendsScreenState extends State<FriendsScreen> {
   }
 
   Future<void> _loadData() async {
-    final results = await Future.wait<dynamic>([
-      _friendService.getMyCode(),
-      _friendService.getFriends(),
-    ]);
-    if (!mounted) return;
-    setState(() {
-      _myCode = results[0] as String;
-      _members = results[1] as List<Friend>;
-      _isLoading = false;
-    });
+    try {
+      final results = await Future.wait<dynamic>([
+        _friendService.getMyCode(),
+        _friendService.getFriends(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _myCode = results[0] as String;
+        _members = results[1] as List<Friend>;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -56,9 +65,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
             if (widget.selectionMode) {
-              Navigator.of(context).pop(_selectedCodes.toList());
+              safePopWithResult(context, _selectedCodes.toList());
             } else {
-              Navigator.of(context).pop();
+              safeNavigateBack(context);
             }
           },
         ),
@@ -74,7 +83,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
           if (widget.selectionMode)
             TextButton(
               onPressed: () =>
-                  Navigator.of(context).pop(_selectedCodes.toList()),
+                  safePopWithResult(context, _selectedCodes.toList()),
               child: const Text('Done'),
             ),
         ],
@@ -184,7 +193,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
               ),
               const SizedBox(width: 12),
               ElevatedButton(
-                onPressed: _inviteFriend,
+                onPressed: _isAddingFriend ? null : _inviteFriend,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2196F3),
                   foregroundColor: Colors.white,
@@ -197,10 +206,22 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   ),
                   elevation: 0,
                 ),
-                child: const Text(
-                  'Invite',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
+                child: _isAddingFriend
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Invite',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ],
           ),
@@ -377,18 +398,30 @@ class _FriendsScreenState extends State<FriendsScreen> {
       return;
     }
 
-    final result = await _friendService.addFriendByCode(profileCode);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result.message),
-        backgroundColor: result.success ? Colors.green[600] : Colors.red,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-    if (result.success) {
-      _profileCodeController.clear();
-      _loadData();
+    setState(() {
+      _isAddingFriend = true;
+    });
+
+    try {
+      final result = await _friendService.addFriendByCode(profileCode);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message),
+          backgroundColor: result.success ? Colors.green[600] : Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      if (result.success) {
+        _profileCodeController.clear();
+        await _loadData();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAddingFriend = false;
+        });
+      }
     }
   }
 

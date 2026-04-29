@@ -6,9 +6,9 @@ import 'package:halaph/services/auth_service.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/screens/add_place_screen.dart';
 import 'package:halaph/screens/friends_screen.dart';
+import 'package:halaph/utils/navigation_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'dart:async';
 
 class DestinationData {
   final Destination destination;
@@ -47,16 +47,10 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   // Structure to hold times for destinations (destination_id -> time)
   final Map<String, String> _destinationTimes = {};
 
-  // Structure to track visited destinations (destination_id -> bool)
-  final Map<String, bool> _visitedDestinations = {};
-
   // Scroll tracking for location bar
   final ScrollController _scrollController = ScrollController();
   int _currentVisibleDay = 1;
   int _currentVisibleDestination = 0;
-
-  // Timer for periodic location checking
-  Timer? _locationCheckTimer;
 
   // Role structure for future implementation (commented for now)
   // Map<String, String> _userRoles = {'current_user': 'Editor'}; // 'Editor' or 'Viewer'
@@ -67,7 +61,6 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     _initializeUserContext();
     _loadDestinations();
     _scrollController.addListener(_onScroll);
-    _startLocationChecking();
   }
 
   Future<void> _initializeUserContext() async {
@@ -82,7 +75,6 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
-    _locationCheckTimer?.cancel();
     super.dispose();
   }
 
@@ -190,11 +182,13 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
       );
 
       if (image != null) {
+        if (!mounted) return;
         setState(() {
           _bannerImage = File(image.path);
         });
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
@@ -208,6 +202,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     );
 
     if (result != null) {
+      if (!mounted) return;
       setState(() {
         _itinerary[day] ??= [];
         _itinerary[day]!.add(result);
@@ -245,6 +240,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     );
 
     if (result != null) {
+      if (!mounted) return;
       setState(() {
         _itinerary[day] ??= [];
         // Insert the new destination after the specified index
@@ -266,7 +262,6 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     setState(() {
       _itinerary[day]!.removeAt(index);
       _destinationTimes.remove(destination.id);
-      _visitedDestinations.remove(destination.id);
     });
 
     ScaffoldMessenger.of(
@@ -274,76 +269,15 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     ).showSnackBar(SnackBar(content: Text('${destination.name} removed')));
   }
 
-  void _startLocationChecking() {
-    // Check location every 30 seconds
-    _locationCheckTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      _checkDestinationProximity();
-    });
-  }
-
-  void _checkDestinationProximity() {
-    // Update visited status based on current visible destination
-    // In a real implementation, this would use actual GPS coordinates
-    // For now, mark destinations as visited when they're the current visible one
-
-    if (_startDate == null || _endDate == null) return;
-
-    final days = _endDate!.difference(_startDate!).inDays + 1;
-
-    for (int day = 1; day <= days; day++) {
-      final destinations = _itinerary[day] ?? [];
-
-      for (int destIndex = 0; destIndex < destinations.length; destIndex++) {
-        final destination = destinations[destIndex];
-        final isVisited = _visitedDestinations[destination.id] ?? false;
-        final isCurrentVisible =
-            day == _currentVisibleDay &&
-            destIndex == _currentVisibleDestination;
-
-        // Mark destination as visited when it's current visible one
-        if (isCurrentVisible && !isVisited) {
-          setState(() {
-            _visitedDestinations[destination.id] = true;
-          });
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'You arrived at ${destination.name}! Marked as visited.',
-              ),
-            ),
-          );
-          return;
-        }
-      }
-    }
-  }
-
   Future<void> _savePlan() async {
-    // Title validation
-    final title = _titleController.text.trim();
-    if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a plan title')),
-      );
-      return;
-    }
-    if (title.length < 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Plan title must be at least 3 characters'),
-        ),
-      );
-      return;
-    }
-
-    // Date validation
+    // Validate dates
     if (_startDate == null || _endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a date range')),
+        const SnackBar(content: Text('Please select start and end dates')),
       );
       return;
     }
+
     if (_endDate!.isBefore(_startDate!)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('End date must be after start date')),
@@ -372,58 +306,81 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     });
 
     try {
-      // Generate banner - use user's image or fallback
-      String bannerImagePath;
-      if (_bannerImage != null) {
-        // Store the actual local file path to show user's image
-        bannerImagePath = _bannerImage!.path;
-      } else {
-        // Generate based on title + date
-        final titleHash = _titleController.text.trim().hashCode.abs();
-        final dateHash = _startDate!.millisecondsSinceEpoch.abs();
-        bannerImagePath =
-            'https://picsum.photos/seed/halaph_${titleHash}_$dateHash/400/200';
-      }
+      final bannerImagePath = _bannerImage?.path ?? _firstDestinationImageUrl();
 
       final currentUserId =
           _currentUserCode ?? await _friendService.getMyCode();
       final fallbackUserId = await _authService.getCurrentUserIdentifier();
 
-      final savedPlan = await SimplePlanService.savePlan(
-        title: _titleController.text.trim(),
-        startDate: _startDate!,
-        endDate: _endDate!,
-        itinerary: _itinerary,
-        destinationTimes: _destinationTimes,
-        createdBy: currentUserId.isNotEmpty ? currentUserId : fallbackUserId,
-        participantIds: _selectedCollaboratorCodes.toList(),
-        bannerImage: bannerImagePath,
-      );
+      // Save with timeout to prevent hanging
+      final savedPlan =
+          await SimplePlanService.savePlan(
+            title: _titleController.text.trim(),
+            startDate: _startDate!,
+            endDate: _endDate!,
+            itinerary: _itinerary,
+            destinationTimes: _destinationTimes,
+            createdBy: currentUserId.isNotEmpty
+                ? currentUserId
+                : fallbackUserId,
+            participantIds: _selectedCollaboratorCodes.toList(),
+            bannerImage: bannerImagePath,
+          ).timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              throw Exception('Save timed out. Please check your connection.');
+            },
+          );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Plan "${savedPlan.title}" saved successfully!'),
-        ),
-      );
-
-      if (mounted) {
-        context.go('/plan-details?planId=${savedPlan.id}');
-      }
-    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to save plan. Please try again.'),
+          SnackBar(
+            content: Text('Plan "${savedPlan.title}" saved successfully!'),
           ),
         );
+        // Navigate BEFORE setting _isLoading = false (widget will unmount)
+        final planId = savedPlan.id;
+        setState(() {
+          _isLoading = false;
+        });
+        context.go('/plan-details?planId=$planId');
+      }
+    } catch (e) {
+      debugPrint('Error saving plan: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save plan: ${e.toString()}')),
+        );
+        setState(() {
+          _isLoading = false;
+        });
       }
     } finally {
-      if (mounted) {
+      if (mounted && _isLoading) {
         setState(() {
           _isLoading = false;
         });
       }
     }
+  }
+
+  String? _firstDestinationImageUrl() {
+    for (final destinations in _itinerary.values) {
+      for (final destination in destinations) {
+        final imageUrl = destination.imageUrl.trim();
+        if (imageUrl.isEmpty || !imageUrl.startsWith('http')) continue;
+        if (_isRandomImageUrl(imageUrl)) continue;
+        return imageUrl;
+      }
+    }
+    return null;
+  }
+
+  bool _isRandomImageUrl(String url) {
+    final lower = url.toLowerCase();
+    return lower.contains('picsum.photos') ||
+        lower.contains('source.unsplash.com') ||
+        lower.contains('randomuser.me');
   }
 
   Future<void> _selectTimeForDestination(Destination destination) async {
@@ -453,6 +410,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     );
 
     if (pickedTime != null) {
+      if (!mounted) return;
       final hourStr = pickedTime.hourOfPeriod.toString().padLeft(2, '0');
       final minuteStr = pickedTime.minute.toString().padLeft(2, '0');
       final period = pickedTime.period == DayPeriod.am ? 'AM' : 'PM';
@@ -507,7 +465,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.black),
-          onPressed: () => context.pop(),
+          onPressed: () => safeNavigateBack(context),
         ),
         title: const Text(
           'Blank Plan',
