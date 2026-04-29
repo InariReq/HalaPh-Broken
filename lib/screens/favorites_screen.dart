@@ -53,9 +53,6 @@ class _FavoritesScreenState extends State<FavoritesScreen>
       final dests = await Future.wait(
         ids.map((id) async {
           final dest = await DestinationService.getDestination(id);
-          if (dest == null) {
-            return await DestinationService.getDestinationByPlaceId(id);
-          }
           return dest;
         }),
       );

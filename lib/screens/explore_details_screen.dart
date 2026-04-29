@@ -89,8 +89,8 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
       if (widget.destination != null) {
         found = widget.destination;
 
-        // Refresh place details using live Google place_id data when available.
-        final refreshed = await DestinationService.getDestinationByPlaceId(
+        // Refresh place details using ID when available.
+        final refreshed = await DestinationService.getDestination(
           widget.destination!.id,
         );
         if (refreshed != null) {
@@ -123,12 +123,12 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
 
       found ??= await DestinationService.getDestination(widget.destinationId);
 
-      found ??= await DestinationService.getDestinationByPlaceId(
+      found ??= await DestinationService.getDestination(
         widget.destinationId,
       );
 
       if (found != null) {
-        final refreshed = await DestinationService.getDestinationByPlaceId(
+        final refreshed = await DestinationService.getDestination(
           found.id,
         );
         if (refreshed != null) {

@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/google_maps_api_service.dart';
+import 'package:halaph/services/osm_service.dart';
 
 class DestinationService {
   static const LatLng _defaultSearchLocation = LatLng(14.5995, 120.9842);
@@ -362,20 +363,15 @@ class DestinationService {
     debugPrint('🧪 Test location cleared');
   }
 
-  // Get destination by ID (Google Place ID)
+  // Get destination by ID (from OSM or fallback)
   static Future<Destination?> getDestination(String id) async {
     try {
-      return await getDestinationByPlaceId(id);
-    } catch (e) {
+      // Search in fallback destinations first
+      final fallback = fallbackDestinations();
+      for (final dest in fallback) {
+        if (dest.id == id) return dest;
+      }
       return null;
-    }
-  }
-
-  static Future<Destination?> getDestinationByPlaceId(String placeId) async {
-    try {
-      final details = await GoogleMapsApiService.getPlaceDetails(placeId);
-      if (details == null) return null;
-      return _convertPlaceDetailsToDestination(details);
     } catch (e) {
       return null;
     }
@@ -464,77 +460,6 @@ class DestinationService {
       return fallbackDestinations(limit: 6, near: currentLocation);
     } catch (e) {
       debugPrint('🌍 OSM error: $e');
-      return fallbackDestinations(limit: 6);
-    }
-  }
-
-      // Search for real nearby places people can actually visit now.
-      const nearbyPlaceTypes = [
-        'cafe',
-        'shopping_mall',
-        'restaurant',
-        'bakery',
-        'park',
-        'tourist_attraction',
-        'museum',
-      ];
-
-      final batches =
-          await Future.wait(
-            nearbyPlaceTypes.map(
-              (placeType) => _searchNearbyDestinations(
-                currentLocation: currentLocation,
-                placeType: placeType,
-                radiusMeters: nearbyRadiusMeters,
-                maxDistanceKm: nearbyRadiusKm,
-              ),
-            ),
-          ).timeout(
-            _placesSearchTimeout,
-            onTimeout: () => const <List<Destination>>[],
-          );
-      final alTrendingPlaces = batches.expand((places) => places).toList();
-
-      final deduped = deduplicateDestinationsById(alTrendingPlaces);
-      deduped.removeWhere((destination) {
-        final coordinates = destination.coordinates;
-        if (coordinates == null) return true;
-        return _calculateDistance(currentLocation, coordinates) >
-            nearbyRadiusKm;
-      });
-
-      deduped.sort((a, b) {
-        final ratingCompare = b.rating.compareTo(a.rating);
-        if (ratingCompare != 0) return ratingCompare;
-        final aDistance = _calculateDistance(
-          currentLocation,
-          a.coordinates ?? currentLocation,
-        );
-        final bDistance = _calculateDistance(
-          currentLocation,
-          b.coordinates ?? currentLocation,
-        );
-        return aDistance.compareTo(bDistance);
-      });
-
-      final topPlaces = deduped.take(6).toList();
-
-      if (topPlaces.isNotEmpty) {
-        debugPrint(
-          '🟢 Returning ${topPlaces.length} nearby trending places from Google Places',
-        );
-        return topPlaces;
-      } else {
-        debugPrint('🔴 No nearby Google Places results, using fallback places');
-        return fallbackDestinations(limit: 6, near: currentLocation);
-      }
-    } catch (e) {
-      debugPrint('🔴 Google Places nearby trending failed: $e');
-      return fallbackDestinations(limit: 6);
-    }
-  }
-    } catch (e) {
-      debugPrint('Google Places nearby trending failed: $e');
       return fallbackDestinations(limit: 6);
     }
   }
