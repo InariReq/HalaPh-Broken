@@ -16,6 +16,10 @@ class SimplePlanService {
   static Future<void>? _initialization;
   static final Map<String, String> _ownerUids = {};
   static final Map<String, List<String>> _participantUids = {};
+  static final StreamController<void> _changesController =
+      StreamController<void>.broadcast();
+
+  static Stream<void> get changes => _changesController.stream;
 
   static Future<void> initialize({bool forceRefresh = false}) async {
     if (!forceRefresh && _initialization != null) return _initialization;
@@ -64,33 +68,33 @@ class SimplePlanService {
   }
 
   static List<TravelPlan> getUserPlans({String? ownerId}) {
-    final owner = ownerId ?? 'current_user';
+    final identities = _identityCandidates(ownerId ?? 'current_user');
     return _plans.values
         .where(
-          (plan) => plan.createdBy == owner && plan.participantIds.length <= 1,
+          (plan) => _isPlanOwner(plan, identities) && !_isCollaborative(plan),
         )
         .toList()
       ..sort((a, b) => b.startDate.compareTo(a.startDate));
   }
 
   static List<TravelPlan> getCollaborativePlans({String? ownerId}) {
-    final owner = ownerId ?? 'current_user';
+    final identities = _identityCandidates(ownerId ?? 'current_user');
     return _plans.values
         .where(
           (plan) =>
-              plan.participantIds.contains(owner) &&
-              (plan.createdBy != owner || plan.participantIds.length > 1),
+              _isPlanParticipant(plan, identities) && _isCollaborative(plan),
         )
         .toList()
       ..sort((a, b) => b.startDate.compareTo(a.startDate));
   }
 
   static List<TravelPlan> getPlansSharedWithUser(String participantId) {
+    final identities = _identityCandidates(participantId);
     return _plans.values
         .where(
           (plan) =>
-              plan.createdBy != participantId &&
-              plan.participantIds.contains(participantId),
+              _isPlanParticipant(plan, identities) &&
+              !_isPlanOwner(plan, identities),
         )
         .toList()
       ..sort((a, b) => b.startDate.compareTo(a.startDate));
@@ -99,11 +103,10 @@ class SimplePlanService {
   static TravelPlan? getNextUpcomingPlan({String? userId}) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final user = userId ?? 'current_user';
+    final identities = _identityCandidates(userId ?? 'current_user');
 
     final upcoming = _plans.values.where((plan) {
-      final isUserPartOfPlan =
-          plan.createdBy == user || plan.participantIds.contains(user);
+      final isUserPartOfPlan = _isPlanParticipant(plan, identities);
       final planDay = DateTime(
         plan.startDate.year,
         plan.startDate.month,
@@ -119,11 +122,10 @@ class SimplePlanService {
   static List<TravelPlan> getAllUpcomingPlans({String? userId}) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final user = userId ?? 'current_user';
+    final identities = _identityCandidates(userId ?? 'current_user');
 
     return _plans.values.where((plan) {
-      final isUserPartOfPlan =
-          plan.createdBy == user || plan.participantIds.contains(user);
+      final isUserPartOfPlan = _isPlanParticipant(plan, identities);
       final planDay = DateTime(
         plan.startDate.year,
         plan.startDate.month,
@@ -159,6 +161,7 @@ class SimplePlanService {
     );
 
     _plans[id] = plan;
+    _notifyChanged();
     _saveRemotePlanInBackground(plan);
     return plan;
   }
@@ -197,6 +200,7 @@ class SimplePlanService {
     );
 
     _plans[planId] = updated;
+    _notifyChanged();
     _saveRemotePlanInBackground(updated);
     return true;
   }
@@ -210,6 +214,7 @@ class SimplePlanService {
     _plans.remove(id);
     _ownerUids.remove(id);
     _participantUids.remove(id);
+    _notifyChanged();
     return true;
   }
 
@@ -253,6 +258,7 @@ class SimplePlanService {
     _plans[planId] = updated;
     try {
       await _saveRemotePlan(updated);
+      _notifyChanged();
       return true;
     } catch (error) {
       debugPrint('Failed to update plan collaborators: $error');
@@ -303,7 +309,10 @@ class SimplePlanService {
     }
 
     // Normalize participant IDs (include creator + selected collaborators)
-    final participants = <String>{createdBy.trim()}
+    final creator = createdBy.trim().isNotEmpty
+        ? createdBy.trim()
+        : 'current_user';
+    final participants = <String>{creator}
       ..addAll(
         participantIds
             .where((id) => id.trim().isNotEmpty)
@@ -319,7 +328,7 @@ class SimplePlanService {
       startDate: startDate,
       endDate: endDate,
       participantIds: participants.toList(),
-      createdBy: createdBy,
+      createdBy: creator,
       itinerary: dayItineraries,
       isShared: participants.length > 1,
       bannerImage: banner,
@@ -327,6 +336,7 @@ class SimplePlanService {
 
     _plans[id] = plan;
     await _saveRemotePlan(plan);
+    _notifyChanged();
     return plan;
   }
 
@@ -336,6 +346,7 @@ class SimplePlanService {
     _planIdCounter = 1;
     _ownerUids.clear();
     _participantUids.clear();
+    _notifyChanged();
     for (final id in ids) {
       unawaited(_deleteRemotePlan(id));
     }
@@ -392,6 +403,7 @@ class SimplePlanService {
 
     _plans[planId] = updated;
     await _saveRemotePlan(updated);
+    _notifyChanged();
     return true;
   }
 
@@ -580,9 +592,9 @@ class SimplePlanService {
     final resolved = await FriendService()
         .resolveParticipantUids(participantCodes)
         .timeout(const Duration(seconds: 6));
-    if (resolved.length <= 1) {
+    if (resolved.length < collaboratorCodes.length + 1) {
       throw Exception(
-        'Could not resolve selected friends. Add them by friend code first.',
+        'Could not resolve every selected friend. Add them by friend code first.',
       );
     }
     return resolved;
@@ -616,6 +628,85 @@ class SimplePlanService {
 
   static bool _sameDate(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  static void _notifyChanged() {
+    if (!_changesController.isClosed) {
+      _changesController.add(null);
+    }
+  }
+
+  static Set<String> _identityCandidates(String? primaryId) {
+    final identities = <String>{};
+    void add(String? value) {
+      final trimmed = value?.trim();
+      if (trimmed != null && trimmed.isNotEmpty) identities.add(trimmed);
+    }
+
+    add(primaryId);
+    add(_currentUserId());
+    return identities;
+  }
+
+  static bool _isPlanOwner(TravelPlan plan, Set<String> identities) {
+    return _matchesAnyIdentity(plan.createdBy, identities) ||
+        _matchesAnyIdentity(_ownerUids[plan.id], identities);
+  }
+
+  static bool _isPlanParticipant(TravelPlan plan, Set<String> identities) {
+    if (_isPlanOwner(plan, identities)) return true;
+    if (plan.participantIds.any((id) => _matchesAnyIdentity(id, identities))) {
+      return true;
+    }
+
+    final remoteParticipants = _participantUids[plan.id] ?? const <String>[];
+    return remoteParticipants.any((id) => _matchesAnyIdentity(id, identities));
+  }
+
+  static bool _isCollaborative(TravelPlan plan) {
+    final participantCodes = plan.participantIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final remoteParticipants = (_participantUids[plan.id] ?? const <String>[])
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    return plan.isShared ||
+        participantCodes.length > 1 ||
+        remoteParticipants.length > 1;
+  }
+
+  static bool _matchesAnyIdentity(String? value, Set<String> identities) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return false;
+
+    for (final identity in identities) {
+      if (_sameIdentity(trimmed, identity)) return true;
+    }
+    return false;
+  }
+
+  static bool _sameIdentity(String left, String right) {
+    final leftTrimmed = left.trim();
+    final rightTrimmed = right.trim();
+    if (leftTrimmed == rightTrimmed) return true;
+
+    if (_isNormalizableParticipantId(leftTrimmed) &&
+        _isNormalizableParticipantId(rightTrimmed)) {
+      return _normalizeCode(leftTrimmed) == _normalizeCode(rightTrimmed);
+    }
+
+    return false;
+  }
+
+  static bool _isNormalizableParticipantId(String value) {
+    final compact = value.trim().replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+    final lower = value.trim().toLowerCase();
+    return RegExp(r'^[A-Za-z]{2}[0-9]{4}$').hasMatch(compact) ||
+        lower == 'current_user' ||
+        lower == 'demo_user';
   }
 
   static CollectionReference<Map<String, dynamic>> get _plansCollection =>

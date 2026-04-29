@@ -46,8 +46,11 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
   }
 
   List<_RouteViewModel> get _visibleRoutes {
-    if (_preferredMode == null) return _routes;
-    return _routes.where((route) => route.mode == _preferredMode).toList();
+    final publicRoutes = _routes
+        .where((route) => route.mode != TravelMode.driving)
+        .toList();
+    if (_preferredMode == null) return publicRoutes;
+    return publicRoutes.where((route) => route.mode == _preferredMode).toList();
   }
 
   Future<void> _loadRouteData() async {
@@ -74,6 +77,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             origin,
             destination,
           );
+          if (converted.mode == TravelMode.driving) {
+            continue;
+          }
           final signature =
               '${converted.mode.name}|${converted.summary}|'
               '${converted.boardStop}|${converted.dropOffStop}|${converted.routeLabel}';
@@ -160,9 +166,14 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
   }
 
   bool _shouldAddEstimatedRoute(List<_RouteViewModel> routes, TravelMode mode) {
+    if (mode == TravelMode.driving) return false;
+    if (mode == TravelMode.train ||
+        mode == TravelMode.fx ||
+        mode == TravelMode.jeepney) {
+      return true;
+    }
     final hasSameMode = routes.any((route) => route.mode == mode);
-    if (!hasSameMode) return true;
-    return mode == TravelMode.fx || mode == TravelMode.jeepney;
+    return !hasSameMode;
   }
 
   Future<_RouteViewModel> _convertBudgetRoute(
@@ -1529,7 +1540,6 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       TravelMode.bus,
       TravelMode.fx,
       TravelMode.train,
-      TravelMode.driving,
       TravelMode.walking,
     ];
     return SizedBox(

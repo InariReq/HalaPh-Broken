@@ -5,6 +5,7 @@ import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/travel_cost_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
+import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/services/simple_plan_service.dart';
@@ -24,7 +25,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final Map<String, List<TravelCostEstimate>> _travelCosts = {};
   final Set<String> _favoriteIds = {};
   final FavoritesService _favoritesService = FavoritesService();
-  StreamSubscription? _subscription;
+  final FriendService _friendService = FriendService();
+  StreamSubscription? _favoritesSubscription;
+  StreamSubscription? _plansSubscription;
   TravelPlan? _nextPlan;
   bool _plansLoading = true;
 
@@ -34,24 +37,33 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadTrendingDestinations();
     _loadFavorites();
     _loadUpcomingPlan();
-    _subscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
+    _favoritesSubscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
       _loadFavorites();
+    });
+    _plansSubscription = SimplePlanService.changes.listen((_) {
+      _loadUpcomingPlan(forceRefresh: true);
     });
   }
 
-  Future<void> _loadUpcomingPlan() async {
+  Future<void> _loadUpcomingPlan({bool forceRefresh = false}) async {
+    if (!mounted) return;
     setState(() {
       _plansLoading = true;
     });
     try {
-      await SimplePlanService.initialize();
-      final nextPlan = SimplePlanService.getNextUpcomingPlan();
+      await SimplePlanService.initialize(forceRefresh: forceRefresh);
+      final myCode = await _friendService.getMyCode().catchError(
+        (_) => 'current_user',
+      );
+      final nextPlan = SimplePlanService.getNextUpcomingPlan(userId: myCode);
+      if (!mounted) return;
       setState(() {
         _nextPlan = nextPlan;
         _plansLoading = false;
       });
     } catch (e) {
       debugPrint('Error loading upcoming plan: $e');
+      if (!mounted) return;
       setState(() {
         _plansLoading = false;
       });
@@ -60,7 +72,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    _favoritesSubscription?.cancel();
+    _plansSubscription?.cancel();
     super.dispose();
   }
 
@@ -304,12 +317,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildNextPlanCard(BuildContext context, TravelPlan plan) {
     final now = DateTime.now();
-    final daysUntil = plan.startDate.difference(now).inDays;
-    final dayText = daysUntil == 0 
-        ? 'Today' 
-        : daysUntil == 1 
-            ? 'Tomorrow' 
-            : 'In $daysUntil days';
+    final today = DateTime(now.year, now.month, now.day);
+    final planDay = DateTime(
+      plan.startDate.year,
+      plan.startDate.month,
+      plan.startDate.day,
+    );
+    final daysUntil = planDay.difference(today).inDays;
+    final dayText = daysUntil == 0
+        ? 'Today'
+        : daysUntil == 1
+        ? 'Tomorrow'
+        : 'In $daysUntil days';
+    final destinationCount = _destinationCount(plan);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -336,7 +356,9 @@ class _HomeScreenState extends State<HomeScreen> {
               height: 120,
               decoration: BoxDecoration(
                 color: Colors.blue[400],
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
               ),
               child: Stack(
                 children: [
@@ -344,7 +366,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     top: 12,
                     left: 12,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
@@ -402,18 +427,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+                      Icon(
+                        Icons.calendar_today,
+                        size: 14,
+                        color: Colors.grey[600],
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         _formatDateRange(plan.startDate, plan.endDate),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ],
                   ),
-                  if (plan.itinerary.isNotEmpty) ...[
+                  if (destinationCount > 0) ...[
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -421,7 +447,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            '${plan.itinerary.length} destination${plan.itinerary.length > 1 ? 's' : ''}',
+                            '$destinationCount destination${destinationCount > 1 ? 's' : ''}',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.blue[600],
@@ -441,13 +467,32 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  int _destinationCount(TravelPlan plan) {
+    return plan.itinerary.fold<int>(
+      0,
+      (total, day) => total + day.items.length,
+    );
+  }
+
   static const List<String> _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   String _formatDateRange(DateTime start, DateTime end) {
-    if (start.day == end.day && start.month == end.month && start.year == end.year) {
+    if (start.day == end.day &&
+        start.month == end.month &&
+        start.year == end.year) {
       return '${_months[start.month - 1]} ${start.day}, ${start.year}';
     }
     if (start.month == end.month && start.year == end.year) {

@@ -210,7 +210,24 @@ class _RailSegment {
   });
 }
 
+class _RailRouteCandidate {
+  final _RailStationMatch originStation;
+  final _RailStationMatch destinationStation;
+  final List<_RailSegment> segments;
+  final double score;
+
+  const _RailRouteCandidate({
+    required this.originStation,
+    required this.destinationStation,
+    required this.segments,
+    required this.score,
+  });
+}
+
 class BudgetRoutingService {
+  static const double _walkableRailAccessKm = 1.2;
+  static const double _maxRailConnectorKm = 15.0;
+
   static const List<_RailLine> _railLines = [
     _RailLine(
       code: 'LRT-1',
@@ -408,7 +425,6 @@ class BudgetRoutingService {
   static Future<List<BudgetRoute>> calculateBudgetRoutes({
     required LatLng origin,
     required LatLng destination,
-    bool preferDriving = false,
   }) async {
     debugPrint('=== BUDGET ROUTING SERVICE ===');
     debugPrint('From: ${origin.latitude}, ${origin.longitude}');
@@ -417,16 +433,7 @@ class BudgetRoutingService {
     final routes = <BudgetRoute>[];
 
     try {
-      // 1. Get driving route (for cost comparison)
-      final drivingRoute = await _calculateDrivingRoute(origin, destination);
-      if (drivingRoute != null) {
-        routes.add(drivingRoute);
-        debugPrint(
-          'Added driving route: ₱${drivingRoute.cost.toStringAsFixed(2)}',
-        );
-      }
-
-      // 2. Calculate jeepney alternative
+      // 1. Calculate jeepney alternative
       final jeepneyRoute = await _calculateJeepneyRoute(origin, destination);
       if (jeepneyRoute != null) {
         routes.add(jeepneyRoute);
@@ -435,7 +442,7 @@ class BudgetRoutingService {
         );
       }
 
-      // 3. Add bus route if longer distance
+      // 2. Add bus route if longer distance
       final distance = _calculateDistance(origin, destination);
       if (distance > 5) {
         final busRoute = await _calculateBusRoute(origin, destination);
@@ -445,38 +452,32 @@ class BudgetRoutingService {
         }
       }
 
-      // 4. Add MRT/LRT route if both endpoints are near rail access
+      // 3. Add MRT/LRT route when station access is practical
       final trainRoute = _calculateTrainRoute(origin, destination);
       if (trainRoute != null) {
         routes.add(trainRoute);
         debugPrint('Added train route: ₱${trainRoute.cost.toStringAsFixed(2)}');
       }
 
-      // 5. Add FX route if applicable
+      // 4. Add FX route if applicable
       final fxRoute = await _calculateFxRoute(origin, destination);
       if (fxRoute != null) {
         routes.add(fxRoute);
         debugPrint('Added FX route: ₱${fxRoute.cost.toStringAsFixed(2)}');
       }
 
-      // 6. Always add walking route
+      // 5. Always add walking route
       final walkingRoute = _calculateWalkingRoute(origin, destination);
       routes.add(walkingRoute);
       debugPrint('Added walking route: FREE');
 
-      // Sort by cost (cheapest first) unless driving is preferred
-      if (!preferDriving) {
-        routes.sort((a, b) => a.cost.compareTo(b.cost));
-      }
+      routes.sort((a, b) => a.cost.compareTo(b.cost));
 
       debugPrint('=== BUDGET ROUTING RESULTS ===');
       for (int i = 0; i < routes.length; i++) {
         final route = routes[i];
-        final savings = route.mode == TravelMode.driving && routes.isNotEmpty
-            ? route.cost - routes.first.cost
-            : 0.0;
         debugPrint(
-          '  ${i + 1}. ${route.mode.name} - ${route.duration.inMinutes}min - ₱${route.cost.toStringAsFixed(2)} ${savings > 0 ? "(Save ₱${savings.toStringAsFixed(2)})" : ""}',
+          '  ${i + 1}. ${route.mode.name} - ${route.duration.inMinutes}min - ₱${route.cost.toStringAsFixed(2)}',
         );
       }
 
@@ -485,72 +486,6 @@ class BudgetRoutingService {
       debugPrint('Budget routing failed: $e');
       return _getFallbackRoutes(origin, destination);
     }
-  }
-
-  // Calculate driving route with fuel and toll costs
-  static Future<BudgetRoute?> _calculateDrivingRoute(
-    LatLng origin,
-    LatLng destination,
-  ) async {
-    try {
-      final directions = await GoogleMapsApiService.getDirections(
-        origin: origin,
-        destination: destination,
-        travelMode: 'driving',
-      );
-
-      if (directions != null && directions.routes.isNotEmpty) {
-        final route = directions.routes.first;
-        final distance = route.totalDistance; // Already in km
-        final duration = route.totalDuration;
-
-        // Calculate fuel cost
-        final fuelCost =
-            (distance / PhilippineFares.vehicleFuelConsumption) *
-            PhilippineFares.fuelPricePerLiter;
-
-        // Estimate toll cost (check if route uses major expressways)
-        final tollCost = _estimateTollCost(route);
-
-        // Estimate parking cost (assume 1 hour parking)
-        final parkingCost = PhilippineFares.parkingRatePerHour;
-
-        final totalCost = fuelCost + tollCost + parkingCost;
-
-        // Check for toll warnings
-        final tips = <String>[];
-        if (tollCost > 0) {
-          tips.add(
-            '⚠️ Toll road detected! Additional ₱${tollCost.toStringAsFixed(0)} in tolls',
-          );
-        }
-        tips.add('💰 Fuel cost: ₱${fuelCost.toStringAsFixed(0)}');
-        tips.add('🅿️ Parking estimate: ₱${parkingCost.toStringAsFixed(0)}');
-
-        return BudgetRoute(
-          id: 'driving-${DateTime.now().millisecondsSinceEpoch}',
-          mode: TravelMode.driving,
-          start: origin,
-          end: destination,
-          duration: duration,
-          distance: distance,
-          cost: totalCost,
-          instructions: _extractInstructions(route),
-          polyline: _extractPolyline(route),
-          summary: 'Driving - Fastest but most expensive',
-          tips: tips,
-          fareDetails: FareDetails(
-            regular: totalCost,
-            student: totalCost, // No discount for driving
-            pwd: totalCost,
-            senior: totalCost,
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Driving route calculation failed: $e');
-    }
-    return null;
   }
 
   // Calculate jeepney route with realistic fares
@@ -770,38 +705,31 @@ class BudgetRoutingService {
 
   static BudgetRoute? _calculateTrainRoute(LatLng origin, LatLng destination) {
     try {
-      final originStation = _nearestRailStation(origin);
-      final destinationStation = _nearestRailStation(destination);
-      if (originStation == null || destinationStation == null) return null;
+      final candidate = _bestRailRoute(origin, destination);
+      if (candidate == null) return null;
 
-      const maxAccessKm = 2.7;
-      const maxEgressKm = 3.2;
-      if (originStation.distanceKm > maxAccessKm ||
-          destinationStation.distanceKm > maxEgressKm) {
-        return null;
-      }
-
-      final segments = _buildRailSegments(originStation, destinationStation);
-      if (segments.isEmpty) return null;
-
+      final originStation = candidate.originStation;
+      final destinationStation = candidate.destinationStation;
+      final segments = candidate.segments;
       final railStopCount = segments.fold<int>(
         0,
         (total, segment) => total + segment.stopCount,
       );
-      if (railStopCount == 0 && segments.length == 1) return null;
 
       final transferMinutes = _transferMinutesForSegments(segments);
-      final walkMinutes =
-          ((originStation.distanceKm + destinationStation.distanceKm) /
-                  4.5 *
-                  60)
-              .round();
+      final accessMinutes = _stationAccessMinutes(originStation.distanceKm);
+      final egressMinutes = _stationAccessMinutes(
+        destinationStation.distanceKm,
+      );
       final trainMinutes = math.max(6, railStopCount * 3);
       final duration = Duration(
-        minutes: walkMinutes + trainMinutes + transferMinutes,
+        minutes: accessMinutes + trainMinutes + transferMinutes + egressMinutes,
       );
       final lineCodes = segments.map((segment) => segment.line.code).toSet();
-      final fareDetails = _calculateTrainFare(segments);
+      final railFare = _calculateTrainFare(segments);
+      final accessFare = _stationConnectorFare(originStation.distanceKm);
+      final egressFare = _stationConnectorFare(destinationStation.distanceKm);
+      final fareDetails = _sumFareDetails([railFare, accessFare, egressFare]);
       final polyline = _dedupePolylinePoints([
         origin,
         for (final segment in segments) ...[
@@ -816,15 +744,24 @@ class BudgetRoutingService {
         destinationStation.station.name,
       ]);
       final instructions = <String>[
-        'Walk to ${originStation.station.name} ${originStation.line.code} station.',
+        _stationAccessInstruction(
+          station: originStation,
+          isDestinationSide: false,
+        ),
         for (var i = 0; i < segments.length; i++) ...[
           'Ride ${segments[i].line.name} from ${segments[i].from.name} to ${segments[i].to.name}${segments[i].stopCount > 0 ? ' (${segments[i].stopCount} stops)' : ''}.',
           if (i < segments.length - 1)
             'Transfer from ${segments[i].line.code} to ${segments[i + 1].line.code}. Follow station signs before boarding the next train.',
         ],
-        'Exit at ${destinationStation.station.name}, then walk to your destination.',
+        _stationAccessInstruction(
+          station: destinationStation,
+          isDestinationSide: true,
+        ),
       ];
       final routeName = lineCodes.join(' + ');
+      final usesConnector =
+          originStation.distanceKm > _walkableRailAccessKm ||
+          destinationStation.distanceKm > _walkableRailAccessKm;
 
       return BudgetRoute(
         id: 'train-${DateTime.now().millisecondsSinceEpoch}',
@@ -836,12 +773,16 @@ class BudgetRoutingService {
         cost: fareDetails.regular,
         instructions: instructions,
         polyline: polyline,
-        summary: segments.length == 1
+        summary: usesConnector
+            ? 'Train + station access - $routeName'
+            : segments.length == 1
             ? 'Train - ${segments.first.line.name}'
             : 'Train - MRT/LRT transfer route',
         tips: [
           'Use a Beep card or single-journey ticket at the station.',
-          'Allow extra walking time for station transfers and exits.',
+          if (usesConnector)
+            'This route includes estimated first/last-mile transport to the train station.',
+          'Allow extra time for station transfers and exits.',
           if (segments.length > 1)
             'This route has ${segments.length - 1} rail transfer${segments.length == 2 ? '' : 's'}.',
         ],
@@ -866,23 +807,119 @@ class BudgetRoutingService {
     }
   }
 
-  static _RailStationMatch? _nearestRailStation(LatLng point) {
-    _RailStationMatch? nearest;
+  static _RailRouteCandidate? _bestRailRoute(
+    LatLng origin,
+    LatLng destination,
+  ) {
+    final originStations = _nearestRailStationCandidates(
+      origin,
+      maxDistanceKm: _maxRailConnectorKm,
+    );
+    final destinationStations = _nearestRailStationCandidates(
+      destination,
+      maxDistanceKm: _maxRailConnectorKm,
+    );
+    if (originStations.isEmpty || destinationStations.isEmpty) return null;
+
+    _RailRouteCandidate? best;
+    for (final originStation in originStations) {
+      for (final destinationStation in destinationStations) {
+        final segments = _buildRailSegments(originStation, destinationStation);
+        if (segments.isEmpty) continue;
+
+        final railStopCount = segments.fold<int>(
+          0,
+          (total, segment) => total + segment.stopCount,
+        );
+        if (railStopCount == 0) continue;
+
+        final transferCount = math.max(0, segments.length - 1);
+        final score =
+            originStation.distanceKm * 2.0 +
+            destinationStation.distanceKm * 2.0 +
+            railStopCount * 0.25 +
+            transferCount * 1.5;
+        final candidate = _RailRouteCandidate(
+          originStation: originStation,
+          destinationStation: destinationStation,
+          segments: segments,
+          score: score,
+        );
+
+        if (best == null || candidate.score < best.score) {
+          best = candidate;
+        }
+      }
+    }
+    return best;
+  }
+
+  static List<_RailStationMatch> _nearestRailStationCandidates(
+    LatLng point, {
+    required double maxDistanceKm,
+  }) {
+    final matches = <_RailStationMatch>[];
     for (final line in _railLines) {
       for (var i = 0; i < line.stations.length; i++) {
         final station = line.stations[i];
         final distance = _calculateDistance(point, station.location);
-        if (nearest == null || distance < nearest.distanceKm) {
-          nearest = _RailStationMatch(
-            line: line,
-            station: station,
-            stationIndex: i,
-            distanceKm: distance,
+        if (distance <= maxDistanceKm) {
+          matches.add(
+            _RailStationMatch(
+              line: line,
+              station: station,
+              stationIndex: i,
+              distanceKm: distance,
+            ),
           );
         }
       }
     }
-    return nearest;
+
+    matches.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+    return matches.take(6).toList(growable: false);
+  }
+
+  static int _stationAccessMinutes(double distanceKm) {
+    if (distanceKm <= _walkableRailAccessKm) {
+      return math.max(3, (distanceKm / 4.5 * 60).round());
+    }
+    return math.max(10, (distanceKm / 16 * 60).round() + 8);
+  }
+
+  static FareDetails _stationConnectorFare(double distanceKm) {
+    if (distanceKm <= _walkableRailAccessKm) {
+      return const FareDetails(regular: 0, student: 0, pwd: 0, senior: 0);
+    }
+    if (distanceKm <= 5) {
+      return _calculateJeepneyFare(distanceKm);
+    }
+    return _calculateBusFare(distanceKm);
+  }
+
+  static String _stationAccessInstruction({
+    required _RailStationMatch station,
+    required bool isDestinationSide,
+  }) {
+    final stationName = '${station.station.name} ${station.line.code}';
+    if (station.distanceKm <= _walkableRailAccessKm) {
+      return isDestinationSide
+          ? 'Exit at $stationName station, then walk to your destination.'
+          : 'Walk to $stationName station.';
+    }
+
+    return isDestinationSide
+        ? 'Exit at $stationName station, then take a short local ride to your destination.'
+        : 'Take a jeepney, bus, UV Express, or short ride to $stationName station.';
+  }
+
+  static FareDetails _sumFareDetails(List<FareDetails> fares) {
+    return FareDetails(
+      regular: fares.fold(0.0, (total, fare) => total + fare.regular),
+      student: fares.fold(0.0, (total, fare) => total + fare.student),
+      pwd: fares.fold(0.0, (total, fare) => total + fare.pwd),
+      senior: fares.fold(0.0, (total, fare) => total + fare.senior),
+    );
   }
 
   static List<_RailSegment> _buildRailSegments(
@@ -1158,26 +1195,6 @@ class BudgetRoutingService {
       pwd: regularFare * (1 - PhilippineFares.pwdDiscount),
       senior: regularFare * (1 - PhilippineFares.seniorDiscount),
     );
-  }
-
-  // Estimate toll cost based on route
-  static double _estimateTollCost(dynamic route) {
-    // This is a simplified estimation
-    // In a real app, you'd check the route path against known toll roads
-    double totalToll = 0.0;
-
-    // Check if route might use major expressways (simplified)
-    // This would ideally use the actual route polyline
-    for (final entry in PhilippineFares.tollFees.entries) {
-      // Simple heuristic: long routes might use expressways
-      if (route.totalDistance > 10) {
-        // > 10km
-        totalToll += entry.value;
-        break; // Assume one toll for simplicity
-      }
-    }
-
-    return totalToll;
   }
 
   // Get popular routes near destination

@@ -18,21 +18,30 @@ class FirebaseAppService {
         _env('FIREBASE_MESSAGING_SENDER_ID').isNotEmpty;
   }
 
-  static Future<bool> initialize() {
-    return _initialization ??= _initialize();
+  static Future<bool> initialize({bool forceRetry = false}) async {
+    if (Firebase.apps.isNotEmpty) return true;
+    if (forceRetry) _initialization = null;
+
+    final initialization = _initialization ??= _initialize();
+    final success = await initialization;
+    if (!success && identical(_initialization, initialization)) {
+      _initialization = null;
+    }
+    return success;
   }
 
   static Future<bool> _initialize() async {
     if (Firebase.apps.isNotEmpty) return true;
 
     try {
-      final options = _optionsFromEnv() ?? _optionsFromGeneratedConfig();
+      final options = _optionsFromGeneratedConfig() ?? _optionsFromEnv();
       if (options != null) {
         await Firebase.initializeApp(options: options);
+        debugPrint('Firebase initialized for project ${options.projectId}.');
       } else {
         await Firebase.initializeApp();
+        debugPrint('Firebase initialized with native platform config.');
       }
-      debugPrint('Firebase initialized.');
       return true;
     } catch (error) {
       debugPrint('Firebase not configured; cloud sync disabled: $error');

@@ -10,6 +10,9 @@ class AuthService {
   factory AuthService() => _instance;
   AuthService._internal();
 
+  String? _lastAuthError;
+  String? get lastAuthError => _lastAuthError;
+
   Future<User?> getCurrentUser() async {
     final firebaseUser = await _getFirebaseUser();
     if (firebaseUser != null) return _toAppUser(firebaseUser);
@@ -22,17 +25,26 @@ class AuthService {
   }
 
   Future<User?> login(String email, String password) async {
-    if (email.isNotEmpty && password.isNotEmpty) {
-      final firebaseUser = await _signInWithFirebase(email, password);
-      if (firebaseUser != null) {
-        return _toAppUser(firebaseUser);
-      }
+    _lastAuthError = null;
+    if (email.isEmpty || password.isEmpty) {
+      _lastAuthError = 'Enter your email and password.';
+      return null;
+    }
+
+    final firebaseUser = await _signInWithFirebase(email, password);
+    if (firebaseUser != null) {
+      return _toAppUser(firebaseUser);
     }
     return null;
   }
 
   Future<User?> register(String email, String password, {String? name}) async {
-    if (email.isEmpty || password.isEmpty) return null;
+    _lastAuthError = null;
+    if (email.isEmpty || password.isEmpty) {
+      _lastAuthError = 'Enter an email and password.';
+      return null;
+    }
+
     final firebaseUser = await _registerWithFirebase(email, password, name);
     if (firebaseUser != null) {
       return _toAppUser(firebaseUser, fallbackName: name);
@@ -68,15 +80,20 @@ class AuthService {
     String email,
     String password,
   ) async {
-    if (!await FirebaseAppService.initialize()) return null;
+    if (!await FirebaseAppService.initialize(forceRetry: true)) {
+      _lastAuthError = 'Firebase is not configured for this platform.';
+      return null;
+    }
     try {
       final credential = await firebase_auth.FirebaseAuth.instance
           .signInWithEmailAndPassword(email: email, password: password);
       return credential.user;
     } on firebase_auth.FirebaseAuthException catch (error) {
-      debugPrint('Firebase login failed: ${error.code}');
+      _lastAuthError = _messageForAuthException(error, isRegistration: false);
+      debugPrint('Firebase login failed: ${error.code} ${error.message ?? ''}');
       return null;
     } catch (error) {
+      _lastAuthError = 'Login failed. Check your connection and try again.';
       debugPrint('Firebase login failed: $error');
       return null;
     }
@@ -87,7 +104,10 @@ class AuthService {
     String password,
     String? name,
   ) async {
-    if (!await FirebaseAppService.initialize()) return null;
+    if (!await FirebaseAppService.initialize(forceRetry: true)) {
+      _lastAuthError = 'Firebase is not configured for this platform.';
+      return null;
+    }
     try {
       final credential = await firebase_auth.FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: password);
@@ -99,11 +119,52 @@ class AuthService {
       }
       return firebase_auth.FirebaseAuth.instance.currentUser ?? user;
     } on firebase_auth.FirebaseAuthException catch (error) {
-      debugPrint('Firebase registration failed: ${error.code}');
+      _lastAuthError = _messageForAuthException(error, isRegistration: true);
+      debugPrint(
+        'Firebase registration failed: ${error.code} ${error.message ?? ''}',
+      );
       return null;
     } catch (error) {
+      _lastAuthError =
+          'Account creation failed. Check your connection and try again.';
       debugPrint('Firebase registration failed: $error');
       return null;
+    }
+  }
+
+  String _messageForAuthException(
+    firebase_auth.FirebaseAuthException error, {
+    required bool isRegistration,
+  }) {
+    switch (error.code) {
+      case 'invalid-email':
+        return 'Enter a valid email address.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
+      case 'user-not-found':
+        return 'No account exists for that email.';
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'The email or password is incorrect.';
+      case 'email-already-in-use':
+        return 'An account already exists for that email.';
+      case 'weak-password':
+        return 'Use a stronger password.';
+      case 'too-many-requests':
+        return 'Too many attempts. Try again later.';
+      case 'network-request-failed':
+        return 'Network error. Check your internet connection.';
+      case 'operation-not-allowed':
+        return 'Email/password sign-in is not enabled in Firebase Authentication.';
+      case 'invalid-api-key':
+      case 'api-key-not-valid':
+      case 'app-not-authorized':
+      case 'configuration-not-found':
+        return 'Firebase Authentication is not configured for this app.';
+      default:
+        return isRegistration
+            ? 'Could not create the account. ${error.message ?? 'Please try again.'}'
+            : 'Could not log in. ${error.message ?? 'Please try again.'}';
     }
   }
 

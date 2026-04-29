@@ -9,8 +9,10 @@ plugins {
 }
 
 fun readMapsApiKeyFromDotEnv(): String {
-    val envFile = rootProject.file(".env")
-    if (!envFile.exists()) return ""
+    val envFile = listOf(
+        rootProject.file("../.env"),
+        rootProject.file(".env"),
+    ).firstOrNull { it.exists() } ?: return ""
 
     return envFile.readLines()
         .asSequence()

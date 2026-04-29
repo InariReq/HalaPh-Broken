@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
@@ -17,17 +18,27 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   final FriendService _friendService = FriendService();
   String _myCode = 'current_user';
   bool _isLoading = true;
+  StreamSubscription? _plansSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadPlans();
+    _plansSubscription = SimplePlanService.changes.listen((_) {
+      _loadPlans(forceRefresh: true);
+    });
   }
 
-  Future<void> _loadPlans() async {
+  @override
+  void dispose() {
+    _plansSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadPlans({bool forceRefresh = false}) async {
     final results = await Future.wait<dynamic>([
       _friendService.getMyCode().catchError((_) => 'demo_user'),
-      SimplePlanService.initialize().catchError((e) {
+      SimplePlanService.initialize(forceRefresh: forceRefresh).catchError((e) {
         debugPrint('SimplePlanService.init error: $e');
       }),
     ]);
@@ -154,7 +165,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -363,7 +374,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
           const SizedBox(height: 12),
           InkWell(
             onTap: () {
-              print('My Plans Create New Plan tapped!');
+              debugPrint('My Plans Create New Plan tapped!');
               GoRouter.of(context).push('/create-plan');
             },
             borderRadius: BorderRadius.circular(12),

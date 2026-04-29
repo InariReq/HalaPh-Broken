@@ -140,6 +140,11 @@ final GoRouter _router = GoRouter(
       builder: (context, state) => const AccountsScreen(),
     ),
     GoRoute(
+      path: '/login',
+      builder: (context, state) =>
+          AccountsScreen(onLoginSuccess: () => context.go('/')),
+    ),
+    GoRoute(
       path: '/share-plan',
       builder: (context, state) =>
           SharePlanScreen(planId: state.uri.queryParameters['planId'] ?? ''),

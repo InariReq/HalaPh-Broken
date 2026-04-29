@@ -60,7 +60,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
     if (user != null) {
       widget.onLoginSuccess?.call();
     } else {
-      _showAuthError('Could not log in. Check your email and password.');
+      _showAuthError(
+        _auth.lastAuthError ??
+            'Could not log in. Check your email and password.',
+      );
     }
   }
 
@@ -84,7 +87,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
     if (user != null) {
       widget.onLoginSuccess?.call();
     } else {
-      _showAuthError('Could not create the account. Try another email.');
+      _showAuthError(
+        _auth.lastAuthError ??
+            'Could not create the account. Try another email.',
+      );
     }
   }
 

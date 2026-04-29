@@ -198,7 +198,6 @@ class GoogleMapsApiService {
 
     final travelModes = [
       {'mode': 'walking', 'departure_time': null},
-      {'mode': 'driving', 'departure_time': null},
       {'mode': 'transit', 'departure_time': now.toString()},
     ];
 
