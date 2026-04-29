@@ -37,13 +37,11 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   void initState() {
     super.initState();
     _loadDestinations();
-    _searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
-    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -198,7 +196,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         ),
         child: TextField(
           controller: _searchController,
-          onChanged: (_) => _searchDestinations(), // real-time search
+          onChanged: (_) => _onSearchChanged(),
           decoration: InputDecoration(
             hintText: 'Search Philippines destinations...',
             hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),

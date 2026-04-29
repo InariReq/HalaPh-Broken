@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/destination.dart';
@@ -29,35 +30,89 @@ class MapService {
     'divisoria-market': LatLng(14.6031, 120.9822),
   };
 
-  // Get current user location
+  static Position? _cachedPosition;
+  static DateTime? _positionCacheTime;
+  static const _cacheValidity = Duration(minutes: 5);
+
+  // Get current user location with retry logic and caching
   static Future<Position?> getCurrentLocation() async {
     try {
+      // Use cached position if recent
+      if (_cachedPosition != null &&
+          _positionCacheTime != null &&
+          DateTime.now().difference(_positionCacheTime!) < _cacheValidity) {
+        debugPrint(
+          'Using cached position: ${_cachedPosition!.latitude}, ${_cachedPosition!.longitude}',
+        );
+        return _cachedPosition;
+      }
+
       // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        throw Exception('Location services are disabled.');
+        debugPrint('Location services are disabled');
+        return _cachedPosition;
       }
 
       // Check location permissions
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
+        debugPrint('Requesting location permission...');
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          throw Exception('Location permissions are denied');
+          debugPrint('Location permissions are denied');
+          return _cachedPosition;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        throw Exception('Location permissions are permanently denied');
+        debugPrint('Location permissions are permanently denied');
+        return _cachedPosition;
       }
 
-      // Get current position
-      return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
-      );
+      // Get current position with retries
+      Position? position;
+      for (int attempt = 1; attempt <= 3; attempt++) {
+        try {
+          debugPrint('Getting position, attempt $attempt...');
+          final settings = LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 15),
+          );
+          position = await Geolocator.getCurrentPosition(
+            locationSettings: settings,
+          );
+          break;
+        } catch (e) {
+          debugPrint('Position attempt $attempt failed: $e');
+          if (attempt < 3) {
+            await Future.delayed(Duration(seconds: attempt));
+          }
+        }
+      }
+
+      if (position == null) {
+        // Try last known position
+        try {
+          debugPrint('Trying last known position...');
+          position = await Geolocator.getLastKnownPosition();
+        } catch (e) {
+          debugPrint('Failed to get last known position: $e');
+        }
+      }
+
+      if (position != null) {
+        _cachedPosition = position;
+        _positionCacheTime = DateTime.now();
+        debugPrint(
+          'Current position: ${position.latitude}, ${position.longitude}',
+        );
+      }
+
+      return position ?? _cachedPosition;
     } catch (e) {
-      throw Exception('Failed to get location: $e');
+      debugPrint('Failed to get location: $e');
+      return _cachedPosition;
     }
   }
 

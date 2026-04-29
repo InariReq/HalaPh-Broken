@@ -34,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _checkLocationStatus();
     _loadTrendingDestinations();
     _loadFavorites();
     _loadUpcomingPlan();
@@ -43,6 +44,24 @@ class _HomeScreenState extends State<HomeScreen> {
     _plansSubscription = SimplePlanService.changes.listen((_) {
       _loadUpcomingPlan(forceRefresh: true);
     });
+  }
+
+  Future<void> _checkLocationStatus() async {
+    try {
+      final location = await DestinationService.getCurrentLocation();
+      if (!mounted) return;
+      setState(() {
+        _locationEnabled = !DestinationService.isInvalidLocation(location);
+        _locationStatus =
+            _locationEnabled ? 'Location found' : 'Using default location';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _locationEnabled = false;
+        _locationStatus = 'Location unavailable';
+      });
+    }
   }
 
   Future<void> _loadUpcomingPlan({bool forceRefresh = false}) async {
@@ -55,7 +74,9 @@ class _HomeScreenState extends State<HomeScreen> {
       final myCode = await _friendService.getMyCode().catchError(
         (_) => 'current_user',
       );
-      final nextPlan = SimplePlanService.getNextUpcomingPlan(userId: myCode);
+      final nextPlan =
+          SimplePlanService.getNextUpcomingPlan(userId: myCode) ??
+          _latestVisiblePlan(myCode);
       if (!mounted) return;
       setState(() {
         _nextPlan = nextPlan;
@@ -177,6 +198,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  bool _locationEnabled = true;
+  String _locationStatus = 'Getting location...';
+
   Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -202,9 +226,32 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: TextStyle(fontSize: 18, color: Colors.grey),
                     ),
                     const SizedBox(width: 8),
-                    Icon(Icons.location_on, size: 20, color: Colors.grey[600]),
+                    Icon(
+                      _locationEnabled ? Icons.location_on : Icons.location_off,
+                      size: 20,
+                      color: _locationEnabled ? Colors.green[600] : Colors.grey[600],
+                    ),
+                    if (!_locationEnabled) ...[
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: _retryLocation,
+                        child: Icon(
+                          Icons.refresh,
+                          size: 16,
+                          color: Colors.blue[600],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
+                if (!_locationEnabled)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      _locationStatus,
+                      style: TextStyle(fontSize: 12, color: Colors.orange[700]),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -216,6 +263,33 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _retryLocation() async {
+    setState(() {
+      _locationStatus = 'Getting location...';
+    });
+    try {
+      final location = await DestinationService.getCurrentLocation();
+      if (!DestinationService.isInvalidLocation(location)) {
+        setState(() {
+          _locationEnabled = true;
+          _locationStatus = 'Location found';
+        });
+        // Reload destinations with new location
+        _loadTrendingDestinations();
+      } else {
+        setState(() {
+          _locationEnabled = false;
+          _locationStatus = 'Using default location';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _locationEnabled = false;
+        _locationStatus = 'Location unavailable';
+      });
+    }
   }
 
   Widget _buildCurrentPlan(BuildContext context) {
@@ -472,6 +546,22 @@ class _HomeScreenState extends State<HomeScreen> {
       0,
       (total, day) => total + day.items.length,
     );
+  }
+
+  TravelPlan? _latestVisiblePlan(String myCode) {
+    final plansById = <String, TravelPlan>{};
+    for (final plan in SimplePlanService.getUserPlans(ownerId: myCode)) {
+      plansById[plan.id] = plan;
+    }
+    for (final plan in SimplePlanService.getCollaborativePlans(
+      ownerId: myCode,
+    )) {
+      plansById[plan.id] = plan;
+    }
+
+    final plans = plansById.values.toList()
+      ..sort((a, b) => b.startDate.compareTo(a.startDate));
+    return plans.isEmpty ? null : plans.first;
   }
 
   static const List<String> _months = [

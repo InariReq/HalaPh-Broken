@@ -6,6 +6,169 @@ import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/google_maps_api_service.dart';
 
 class DestinationService {
+  static const LatLng _defaultSearchLocation = LatLng(14.5995, 120.9842);
+  static const Duration _locationSearchTimeout = Duration(seconds: 4);
+  static const Duration _placesSearchTimeout = Duration(seconds: 8);
+
+  static final List<Destination> _fallbackDestinations = [
+    Destination(
+      id: 'fallback-rizal-park',
+      name: 'Rizal Park',
+      description:
+          'A historic urban park in Manila with gardens, monuments, and open spaces for walks and photos.',
+      location: 'Ermita, Manila',
+      imageUrl: '',
+      coordinates: const LatLng(14.5826, 120.9787),
+      category: DestinationCategory.landmark,
+      rating: 4.6,
+      tags: const ['history', 'park', 'manila', 'landmark'],
+      budget: BudgetInfo(minCost: 0, maxCost: 200, currency: 'PHP'),
+    ),
+    Destination(
+      id: 'fallback-intramuros',
+      name: 'Intramuros',
+      description:
+          'The walled city of Manila with heritage streets, churches, museums, and Spanish-era landmarks.',
+      location: 'Intramuros, Manila',
+      imageUrl: '',
+      coordinates: const LatLng(14.5896, 120.9747),
+      category: DestinationCategory.landmark,
+      rating: 4.7,
+      tags: const ['history', 'museum', 'manila', 'walking'],
+      budget: BudgetInfo(minCost: 0, maxCost: 500, currency: 'PHP'),
+    ),
+    Destination(
+      id: 'fallback-national-museum',
+      name: 'National Museum Complex',
+      description:
+          'A museum district featuring Filipino art, anthropology, natural history, and cultural exhibits.',
+      location: 'Padre Burgos Avenue, Manila',
+      imageUrl: '',
+      coordinates: const LatLng(14.5869, 120.9811),
+      category: DestinationCategory.museum,
+      rating: 4.7,
+      tags: const ['museum', 'art', 'culture', 'history'],
+      budget: BudgetInfo(minCost: 0, maxCost: 200, currency: 'PHP'),
+    ),
+    Destination(
+      id: 'fallback-manila-ocean-park',
+      name: 'Manila Ocean Park',
+      description:
+          'A family-friendly oceanarium and attraction beside Manila Bay with marine exhibits and shows.',
+      location: 'Luneta, Manila',
+      imageUrl: '',
+      coordinates: const LatLng(14.5790, 120.9748),
+      category: DestinationCategory.activities,
+      rating: 4.2,
+      tags: const ['aquarium', 'family', 'activity', 'manila'],
+      budget: BudgetInfo(minCost: 500, maxCost: 1200, currency: 'PHP'),
+    ),
+    Destination(
+      id: 'fallback-bgc-high-street',
+      name: 'Bonifacio High Street',
+      description:
+          'An open-air lifestyle district in BGC with restaurants, shops, public art, and walkable plazas.',
+      location: 'Bonifacio Global City, Taguig',
+      imageUrl: '',
+      coordinates: const LatLng(14.5507, 121.0510),
+      category: DestinationCategory.market,
+      rating: 4.6,
+      tags: const ['shopping', 'food', 'bgc', 'taguig'],
+      budget: BudgetInfo(minCost: 300, maxCost: 1500, currency: 'PHP'),
+    ),
+    Destination(
+      id: 'fallback-ayala-triangle',
+      name: 'Ayala Triangle Gardens',
+      description:
+          'A landscaped green space in Makati surrounded by cafes, restaurants, and city landmarks.',
+      location: 'Makati Central Business District',
+      imageUrl: '',
+      coordinates: const LatLng(14.5560, 121.0230),
+      category: DestinationCategory.park,
+      rating: 4.5,
+      tags: const ['park', 'makati', 'food', 'city'],
+      budget: BudgetInfo(minCost: 0, maxCost: 800, currency: 'PHP'),
+    ),
+    Destination(
+      id: 'fallback-venice-grand-canal',
+      name: 'Venice Grand Canal Mall',
+      description:
+          'A themed shopping and dining destination in McKinley Hill with canal views and restaurants.',
+      location: 'McKinley Hill, Taguig',
+      imageUrl: '',
+      coordinates: const LatLng(14.5349, 121.0506),
+      category: DestinationCategory.market,
+      rating: 4.4,
+      tags: const ['shopping', 'food', 'taguig', 'photos'],
+      budget: BudgetInfo(minCost: 300, maxCost: 1500, currency: 'PHP'),
+    ),
+    Destination(
+      id: 'fallback-quezon-memorial-circle',
+      name: 'Quezon Memorial Circle',
+      description:
+          'A large public park and national shrine with gardens, food stalls, museums, and biking areas.',
+      location: 'Diliman, Quezon City',
+      imageUrl: '',
+      coordinates: const LatLng(14.6514, 121.0493),
+      category: DestinationCategory.park,
+      rating: 4.5,
+      tags: const ['park', 'quezon city', 'food', 'family'],
+      budget: BudgetInfo(minCost: 0, maxCost: 500, currency: 'PHP'),
+    ),
+    Destination(
+      id: 'fallback-art-in-island',
+      name: 'Art in Island',
+      description:
+          'An interactive art museum in Cubao known for immersive murals and photo-friendly exhibits.',
+      location: 'Cubao, Quezon City',
+      imageUrl: '',
+      coordinates: const LatLng(14.6220, 121.0590),
+      category: DestinationCategory.museum,
+      rating: 4.4,
+      tags: const ['museum', 'art', 'quezon city', 'activity'],
+      budget: BudgetInfo(minCost: 500, maxCost: 900, currency: 'PHP'),
+    ),
+    Destination(
+      id: 'fallback-binondo-food-crawl',
+      name: 'Binondo Food Crawl',
+      description:
+          'A classic Manila food trip area with Chinese-Filipino restaurants, bakeries, and street snacks.',
+      location: 'Binondo, Manila',
+      imageUrl: '',
+      coordinates: const LatLng(14.6006, 120.9745),
+      category: DestinationCategory.food,
+      rating: 4.6,
+      tags: const ['food', 'manila', 'binondo', 'walking'],
+      budget: BudgetInfo(minCost: 300, maxCost: 1200, currency: 'PHP'),
+    ),
+    Destination(
+      id: 'fallback-maginhawa',
+      name: 'Maginhawa Food Street',
+      description:
+          'A Quezon City food district with cafes, casual restaurants, desserts, and barkada-friendly eats.',
+      location: 'Teacher Village, Quezon City',
+      imageUrl: '',
+      coordinates: const LatLng(14.6454, 121.0610),
+      category: DestinationCategory.food,
+      rating: 4.4,
+      tags: const ['food', 'cafe', 'quezon city', 'restaurants'],
+      budget: BudgetInfo(minCost: 250, maxCost: 1000, currency: 'PHP'),
+    ),
+    Destination(
+      id: 'fallback-sm-moa',
+      name: 'SM Mall of Asia',
+      description:
+          'A large bayside mall complex in Pasay with shopping, dining, entertainment, and sunset views nearby.',
+      location: 'Bay City, Pasay',
+      imageUrl: '',
+      coordinates: const LatLng(14.5352, 120.9822),
+      category: DestinationCategory.market,
+      rating: 4.5,
+      tags: const ['shopping', 'food', 'pasay', 'bay'],
+      budget: BudgetInfo(minCost: 300, maxCost: 2000, currency: 'PHP'),
+    ),
+  ];
+
   // Get current city based on location (for display only)
   static String getCurrentCity(LatLng location) {
     final cities = {
@@ -75,41 +238,90 @@ class DestinationService {
     return earthRadius * c;
   }
 
-  // Get current location
+  static LatLng? _cachedLocation;
+  static DateTime? _locationCacheTime;
+  static const _cacheValidity = Duration(minutes: 5);
+
+  // Get current location with retry logic and caching
   static Future<LatLng> getCurrentLocation() async {
     try {
+      // Use cached location if recent
+      if (_cachedLocation != null &&
+          _locationCacheTime != null &&
+          DateTime.now().difference(_locationCacheTime!) < _cacheValidity) {
+        debugPrint(
+          'Using cached location: ${_cachedLocation!.latitude}, ${_cachedLocation!.longitude}',
+        );
+        return _cachedLocation!;
+      }
+
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        return const LatLng(0, 0); // Invalid location
+        debugPrint('Location services are disabled');
+        return _cachedLocation ?? _defaultSearchLocation;
       }
 
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
+        debugPrint('Requesting location permission...');
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          return const LatLng(0, 0);
+          debugPrint('Location permission denied');
+          return _cachedLocation ?? _defaultSearchLocation;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        return const LatLng(0, 0);
+        debugPrint('Location permission permanently denied');
+        return _cachedLocation ?? _defaultSearchLocation;
       }
 
-      final settings = LocationSettings(
-        accuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
-      );
-      final Position position = await Geolocator.getCurrentPosition(
-        locationSettings: settings,
-      );
+      // Try to get current position with retries
+      Position? position;
+      for (int attempt = 1; attempt <= 3; attempt++) {
+        try {
+          debugPrint('Getting location, attempt $attempt...');
+          final settings = LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 15),
+          );
+          position = await Geolocator.getCurrentPosition(
+            locationSettings: settings,
+          );
+          break;
+        } catch (e) {
+          debugPrint('Location attempt $attempt failed: $e');
+          if (attempt < 3) {
+            await Future.delayed(Duration(seconds: attempt));
+          }
+        }
+      }
 
-      debugPrint(
-        'Current location: ${position.latitude}, ${position.longitude}',
-      );
-      return LatLng(position.latitude, position.longitude);
+      if (position == null) {
+        // Try last known position
+        try {
+          debugPrint('Trying last known position...');
+          position = await Geolocator.getLastKnownPosition();
+        } catch (e) {
+          debugPrint('Failed to get last known position: $e');
+        }
+      }
+
+      if (position != null) {
+        final location = LatLng(position.latitude, position.longitude);
+        _cachedLocation = location;
+        _locationCacheTime = DateTime.now();
+        debugPrint(
+          'Current location: ${position.latitude}, ${position.longitude}',
+        );
+        return location;
+      }
+
+      debugPrint('Failed to get location, using default');
+      return _cachedLocation ?? _defaultSearchLocation;
     } catch (e) {
       debugPrint('Error getting location: $e');
-      return const LatLng(0, 0);
+      return _cachedLocation ?? _defaultSearchLocation;
     }
   }
 
@@ -137,11 +349,11 @@ class DestinationService {
     try {
       return await searchRealPlaces(
         query: query ?? '',
-        location: await getCurrentLocation(),
+        location: await _getSearchLocation(),
       );
     } catch (e) {
       debugPrint('Search failed completely: $e');
-      return [];
+      return fallbackDestinations(query: query);
     }
   }
 
@@ -149,13 +361,7 @@ class DestinationService {
   static Future<List<Destination>> getTrendingDestinations() async {
     debugPrint('=== getTrendingDestinations called ===');
     try {
-      final currentLocation = await getCurrentLocation();
-
-      // If location is invalid, return empty
-      if (currentLocation.latitude == 0 && currentLocation.longitude == 0) {
-        debugPrint('Invalid location (0,0) - returning empty');
-        return [];
-      }
+      final currentLocation = await _getSearchLocation();
 
       const nearbyRadiusMeters = 5000.0; // 5km
       const nearbyRadiusKm = 5.0;
@@ -175,16 +381,20 @@ class DestinationService {
         'museum',
       ];
 
-      final batches = await Future.wait(
-        nearbyPlaceTypes.map(
-          (placeType) => _searchNearbyDestinations(
-            currentLocation: currentLocation,
-            placeType: placeType,
-            radiusMeters: nearbyRadiusMeters,
-            maxDistanceKm: nearbyRadiusKm,
-          ),
-        ),
-      );
+      final batches =
+          await Future.wait(
+            nearbyPlaceTypes.map(
+              (placeType) => _searchNearbyDestinations(
+                currentLocation: currentLocation,
+                placeType: placeType,
+                radiusMeters: nearbyRadiusMeters,
+                maxDistanceKm: nearbyRadiusKm,
+              ),
+            ),
+          ).timeout(
+            _placesSearchTimeout,
+            onTimeout: () => const <List<Destination>>[],
+          );
       final allTrendingPlaces = batches.expand((places) => places).toList();
 
       final deduped = deduplicateDestinationsById(allTrendingPlaces);
@@ -217,13 +427,65 @@ class DestinationService {
         );
         return topPlaces;
       } else {
-        debugPrint('No nearby Google Places results, returning empty list');
-        return [];
+        debugPrint('No nearby Google Places results, using fallback places');
+        return fallbackDestinations(limit: 6, near: currentLocation);
       }
     } catch (e) {
       debugPrint('Google Places nearby trending failed: $e');
-      return [];
+      return fallbackDestinations(limit: 6);
     }
+  }
+
+  static List<Destination> fallbackDestinations({
+    String? query,
+    DestinationCategory? category,
+    int? limit,
+    LatLng? near,
+  }) {
+    final normalizedQuery = query?.trim().toLowerCase() ?? '';
+    var destinations = _fallbackDestinations.where((destination) {
+      final matchesCategory =
+          category == null || destination.category == category;
+      if (!matchesCategory) return false;
+      if (normalizedQuery.isEmpty) return true;
+
+      final haystack = [
+        destination.name,
+        destination.location,
+        destination.description,
+        ...destination.tags,
+        getCategoryName(destination.category),
+      ].join(' ').toLowerCase();
+      return haystack.contains(normalizedQuery);
+    }).toList();
+
+    if (destinations.isEmpty && category != null) {
+      destinations = _fallbackDestinations
+          .where((destination) => destination.category == category)
+          .toList();
+    }
+    if (destinations.isEmpty) {
+      destinations = List<Destination>.from(_fallbackDestinations);
+    }
+
+    final reference = near;
+    if (reference != null) {
+      destinations.sort((a, b) {
+        final aDistance = _calculateDistance(
+          reference,
+          a.coordinates ?? _defaultSearchLocation,
+        );
+        final bDistance = _calculateDistance(
+          reference,
+          b.coordinates ?? _defaultSearchLocation,
+        );
+        return aDistance.compareTo(bDistance);
+      });
+    } else {
+      destinations.sort((a, b) => b.rating.compareTo(a.rating));
+    }
+
+    return limit == null ? destinations : destinations.take(limit).toList();
   }
 
   // Public helper to deduplicate destinations by id
@@ -460,7 +722,7 @@ class DestinationService {
     DestinationCategory? category,
   }) async {
     try {
-      final searchLocation = location ?? await getCurrentLocation();
+      final searchLocation = location ?? await _getSearchLocation();
       debugPrint(
         'Using location: ${searchLocation.latitude}, ${searchLocation.longitude}',
       );
@@ -495,14 +757,23 @@ class DestinationService {
       final googlePlaces = await GoogleMapsApiService.searchPlaces(
         query: searchQuery,
         location: searchLocation,
-      );
+      ).timeout(_placesSearchTimeout, onTimeout: () => const <GooglePlace>[]);
       final realPlaces = await Future.wait(
-        googlePlaces.map((place) => _convertGooglePlaceToDestination(place)),
+        googlePlaces.map(
+          (place) =>
+              _convertGooglePlaceToDestination(place, fetchDetails: false),
+        ),
       );
-      return realPlaces;
+      return realPlaces.isNotEmpty
+          ? realPlaces
+          : fallbackDestinations(
+              query: query,
+              category: category,
+              near: searchLocation,
+            );
     } catch (e) {
       debugPrint('Error searching real places: $e');
-      return [];
+      return fallbackDestinations(query: query, category: category);
     }
   }
 
@@ -514,7 +785,7 @@ class DestinationService {
     try {
       final trimmed = input.trim();
       if (trimmed.length < 2) return [];
-      final searchLocation = location ?? await getCurrentLocation();
+      final searchLocation = location ?? await _getSearchLocation();
       final places = await GoogleMapsApiService.searchPlaces(
         query: '$trimmed Philippines',
         location: searchLocation,
@@ -543,7 +814,7 @@ class DestinationService {
     DestinationCategory? category,
   }) async {
     try {
-      final currentLocation = await getCurrentLocation();
+      final currentLocation = await _getSearchLocation();
 
       String searchQuery;
       if (query?.isNotEmpty == true) {
@@ -557,23 +828,62 @@ class DestinationService {
       final googlePlaces = await GoogleMapsApiService.searchPlaces(
         query: searchQuery,
         location: currentLocation,
-      );
+      ).timeout(_placesSearchTimeout, onTimeout: () => const <GooglePlace>[]);
       final realPlaces = await Future.wait(
-        googlePlaces.map((place) => _convertGooglePlaceToDestination(place)),
+        googlePlaces.map(
+          (place) =>
+              _convertGooglePlaceToDestination(place, fetchDetails: false),
+        ),
       );
 
       if (category != null && realPlaces.isNotEmpty) {
         final filtered = realPlaces
             .where((dest) => dest.category == category)
             .toList();
-        return filtered;
+        return filtered.isNotEmpty
+            ? filtered
+            : fallbackDestinations(
+                query: query,
+                category: category,
+                near: currentLocation,
+              );
       }
 
-      return realPlaces;
+      return realPlaces.isNotEmpty
+          ? realPlaces
+          : fallbackDestinations(
+              query: query,
+              category: category,
+              near: currentLocation,
+            );
     } catch (e) {
       debugPrint('Enhanced search failed: $e');
-      return [];
+      return fallbackDestinations(query: query, category: category);
     }
+  }
+
+  static Future<LatLng> _getSearchLocation() async {
+    try {
+      final location = await getCurrentLocation().timeout(
+        _locationSearchTimeout,
+        onTimeout: () {
+          debugPrint('Location fetch timed out, using default search location');
+          return _cachedLocation ?? _defaultSearchLocation;
+        },
+      );
+      if (isInvalidLocation(location)) {
+        debugPrint('Invalid location detected, using default search location');
+        return _cachedLocation ?? _defaultSearchLocation;
+      }
+      return location;
+    } catch (e) {
+      debugPrint('Error getting search location: $e');
+      return _cachedLocation ?? _defaultSearchLocation;
+    }
+  }
+
+  static bool isInvalidLocation(LatLng location) {
+    return location.latitude == 0 && location.longitude == 0;
   }
 
   static String _getCategoryQuery(DestinationCategory category) {
