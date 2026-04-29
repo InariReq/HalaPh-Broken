@@ -17,10 +17,17 @@ class GoogleMapsApiService {
   }
 
   static void _loadApiKey() {
-    if (_apiKey == null) {
-      _apiKey = dotenv.env['MAPS_API_KEY'];
-      if (_apiKey == null || _apiKey!.isEmpty) {
-        debugPrint('Warning: MAPS_API_KEY not found in .env file');
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      try {
+        _apiKey = dotenv.env['MAPS_API_KEY']?.trim();
+        if (_apiKey == null || _apiKey!.isEmpty) {
+          debugPrint('ERROR: MAPS_API_KEY not found in .env file. Please add it.');
+          debugPrint('Current .env keys: ${dotenv.env.keys.join(', ')}');
+        } else {
+          debugPrint('Google Maps API key loaded successfully');
+        }
+      } catch (e) {
+        debugPrint('Error loading MAPS_API_KEY: $e');
       }
     }
   }

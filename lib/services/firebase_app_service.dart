@@ -34,7 +34,7 @@ class FirebaseAppService {
     if (Firebase.apps.isNotEmpty) return true;
 
     try {
-      final options = _optionsFromGeneratedConfig() ?? _optionsFromEnv();
+      final options = _optionsFromEnv() ?? _optionsFromGeneratedConfig();
       if (options != null) {
         await Firebase.initializeApp(options: options);
         debugPrint('Firebase initialized for project ${options.projectId}.');

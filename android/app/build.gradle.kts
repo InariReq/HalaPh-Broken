@@ -14,7 +14,7 @@ fun readMapsApiKeyFromDotEnv(): String {
         rootProject.file(".env"),
     ).firstOrNull { it.exists() } ?: return ""
 
-    return envFile.readLines()
+    val key = envFile.readLines()
         .asSequence()
         .map { it.trim() }
         .filter { it.isNotEmpty() && !it.startsWith("#") }
@@ -24,11 +24,16 @@ fun readMapsApiKeyFromDotEnv(): String {
         ?.removeSurrounding("\"")
         ?.removeSurrounding("'")
         .orEmpty()
+
+    println("Maps API Key from .env: ${if (key.isNotEmpty()) "Found (${key.take(10)}...)" else "NOT FOUND"}")
+    return key
 }
 
 val mapsApiKey = System.getenv("MAPS_API_KEY")
     ?.takeIf { it.isNotBlank() }
     ?: readMapsApiKeyFromDotEnv()
+
+println("Final MAPS_API_KEY for Android: ${if (mapsApiKey.isNotEmpty()) "Set (${mapsApiKey.take(10)}...)" else "NOT SET"}")
 
 android {
     namespace = "com.example.halaph"

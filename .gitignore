@@ -34,6 +34,7 @@ migrate_working_dir/
 /coverage/
 /android/local.properties
 /ios/Flutter/Secrets.xcconfig
+/ios/Secrets.xcconfig
 
 # Symbolication related
 app.*.symbols
