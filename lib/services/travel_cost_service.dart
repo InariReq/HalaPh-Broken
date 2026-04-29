@@ -95,7 +95,7 @@ class TravelCostService {
     }
   }
 
-  static double _calculateDistance(LatLng point1, LatLng point2) {
+  static double calculateDistance(LatLng point1, LatLng point2) {
     const double earthRadius = 6371;
     double lat1Rad = point1.latitude * (pi / 180);
     double lat2Rad = point2.latitude * (pi / 180);
@@ -117,7 +117,7 @@ class TravelCostService {
     LatLng destination,
   ) {
     final distance = origin != null
-        ? _calculateDistance(origin, destination)
+        ? calculateDistance(origin, destination)
         : 5.0;
 
     return [

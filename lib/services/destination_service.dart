@@ -235,15 +235,15 @@ class DestinationService {
           places.where((place) {
             final hasName = place.name.trim().isNotEmpty;
             final isNearby =
-                _calculateDistance(currentLocation, place.location) <=
+                calculateDistance(currentLocation, place.location) <=
                 maxDistanceKm;
             final hasUsefulRating = place.rating == 0 || place.rating >= 3.8;
             return hasName && isNearby && hasUsefulRating;
           }).toList()..sort((a, b) {
             final ratingCompare = b.rating.compareTo(a.rating);
             if (ratingCompare != 0) return ratingCompare;
-            final aDistance = _calculateDistance(currentLocation, a.location);
-            final bDistance = _calculateDistance(currentLocation, b.location);
+            final aDistance = calculateDistance(currentLocation, a.location);
+            final bDistance = calculateDistance(currentLocation, b.location);
             return aDistance.compareTo(bDistance);
           });
 
@@ -258,7 +258,7 @@ class DestinationService {
   }
 
   // Calculate distance between two coordinates
-  static double _calculateDistance(LatLng point1, LatLng point2) {
+  static double calculateDistance(LatLng point1, LatLng point2) {
     const double earthRadius = 6371;
     double lat1Rad = point1.latitude * (pi / 180);
     double lat2Rad = point2.latitude * (pi / 180);

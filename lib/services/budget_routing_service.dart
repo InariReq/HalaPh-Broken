@@ -443,7 +443,7 @@ class BudgetRoutingService {
       }
 
       // 2. Add bus route if longer distance
-      final distance = _calculateDistance(origin, destination);
+      final distance = calculateDistance(origin, destination);
       if (distance > 5) {
         final busRoute = await _calculateBusRoute(origin, destination);
         if (busRoute != null) {
@@ -494,7 +494,7 @@ class BudgetRoutingService {
     LatLng destination,
   ) async {
     try {
-      final distance = _calculateDistance(origin, destination);
+      final distance = calculateDistance(origin, destination);
 
       // Use Google Maps for realistic route path
       final directions = await GoogleMapsApiService.getDirections(
@@ -566,7 +566,7 @@ class BudgetRoutingService {
     LatLng destination,
   ) async {
     try {
-      final distance = _calculateDistance(origin, destination);
+      final distance = calculateDistance(origin, destination);
 
       // Use Google Maps for route
       final directions = await GoogleMapsApiService.getDirections(
@@ -634,7 +634,7 @@ class BudgetRoutingService {
     LatLng destination,
   ) async {
     try {
-      final distance = _calculateDistance(origin, destination);
+      final distance = calculateDistance(origin, destination);
 
       // UV Express / FX commonly covers city-to-city corridors, but avoid
       // suggesting it for provincial-scale trips where terminals vary widely.
@@ -769,7 +769,7 @@ class BudgetRoutingService {
         start: origin,
         end: destination,
         duration: duration,
-        distance: _calculateDistance(origin, destination),
+        distance: calculateDistance(origin, destination),
         cost: fareDetails.regular,
         instructions: instructions,
         polyline: polyline,
@@ -862,7 +862,7 @@ class BudgetRoutingService {
     for (final line in _railLines) {
       for (var i = 0; i < line.stations.length; i++) {
         final station = line.stations[i];
-        final distance = _calculateDistance(point, station.location);
+        final distance = calculateDistance(point, station.location);
         if (distance <= maxDistanceKm) {
           matches.add(
             _RailStationMatch(
@@ -1093,7 +1093,7 @@ class BudgetRoutingService {
   static List<LatLng> _dedupePolylinePoints(List<LatLng> points) {
     final deduped = <LatLng>[];
     for (final point in points) {
-      if (deduped.isEmpty || _calculateDistance(deduped.last, point) > 0.03) {
+      if (deduped.isEmpty || calculateDistance(deduped.last, point) > 0.03) {
         deduped.add(point);
       }
     }
@@ -1111,7 +1111,7 @@ class BudgetRoutingService {
 
   // Calculate walking route
   static BudgetRoute _calculateWalkingRoute(LatLng origin, LatLng destination) {
-    final distance = _calculateDistance(origin, destination);
+    final distance = calculateDistance(origin, destination);
     final duration = Duration(
       minutes: (distance / 5 * 60).round(),
     ); // 5 km/h walking speed
@@ -1219,7 +1219,7 @@ class BudgetRoutingService {
   }
 
   // Helper methods
-  static double _calculateDistance(LatLng point1, LatLng point2) {
+  static double calculateDistance(LatLng point1, LatLng point2) {
     const double earthRadius = 6371; // Earth's radius in kilometers
 
     double lat1Rad = point1.latitude * (math.pi / 180);
@@ -1276,7 +1276,7 @@ class BudgetRoutingService {
     LatLng origin,
     LatLng destination,
   ) {
-    final distance = _calculateDistance(origin, destination);
+    final distance = calculateDistance(origin, destination);
 
     return [
       BudgetRoute(

@@ -41,12 +41,8 @@ class _MapScreenState extends State<MapScreen> {
 
       // Try to get user location
       try {
-        final position = await MapService.getCurrentLocation();
-        if (position != null) {
-          _userLocation = LatLng(position.latitude, position.longitude);
-        } else {
-          _userLocation = const LatLng(12.8797, 121.7740);
-        }
+        final location = await DestinationService.getCurrentLocation();
+        _userLocation = location;
       } catch (e) {
         debugPrint('Could not get user location: $e');
         _userLocation = const LatLng(12.8797, 121.7740);
@@ -310,7 +306,7 @@ class _MapScreenState extends State<MapScreen> {
                   itemBuilder: (context, index) {
                     final destination = _filteredDestinations()[index];
                     final distance = _userLocation != null
-                        ? MapService.calculateDistance(
+                        ? DestinationService.calculateDistance(
                             _userLocation!,
                             MapService.getDestinationCoordinates(destination),
                           )
