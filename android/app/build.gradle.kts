@@ -47,7 +47,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.halaph"
+        applicationId = "com.halaph.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
