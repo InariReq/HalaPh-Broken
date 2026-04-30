@@ -4,7 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/destination.dart';
-import 'package:halaph/services/google_places_service.dart';
+import 'package:halaph/services/osm_service.dart';
+import 'package:halaph/services/place_cache_service.dart';
 import 'package:halaph/config/app_config.dart';
 
 class DestinationService {
@@ -18,8 +19,7 @@ class DestinationService {
   static bool _useTestLocation = false;
   static LatLng? _manualTestLocation;
 
-  static String? get placesProviderError =>
-      GooglePlacesService.lastFailureMessage;
+  static String? get placesProviderError => null;
 
   static Future<LatLng> getCurrentLocation() async {
     try {
@@ -82,8 +82,11 @@ class DestinationService {
   }
 
   static Future<Destination?> getDestination(String id) async {
-    if (id.startsWith('google_')) {
-      return GooglePlacesService.getPlaceById(id.replaceFirst('google_', ''));
+    if (id.startsWith('osm_')) {
+      return null; // OSM doesn't have a direct place ID lookup
+    }
+    if (id.startsWith('nominatim_')) {
+      return null; // Nominatim doesn't have a direct place ID lookup
     }
     return null;
   }
@@ -233,9 +236,6 @@ class DestinationService {
 
   static Future<List<Destination>> _discoverPlaces(LatLng location) async {
     final isRealLocation = !isInvalidLocation(location);
-    if (!GooglePlacesService.canAttemptRequests) {
-      return const <Destination>[];
-    }
 
     // Try cache first
     final locationKey = PlaceCacheService.generateLocationKey(
@@ -249,36 +249,35 @@ class DestinationService {
           .toList();
     }
 
-    // REDUCED from 8 queries to 2 to save API quota
-    final queries = const [
-      'popular destinations in Philippines',
-      'tourist spots in Philippines',
-    ];
-
     final searchLocation = isRealLocation ? location : _defaultSearchLocation;
     final results = <Destination>[];
-    
-    for (final query in queries) {
-      if (!GooglePlacesService.canAttemptRequests) break;
-      results.addAll(
-        await _searchPlaces(query: query, location: searchLocation, limit: 8),
-      );
-    }
 
-    // Also search nearby if real location
-    if (isRealLocation) {
-      final nearbyTypes = const ['tourist_attraction', 'restaurant'];
-      for (final type in nearbyTypes) {
-        if (!GooglePlacesService.canAttemptRequests) break;
-        results.addAll(
-          await GooglePlacesService.searchNearby(
-            location: location,
-            includedType: type,
-            limit: 8,
-            radiusMeters: 20000,
-          ).timeout(_placesSearchTimeout, onTimeout: () => const <Destination>[]),
-        );
-      }
+    // Use OSM Overpass API to search for nearby places
+    results.addAll(
+      await OSMService.searchNearbyPlaces(
+        lat: searchLocation.latitude,
+        lon: searchLocation.longitude,
+        radius: 15000,
+        limit: 20,
+      ).timeout(_placesSearchTimeout, onTimeout: () => const <Destination>[]),
+    );
+
+    // Also search by text queries using Nominatim
+    final queries = const [
+      'tourist attractions',
+      'restaurants',
+      'parks',
+    ];
+
+    for (final query in queries) {
+      results.addAll(
+        await OSMService.searchPlacesByText(
+          query: query,
+          lat: searchLocation.latitude,
+          lon: searchLocation.longitude,
+          limit: 8,
+        ).timeout(_placesSearchTimeout, onTimeout: () => const <Destination>[]),
+      );
     }
 
     // Cache the results
@@ -294,10 +293,10 @@ class DestinationService {
     required LatLng location,
     required int limit,
   }) async {
-    if (!GooglePlacesService.canAttemptRequests) return const <Destination>[];
-    return GooglePlacesService.searchText(
+    return OSMService.searchPlacesByText(
       query: query,
-      location: location,
+      lat: location.latitude,
+      lon: location.longitude,
       limit: limit,
     ).timeout(_placesSearchTimeout, onTimeout: () => const <Destination>[]);
   }
