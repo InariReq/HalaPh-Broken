@@ -62,9 +62,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
     } catch (_) {}
   }
 
-  Future<void> _toggleFavorite(String id) async {
+  Future<void> _toggleFavorite(Destination destination) async {
+    final id = destination.id;
     try {
-      await _favoritesService.toggleFavorite(id);
+      await _favoritesService.toggleFavoriteDestination(destination);
       if (!mounted) return;
       setState(() {
         if (_favoriteIds.contains(id)) {
@@ -406,16 +407,30 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Widget _buildSearchResults() {
     if (_destinations.isEmpty) {
-      return const Center(
+      final providerError = DestinationService.placesProviderError;
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
+            const Icon(Icons.search, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
             Text(
-              'No destinations found',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
+              providerError == null
+                  ? 'No destinations found'
+                  : 'Google Places is unavailable',
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
+            if (providerError != null) ...[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  providerError,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ),
+            ],
           ],
         ),
       );
@@ -576,7 +591,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   top: 12,
                   right: 12,
                   child: GestureDetector(
-                    onTap: () => _toggleFavorite(destination.id),
+                    onTap: () => _toggleFavorite(destination),
                     child: Container(
                       width: 32,
                       height: 32,

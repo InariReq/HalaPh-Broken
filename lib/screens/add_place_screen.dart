@@ -291,6 +291,36 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   }
 
   Widget _buildDestinationGrid(List<Destination> destinations) {
+    if (destinations.isEmpty) {
+      final providerError = DestinationService.placesProviderError;
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+        child: Column(
+          children: [
+            const Icon(Icons.place_outlined, size: 56, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text(
+              providerError == null
+                  ? 'No places found'
+                  : 'Google Places is unavailable',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+            if (providerError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                providerError,
+                textAlign: TextAlign.center,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),

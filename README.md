@@ -8,20 +8,26 @@ HalaPH is a Flutter trip-planning app focused on destinations and route discover
 2. Run `flutter pub get`.
 3. Start the app with `flutter run`.
 
-## Google Maps Setup
+## Google Maps SDK Setup
 
 This repository does not store any live API keys.
 
-For Dart-powered Google API calls, pass your key at runtime:
+HalaPH uses Firebase Firestore for app data and Google Maps SDK for map
+display. Google Places is optional for richer place listings and photos; if the
+key or API is unavailable, the app falls back to OpenStreetMap/Wikipedia data.
+The app does not use Google Directions or Google Geocoding web APIs.
 
-```bash
-flutter run --dart-define=MAPS_API_KEY=your_key_here
-```
-
-For Android builds, set an environment variable before running Flutter:
+For Android map rendering, set an environment variable before running Flutter:
 
 ```powershell
 $env:MAPS_API_KEY="your_key_here"
+flutter run
+```
+
+For other shells:
+
+```bash
+export MAPS_API_KEY="your_key_here"
 flutter run
 ```
 
@@ -32,6 +38,11 @@ MAPS_API_KEY = your_key_here
 ```
 
 That file is ignored by Git so your key stays local.
+
+For Dart-side Google Places requests, provide either `MAPS_API_KEY` or
+`GOOGLE_PLACES_API_KEY` in `.env` or with `--dart-define`. Google Places API
+availability and billing behavior are controlled by Google Maps Platform for
+the key's project.
 
 ## GitHub Automation
 

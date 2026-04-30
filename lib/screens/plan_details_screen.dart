@@ -145,7 +145,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
       // Update the plan using the service
       if (_plan == null) return;
-      final success = SimplePlanService.updatePlan(
+      final success = await SimplePlanService.updatePlan(
         planId: _plan!.id,
         title: _titleController.text.trim(),
         startDate: _startDate,

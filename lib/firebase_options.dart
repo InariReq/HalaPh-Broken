@@ -44,9 +44,9 @@ class DefaultFirebaseOptions {
     apiKey: 'AIzaSyCQLDFlw7gNEao8kRMnRNR_4of2gRo7lR8',
     appId: '1:416537953878:web:2bf9d953f02f8a588a5df7',
     messagingSenderId: '416537953878',
-    projectId: 'halaph-d4eaa',
-    authDomain: 'halaph-d4eaa.firebaseapp.com',
-    storageBucket: 'halaph-d4eaa.firebasestorage.app',
+    projectId: 'halaph-8a811',
+    authDomain: 'halaph-8a811.firebaseapp.com',
+    storageBucket: 'halaph-8a811.firebasestorage.app',
     measurementId: 'G-RCLD1CY8GN',
   );
 
@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '416537953878',
     projectId: 'halaph-d4eaa',
     storageBucket: 'halaph-d4eaa.firebasestorage.app',
-    iosBundleId: 'com.example.halaph',
+    iosBundleId: 'com.halaph.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -80,9 +80,9 @@ class DefaultFirebaseOptions {
     apiKey: 'AIzaSyCQLDFlw7gNEao8kRMnRNR_4of2gRo7lR8',
     appId: '1:416537953878:web:aeb672d1653e12528a5df7',
     messagingSenderId: '416537953878',
-    projectId: 'halaph-d4eaa',
-    authDomain: 'halaph-d4eaa.firebaseapp.com',
-    storageBucket: 'halaph-d4eaa.firebasestorage.app',
+    projectId: 'halaph-8a811',
+    authDomain: 'halaph-8a811.firebaseapp.com',
+    storageBucket: 'halaph-8a811.firebasestorage.app',
     measurementId: 'G-02EK4PG2VP',
   );
 }

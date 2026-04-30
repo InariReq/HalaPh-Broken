@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:halaph/services/google_maps_api_service.dart';
 
 // 2026 Philippine Transport Costs - EASY TO UPDATE!
 class PhilippineFares {
@@ -27,28 +26,13 @@ class PhilippineFares {
   static const double fxBase = 30.0; // Estimated minimum fare
   static const double fxPerKm = 2.4; // LTFRB UV Express per-km reference
 
-  // Driving Costs (2026 rates)
-  static const double fuelPricePerLiter = 65.0; // Average gasoline price
-  static const double vehicleFuelConsumption = 8.0; // km per liter
-  static const double parkingRatePerHour = 50.0; // Metro Manila average
-
-  // Toll Fees (Major Expressways - 2026 rates)
-  static const Map<String, double> tollFees = {
-    'NLEX': 45.0, // North Luzon Expressway
-    'SLEX': 35.0, // South Luzon Expressway
-    'Skyway': 55.0, // Skyway Stage 1-3
-    'NAIA Expressway': 40.0,
-    'TPLEX': 30.0, // Tarlac-Pangasinan-La Union Expressway
-    'CAVITEX': 40.0, // Cavite Expressway
-  };
-
   // Discounted Fares for Students, PWD, Seniors
   static const double studentDiscount = 0.20; // 20% discount
   static const double pwdDiscount = 0.20; // 20% discount
   static const double seniorDiscount = 0.20; // 20% discount
 }
 
-enum TravelMode { driving, jeepney, bus, train, fx, walking }
+enum TravelMode { jeepney, bus, train, fx, walking }
 
 class BudgetRoute {
   final String id;
@@ -226,7 +210,8 @@ class _RailRouteCandidate {
 
 class BudgetRoutingService {
   static const double _walkableRailAccessKm = 1.2;
-  static const double _maxRailConnectorKm = 15.0;
+  static const double _maxRailConnectorKm = 18.0;
+  static const Duration _vehicleRouteTimeout = Duration(seconds: 9);
 
   static const List<_RailLine> _railLines = [
     _RailLine(
@@ -433,40 +418,34 @@ class BudgetRoutingService {
     final routes = <BudgetRoute>[];
 
     try {
-      // 1. Calculate jeepney alternative
-      final jeepneyRoute = await _calculateJeepneyRoute(origin, destination);
-      if (jeepneyRoute != null) {
-        routes.add(jeepneyRoute);
-        debugPrint(
-          'Added jeepney route: ₱${jeepneyRoute.cost.toStringAsFixed(2)}',
-        );
-      }
-
-      // 2. Add bus route if longer distance
+      // Calculate the MRT/LRT route first so it still appears even when local
+      // public-vehicle estimates are slower to produce.
       final distance = calculateDistance(origin, destination);
-      if (distance > 5) {
-        final busRoute = await _calculateBusRoute(origin, destination);
-        if (busRoute != null) {
-          routes.add(busRoute);
-          debugPrint('Added bus route: ₱${busRoute.cost.toStringAsFixed(2)}');
-        }
-      }
-
-      // 3. Add MRT/LRT route when station access is practical
       final trainRoute = _calculateTrainRoute(origin, destination);
       if (trainRoute != null) {
         routes.add(trainRoute);
         debugPrint('Added train route: ₱${trainRoute.cost.toStringAsFixed(2)}');
       }
 
-      // 4. Add FX route if applicable
-      final fxRoute = await _calculateFxRoute(origin, destination);
-      if (fxRoute != null) {
-        routes.add(fxRoute);
-        debugPrint('Added FX route: ₱${fxRoute.cost.toStringAsFixed(2)}');
+      final vehicleRouteFutures = <Future<BudgetRoute?>>[
+        _calculateJeepneyRoute(origin, destination),
+        if (distance > 5) _calculateBusRoute(origin, destination),
+        _calculateFxRoute(origin, destination),
+      ];
+      final vehicleRoutes = await Future.wait(vehicleRouteFutures).timeout(
+        _vehicleRouteTimeout,
+        onTimeout: () {
+          debugPrint('Vehicle route estimates timed out; using local routes.');
+          return const <BudgetRoute?>[];
+        },
+      );
+      for (final route in vehicleRoutes.whereType<BudgetRoute>()) {
+        routes.add(route);
+        debugPrint(
+          'Added ${route.mode.name} route: ₱${route.cost.toStringAsFixed(2)}',
+        );
       }
 
-      // 5. Always add walking route
       final walkingRoute = _calculateWalkingRoute(origin, destination);
       routes.add(walkingRoute);
       debugPrint('Added walking route: FREE');
@@ -495,13 +474,6 @@ class BudgetRoutingService {
   ) async {
     try {
       final distance = calculateDistance(origin, destination);
-
-      // Use Google Maps for realistic route path
-      final directions = await GoogleMapsApiService.getDirections(
-        origin: origin,
-        destination: destination,
-        travelMode: 'driving', // Use driving roads for jeepney path
-      );
 
       // Calculate jeepney fare
       final fareDetails = _calculateJeepneyFare(distance);
@@ -534,12 +506,12 @@ class BudgetRoutingService {
         duration: estimatedDuration,
         distance: distance,
         cost: fareDetails.regular,
-        instructions: directions != null
-            ? _extractInstructions(directions.routes.first)
-            : ['Take jeepney to destination'],
-        polyline: directions != null
-            ? _extractPolyline(directions.routes.first)
-            : [origin, destination],
+        instructions: [
+          'Go to the nearest jeepney stop or terminal.',
+          'Board a jeepney bound for your destination area.',
+          'Confirm the signboard with the driver before boarding.',
+        ],
+        polyline: [origin, destination],
         summary: 'Jeepney - Most affordable option',
         tips: tips,
         fareDetails: fareDetails,
@@ -568,13 +540,6 @@ class BudgetRoutingService {
     try {
       final distance = calculateDistance(origin, destination);
 
-      // Use Google Maps for route
-      final directions = await GoogleMapsApiService.getDirections(
-        origin: origin,
-        destination: destination,
-        travelMode: 'driving',
-      );
-
       // Calculate bus fare
       final fareDetails = _calculateBusFare(distance);
 
@@ -602,12 +567,12 @@ class BudgetRoutingService {
         duration: estimatedDuration,
         distance: distance,
         cost: fareDetails.regular,
-        instructions: directions != null
-            ? _extractInstructions(directions.routes.first)
-            : ['Take bus to destination'],
-        polyline: directions != null
-            ? _extractPolyline(directions.routes.first)
-            : [origin, destination],
+        instructions: [
+          'Go to the nearest bus stop or terminal.',
+          'Board a bus bound for your destination area.',
+          'Confirm the route with the conductor before boarding.',
+        ],
+        polyline: [origin, destination],
         summary: 'Bus - Comfortable mid-range option',
         tips: tips,
         fareDetails: fareDetails,
@@ -640,13 +605,6 @@ class BudgetRoutingService {
       // suggesting it for provincial-scale trips where terminals vary widely.
       if (distance > 40) return null;
 
-      // Use Google Maps for route
-      final directions = await GoogleMapsApiService.getDirections(
-        origin: origin,
-        destination: destination,
-        travelMode: 'driving',
-      );
-
       // Calculate FX fare
       final fareDetails = _calculateFxFare(distance);
 
@@ -677,12 +635,12 @@ class BudgetRoutingService {
         duration: estimatedDuration,
         distance: distance,
         cost: fareDetails.regular,
-        instructions: directions != null
-            ? _extractInstructions(directions.routes.first)
-            : ['Take FX/van to destination'],
-        polyline: directions != null
-            ? _extractPolyline(directions.routes.first)
-            : [origin, destination],
+        instructions: [
+          'Go to the nearest UV Express / FX terminal.',
+          'Board a van bound for your destination area.',
+          'Confirm the terminal or drop-off point before paying.',
+        ],
+        polyline: [origin, destination],
         summary: 'FX/Van - Fast and affordable',
         tips: tips,
         fareDetails: fareDetails,
@@ -1204,20 +1162,6 @@ class BudgetRoutingService {
     return popularRoutes;
   }
 
-  // Calculate savings message
-  static String calculateSavingsMessage(
-    BudgetRoute drivingRoute,
-    BudgetRoute alternativeRoute,
-  ) {
-    if (drivingRoute.mode != TravelMode.driving ||
-        alternativeRoute.cost >= drivingRoute.cost) {
-      return '';
-    }
-
-    final savings = drivingRoute.cost - alternativeRoute.cost;
-    return '💰 You can save ₱${savings.toStringAsFixed(0)} by taking ${alternativeRoute.mode.name} instead!';
-  }
-
   // Helper methods
   static double calculateDistance(LatLng point1, LatLng point2) {
     const double earthRadius = 6371; // Earth's radius in kilometers
@@ -1239,46 +1183,15 @@ class BudgetRoutingService {
     return earthRadius * c;
   }
 
-  static List<String> _extractInstructions(dynamic route) {
-    final instructions = <String>[];
-    try {
-      for (final leg in route.legs) {
-        for (final step in leg.steps) {
-          final cleanInstruction = step.htmlInstructions
-              .replaceAll(RegExp(r'<[^>]*>'), '')
-              .replaceAll('&amp;', '&')
-              .replaceAll('&#39;', "'");
-          instructions.add(cleanInstruction);
-        }
-      }
-    } catch (e) {
-      instructions.add('Follow route to destination');
-    }
-    return instructions;
-  }
-
-  static List<LatLng> _extractPolyline(dynamic route) {
-    final polyline = <LatLng>[];
-    try {
-      for (final leg in route.legs) {
-        for (final step in leg.steps) {
-          polyline.add(step.startLocation);
-          polyline.add(step.endLocation);
-        }
-      }
-    } catch (e) {
-      // Return simple line if extraction fails
-    }
-    return polyline;
-  }
-
   static List<BudgetRoute> _getFallbackRoutes(
     LatLng origin,
     LatLng destination,
   ) {
     final distance = calculateDistance(origin, destination);
+    final trainRoute = _calculateTrainRoute(origin, destination);
 
     return [
+      ?trainRoute,
       BudgetRoute(
         id: 'fallback-walking',
         mode: TravelMode.walking,

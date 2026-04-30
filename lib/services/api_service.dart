@@ -1,13 +1,13 @@
 import 'package:halaph/services/budget_routing_service.dart';
-import 'package:halaph/services/google_maps_api_service.dart';
+import 'package:halaph/services/osm_service.dart';
 
 class ApiService {
   static Future<List<dynamic>> getTransportOptions(
     String from,
     String to,
   ) async {
-    final origin = await GoogleMapsApiService.geocodeAddress(from);
-    final destination = await GoogleMapsApiService.geocodeAddress(to);
+    final origin = await OSMService.geocodeAddress(from);
+    final destination = await OSMService.geocodeAddress(to);
     if (origin == null || destination == null) return [];
 
     final routes = await BudgetRoutingService.calculateBudgetRoutes(

@@ -25,15 +25,12 @@ fun readMapsApiKeyFromDotEnv(): String {
         ?.removeSurrounding("'")
         .orEmpty()
 
-    println("Maps API Key from .env: ${if (key.isNotEmpty()) "Found (${key.take(10)}...)" else "NOT FOUND"}")
     return key
 }
 
 val mapsApiKey = System.getenv("MAPS_API_KEY")
     ?.takeIf { it.isNotBlank() }
     ?: readMapsApiKeyFromDotEnv()
-
-println("Final MAPS_API_KEY for Android: ${if (mapsApiKey.isNotEmpty()) "Set (${mapsApiKey.take(10)}...)" else "NOT SET"}")
 
 android {
     namespace = "com.example.halaph"
@@ -47,7 +44,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.halaph.app"
+        applicationId = "com.example.halaph"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

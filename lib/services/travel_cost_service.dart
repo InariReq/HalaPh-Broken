@@ -30,13 +30,14 @@ class TravelCostService {
       debugPrint('From: ${from.latitude}, ${from.longitude}');
       debugPrint('To: ${destination.latitude}, ${destination.longitude}');
 
-      // Use OSRM for FREE routing (no billing needed!)
+      // Use OSRM only for rough walking distance/duration. Commute options are
+      // estimated from that distance; no private-car option is exposed.
       final osmResult = await OSMService.getDirections(
         startLat: from.latitude,
         startLon: from.longitude,
         endLat: destination.latitude,
         endLon: destination.longitude,
-        profile: 'driving',
+        profile: 'walking',
       );
 
       if (osmResult != null) {
@@ -47,27 +48,7 @@ class TravelCostService {
           '🌍 OSRM: ${distanceKm.toStringAsFixed(1)}km, ${durationMin.toStringAsFixed(0)}min (FREE)',
         );
 
-        // Calculate rough costs based on distance and mode
-        return [
-          TravelCostEstimate(
-            mode: 'driving',
-            durationMinutes: durationMin.round(),
-            estimatedCost: _estimateCost(distanceKm, 'driving'),
-            description: 'Drive via OSRM (FREE)',
-          ),
-          TravelCostEstimate(
-            mode: 'walking',
-            durationMinutes: (durationMin * 3).round(),
-            estimatedCost: 0,
-            description: 'Walk (FREE)',
-          ),
-          TravelCostEstimate(
-            mode: 'bicycling',
-            durationMinutes: (durationMin * 1.5).round(),
-            estimatedCost: 0,
-            description: 'Bike via OSRM (FREE)',
-          ),
-        ];
+        return _commuteEstimates(distanceKm, walkingMinutes: durationMin);
       }
 
       debugPrint('🌍 OSRM failed, using fallback estimates');
@@ -78,21 +59,42 @@ class TravelCostService {
     }
   }
 
-  static double _estimateCost(double distanceKm, String mode) {
-    switch (mode) {
-      case 'driving':
-        return distanceKm * 12.0; // ~₱12/km for fuel/maintenance
-      case 'jeepney':
-        return distanceKm * 2.0; // ~₱2/km for jeepney
-      case 'bus':
-        return distanceKm * 3.0; // ~₱3/km for bus
-      case 'train':
-        return 28.0; // Fixed MRT/LRT fare
-      case 'fx':
-        return 30.0; // Fixed FX fare
-      default:
-        return distanceKm * 5.0;
-    }
+  static List<TravelCostEstimate> _commuteEstimates(
+    double distance, {
+    double? walkingMinutes,
+  }) {
+    return [
+      TravelCostEstimate(
+        mode: 'walking',
+        durationMinutes: (walkingMinutes ?? distance * 15).round(),
+        estimatedCost: 0,
+        description: 'Walk',
+      ),
+      TravelCostEstimate(
+        mode: 'jeepney',
+        durationMinutes: (distance * 3).round(),
+        estimatedCost: (distance * 2).roundToDouble(),
+        description: 'Traditional jeepney',
+      ),
+      TravelCostEstimate(
+        mode: 'fx',
+        durationMinutes: (distance * 2).round(),
+        estimatedCost: 30,
+        description: 'UV/FX express',
+      ),
+      TravelCostEstimate(
+        mode: 'bus',
+        durationMinutes: (distance * 2.5).round(),
+        estimatedCost: (distance * 3).roundToDouble(),
+        description: 'City bus',
+      ),
+      TravelCostEstimate(
+        mode: 'train',
+        durationMinutes: (distance * 2).round(),
+        estimatedCost: 28,
+        description: 'MRT/LRT train',
+      ),
+    ]..sort((a, b) => a.estimatedCost.compareTo(b.estimatedCost));
   }
 
   static double calculateDistance(LatLng point1, LatLng point2) {
@@ -120,37 +122,6 @@ class TravelCostService {
         ? calculateDistance(origin, destination)
         : 5.0;
 
-    return [
-      TravelCostEstimate(
-        mode: 'walking',
-        durationMinutes: (distance * 15).round(),
-        estimatedCost: 0,
-        description: 'Walk (FREE)',
-      ),
-      TravelCostEstimate(
-        mode: 'jeepney',
-        durationMinutes: (distance * 3).round(),
-        estimatedCost: (distance * 2).roundToDouble(),
-        description: 'Traditional jeepney',
-      ),
-      TravelCostEstimate(
-        mode: 'fx',
-        durationMinutes: (distance * 2).round(),
-        estimatedCost: 30,
-        description: 'UV/FX express',
-      ),
-      TravelCostEstimate(
-        mode: 'bus',
-        durationMinutes: (distance * 2.5).round(),
-        estimatedCost: (distance * 3).roundToDouble(),
-        description: 'City bus',
-      ),
-      TravelCostEstimate(
-        mode: 'train',
-        durationMinutes: (distance * 2).round(),
-        estimatedCost: 28,
-        description: 'MRT/LRT train',
-      ),
-    ]..sort((a, b) => a.estimatedCost.compareTo(b.estimatedCost));
+    return _commuteEstimates(distance);
   }
 }

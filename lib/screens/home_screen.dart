@@ -11,6 +11,7 @@ import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:halaph/config/app_config.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -52,8 +53,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _locationEnabled = !DestinationService.isInvalidLocation(location);
-        _locationStatus =
-            _locationEnabled ? 'Location found' : 'Using default location';
+        _locationStatus = _locationEnabled
+            ? 'Location found'
+            : 'Using default location';
       });
     } catch (e) {
       if (!mounted) return;
@@ -110,9 +112,10 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
   }
 
-  Future<void> _toggleFavorite(String id) async {
+  Future<void> _toggleFavorite(Destination destination) async {
+    final id = destination.id;
     try {
-      await _favoritesService.toggleFavorite(id);
+      await _favoritesService.toggleFavoriteDestination(destination);
       setState(() {
         if (_favoriteIds.contains(id)) {
           _favoriteIds.remove(id);
@@ -229,7 +232,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     Icon(
                       _locationEnabled ? Icons.location_on : Icons.location_off,
                       size: 20,
-                      color: _locationEnabled ? Colors.green[600] : Colors.grey[600],
+                      color: _locationEnabled
+                          ? Colors.green[600]
+                          : Colors.grey[600],
                     ),
                     if (!_locationEnabled) ...[
                       const SizedBox(width: 4),
@@ -257,14 +262,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     TextButton(
                       onPressed: () {
-                        DestinationService.setTestLocation(14.5995, 120.9842); // Manila
+                        DestinationService.setTestLocation(
+                          14.5995,
+                          120.9842,
+                        ); // Manila
                         setState(() {
                           _locationEnabled = true;
                           _locationStatus = 'Test: Manila';
                         });
                         _loadTrendingDestinations();
                       },
-                      child: const Text('Set Manila', style: TextStyle(fontSize: 10)),
+                      child: const Text(
+                        'Set Manila',
+                        style: TextStyle(fontSize: 10),
+                      ),
                     ),
                     TextButton(
                       onPressed: () {
@@ -274,7 +285,24 @@ class _HomeScreenState extends State<HomeScreen> {
                           _locationStatus = 'Test cleared';
                         });
                       },
-                      child: const Text('Clear', style: TextStyle(fontSize: 10)),
+                      child: const Text(
+                        'Clear',
+                        style: TextStyle(fontSize: 10),
+                      ),
+                    ),
+                    // TEST MODE TOGGLE
+                    Switch(
+                      value: AppConfig.testModeEnabled,
+                      onChanged: (value) {
+                        setState(() {
+                          AppConfig.setTestMode(value);
+                        });
+                      },
+                      activeColor: Colors.orange,
+                    ),
+                    const Text(
+                      'Test Mode',
+                      style: TextStyle(fontSize: 10, color: Colors.orange),
                     ),
                   ],
                 ),
@@ -652,28 +680,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Center(child: CircularProgressIndicator()),
               )
             : _trendingDestinations.isEmpty
-            ? Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                height: 200,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.trending_up, size: 48, color: Colors.grey),
-                      SizedBox(height: 8),
-                      Text(
-                        'No nearby places available',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-              )
+            ? _buildEmptyPlacesState()
             : SizedBox(
                 height: _trendingDestinations.length * 300,
                 child: ListView.builder(
@@ -684,6 +691,48 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
       ],
+    );
+  }
+
+  Widget _buildEmptyPlacesState() {
+    final providerError = DestinationService.placesProviderError;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      height: 220,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.trending_up, size: 48, color: Colors.grey),
+              const SizedBox(height: 8),
+              Text(
+                providerError == null
+                    ? 'No nearby places available'
+                    : 'Google Places is unavailable',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.grey),
+              ),
+              if (providerError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  providerError,
+                  textAlign: TextAlign.center,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -854,7 +903,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   top: 12,
                   right: 12,
                   child: GestureDetector(
-                    onTap: () => _toggleFavorite(destination.id),
+                    onTap: () => _toggleFavorite(destination),
                     child: Container(
                       width: 32,
                       height: 32,
@@ -902,6 +951,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         context,
                         destinationId: destination.id,
                         source: 'home',
+                        destination: destination,
                       );
                     },
                     child: Container(

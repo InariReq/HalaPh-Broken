@@ -3,12 +3,16 @@ import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 
 void main() {
-  tearDown(SimplePlanService.resetCache);
+  tearDown(() {
+    SimplePlanService.debugAllowMemoryOnlyPlans = false;
+    SimplePlanService.resetCache();
+  });
 
   test(
     'shared plans are visible to creator and selected collaborator',
     () async {
       SimplePlanService.resetCache();
+      SimplePlanService.debugAllowMemoryOnlyPlans = true;
 
       final destination = Destination(
         id: 'dest-1',

@@ -7,14 +7,14 @@
     "platforms": {
       "android": {
         "default": {
-          "projectId": "halaph-d4eaa",
+          "projectId": "halaph-8a811",
           "appId": "1:416537953878:android:d3baf6ab846b760c8a5df7",
           "fileOutput": "android/app/google-services.json"
         }
       },
       "ios": {
         "default": {
-          "projectId": "halaph-d4eaa",
+          "projectId": "halaph-8a811",
           "appId": "1:416537953878:ios:f97984acd7592e048a5df7",
           "uploadDebugSymbols": false,
           "fileOutput": "ios/Runner/GoogleService-Info.plist"
@@ -22,7 +22,7 @@
       },
       "macos": {
         "default": {
-          "projectId": "halaph-d4eaa",
+          "projectId": "halaph-8a811",
           "appId": "1:416537953878:ios:f97984acd7592e048a5df7",
           "uploadDebugSymbols": false,
           "fileOutput": "macos/Runner/GoogleService-Info.plist"
@@ -30,7 +30,7 @@
       },
       "dart": {
         "lib/firebase_options.dart": {
-          "projectId": "halaph-d4eaa",
+          "projectId": "halaph-8a811",
           "configurations": {
             "android": "1:416537953878:android:d3baf6ab846b760c8a5df7",
             "ios": "1:416537953878:ios:f97984acd7592e048a5df7",

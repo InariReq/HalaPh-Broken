@@ -123,14 +123,10 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
 
       found ??= await DestinationService.getDestination(widget.destinationId);
 
-      found ??= await DestinationService.getDestination(
-        widget.destinationId,
-      );
+      found ??= await DestinationService.getDestination(widget.destinationId);
 
       if (found != null) {
-        final refreshed = await DestinationService.getDestination(
-          found.id,
-        );
+        final refreshed = await DestinationService.getDestination(found.id);
         if (refreshed != null) {
           found = refreshed;
         }
@@ -154,7 +150,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
 
   Future<void> _toggleFavorite() async {
     if (_destination == null) return;
-    await _favoritesService.toggleFavorite(_destination!.id);
+    await _favoritesService.toggleFavoriteDestination(_destination!);
     setState(() => _isFavorite = !_isFavorite);
   }
 

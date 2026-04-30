@@ -5,7 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/budget_routing_service.dart';
 import 'package:halaph/services/destination_service.dart';
-import 'package:halaph/services/google_maps_api_service.dart';
+import 'package:halaph/services/osm_service.dart';
 
 class RouteOptionsScreen extends StatefulWidget {
   final String destinationId;
@@ -46,9 +46,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
   }
 
   List<_RouteViewModel> get _visibleRoutes {
-    final publicRoutes = _routes
-        .where((route) => route.mode != TravelMode.driving)
-        .toList();
+    final publicRoutes = _routes.toList();
     if (_preferredMode == null) return publicRoutes;
     return publicRoutes.where((route) => route.mode == _preferredMode).toList();
   }
@@ -64,35 +62,13 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       final destination = await _resolveDestinationLocation();
 
       final routes = <_RouteViewModel>[];
-      final googleResults = await GoogleMapsApiService.getAllDirectionsModes(
+      final estimatedRoutesFuture = BudgetRoutingService.calculateBudgetRoutes(
         origin: origin,
         destination: destination,
-      );
+      ).timeout(const Duration(seconds: 10), onTimeout: () => <BudgetRoute>[]);
 
       final seenSignatures = <String>{};
-      for (final response in googleResults) {
-        for (final googleRoute in response.routes) {
-          final converted = _convertGoogleRoute(
-            googleRoute,
-            origin,
-            destination,
-          );
-          if (converted.mode == TravelMode.driving) {
-            continue;
-          }
-          final signature =
-              '${converted.mode.name}|${converted.summary}|'
-              '${converted.boardStop}|${converted.dropOffStop}|${converted.routeLabel}';
-          if (seenSignatures.add(signature)) {
-            routes.add(converted);
-          }
-        }
-      }
-
-      final estimatedRoutes = await BudgetRoutingService.calculateBudgetRoutes(
-        origin: origin,
-        destination: destination,
-      );
+      final estimatedRoutes = await estimatedRoutesFuture;
       for (final estimatedRoute in estimatedRoutes) {
         if (!_shouldAddEstimatedRoute(routes, estimatedRoute.mode)) {
           continue;
@@ -111,8 +87,8 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       }
 
       routes.sort((a, b) {
-        final aScore = a.cost + (a.duration.inMinutes * 0.15);
-        final bScore = b.cost + (b.duration.inMinutes * 0.15);
+        final aScore = _routeScore(a);
+        final bScore = _routeScore(b);
         return aScore.compareTo(bScore);
       });
 
@@ -157,16 +133,13 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       return destination!.coordinates!;
     }
 
-    final geocoded = await GoogleMapsApiService.geocodeAddress(
-      widget.destinationName,
-    );
+    final geocoded = await OSMService.geocodeAddress(widget.destinationName);
     if (geocoded != null) return geocoded;
 
     throw Exception('Destination coordinates not found.');
   }
 
   bool _shouldAddEstimatedRoute(List<_RouteViewModel> routes, TravelMode mode) {
-    if (mode == TravelMode.driving) return false;
     if (mode == TravelMode.train ||
         mode == TravelMode.fx ||
         mode == TravelMode.jeepney) {
@@ -174,6 +147,16 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     }
     final hasSameMode = routes.any((route) => route.mode == mode);
     return !hasSameMode;
+  }
+
+  double _routeScore(_RouteViewModel route) {
+    final longWalkPenalty =
+        route.mode == TravelMode.walking && route.distanceKm > 2.0 ? 80.0 : 0.0;
+    final trainBoost = route.mode == TravelMode.train ? -8.0 : 0.0;
+    return route.cost +
+        (route.duration.inMinutes * 0.18) +
+        longWalkPenalty +
+        trainBoost;
   }
 
   Future<_RouteViewModel> _convertBudgetRoute(
@@ -252,9 +235,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     required String? dropOffStop,
   }) {
     final destination = _destinationLocation ?? route.end;
-    if (details == null ||
-        route.mode == TravelMode.walking ||
-        route.mode == TravelMode.driving) {
+    if (details == null || route.mode == TravelMode.walking) {
       return _EstimatedGuide(
         instructions: route.instructions,
         guideLegs: const [],
@@ -568,7 +549,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       TravelMode.bus => '$target city bus / EDSA Carousel',
       TravelMode.fx => '$target UV Express / FX',
       TravelMode.train => '$target train connection',
-      TravelMode.driving || TravelMode.walking => target,
+      TravelMode.walking => target,
     };
   }
 
@@ -578,7 +559,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       TravelMode.bus => 1.3,
       TravelMode.fx => 1.8,
       TravelMode.train => 1.4,
-      TravelMode.driving || TravelMode.walking => 0.8,
+      TravelMode.walking => 0.8,
     };
     return math.max(1, (distanceKm / kmPerStop).round());
   }
@@ -612,7 +593,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
   }
 
   RouteDetails? _localRouteDetailsForMode(TravelMode mode) {
-    if (mode == TravelMode.walking || mode == TravelMode.driving) return null;
+    if (mode == TravelMode.walking) return null;
 
     final text =
         '${widget.destinationName} ${widget.destination?.location ?? ''}'
@@ -780,7 +761,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         boardingInstructions:
             'Go to the nearest train station and use the line that gets closest to ${widget.destinationName}.',
       ),
-      TravelMode.driving || TravelMode.walking => null,
+      TravelMode.walking => null,
     };
   }
 
@@ -790,7 +771,6 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       TravelMode.bus => 'the nearest bus stop or terminal',
       TravelMode.fx => 'the nearest UV Express / FX terminal',
       TravelMode.train => 'the nearest train station',
-      TravelMode.driving => 'your current location',
       TravelMode.walking => 'your current location',
     };
   }
@@ -799,258 +779,39 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     TravelMode mode,
     LatLng origin,
   ) async {
-    final placeTypes = switch (mode) {
-      TravelMode.train => const ['train_station', 'transit_station'],
-      TravelMode.bus => const ['bus_station', 'transit_station'],
-      TravelMode.fx => const ['transit_station', 'bus_station'],
-      TravelMode.jeepney => const ['transit_station', 'bus_station'],
-      TravelMode.driving || TravelMode.walking => const <String>[],
+    final searches = switch (mode) {
+      TravelMode.train => const ['train station', 'mrt lrt station'],
+      TravelMode.bus => const ['bus station', 'bus stop'],
+      TravelMode.fx => const ['uv express terminal', 'van terminal'],
+      TravelMode.jeepney => const ['jeepney terminal', 'transit stop'],
+      TravelMode.walking => const <String>[],
     };
 
-    for (final placeType in placeTypes) {
-      final places = await GoogleMapsApiService.findNearbyPlaces(
-        location: origin,
-        placeType: placeType,
-        radius: 1200,
-      );
+    for (final search in searches) {
+      final places =
+          await OSMService.searchNearbyPlaces(
+            lat: origin.latitude,
+            lon: origin.longitude,
+            query: search,
+            radius: 1200,
+            limit: 6,
+          ).timeout(
+            const Duration(seconds: 8),
+            onTimeout: () => const <Destination>[],
+          );
       if (places.isNotEmpty) {
         final place = places.first;
-        return _BoardingPoint(place.name, place.location);
+        final location = place.coordinates;
+        if (location != null) {
+          return _BoardingPoint(place.name, location);
+        }
       }
     }
     return null;
   }
 
-  _RouteViewModel _convertGoogleRoute(
-    GoogleRoute route,
-    LatLng origin,
-    LatLng destination,
-  ) {
-    final flattenedSteps = _flattenSteps(
-      route.legs.expand((leg) => leg.steps).toList(),
-    );
-    final mode = _inferMode(flattenedSteps);
-
-    String? boardStop;
-    String? dropOffStop;
-    LatLng? boardLocation;
-    LatLng? dropOffLocation;
-    final instructions = <String>[];
-    final transitLegs = <_TransitLegViewModel>[];
-    final guideLegs = <_GuideLegViewModel>[];
-
-    for (final step in flattenedSteps) {
-      if (step.transitDetails != null) {
-        final td = step.transitDetails!;
-        final leg = _TransitLegViewModel(
-          vehicleLabel: _resolveVehicleLabel(td.line),
-          lineLabel: _resolveLineLabel(td.line),
-          headsign: td.headsign,
-          departureStop: td.departureStop.name,
-          arrivalStop: td.arrivalStop.name,
-          departureTime: td.departureTimeText,
-          arrivalTime: td.arrivalTimeText,
-          stopCount: td.numStops,
-          departureLocation: td.departureStop.location,
-          arrivalLocation: td.arrivalStop.location,
-        );
-        transitLegs.add(leg);
-        boardStop ??= td.departureStop.name;
-        dropOffStop = td.arrivalStop.name;
-        boardLocation ??= td.departureStop.location;
-        dropOffLocation = td.arrivalStop.location;
-
-        instructions.add(
-          'Ride ${leg.vehicleLabel} ${leg.lineLabel} toward ${leg.headsign}. '
-          'Board at ${leg.departureStop} and get off at ${leg.arrivalStop}'
-          '${leg.stopCount > 0 ? ' (${leg.stopCount} stops).' : '.'}',
-        );
-        guideLegs.add(
-          _GuideLegViewModel(
-            mode: _modeFromTransitLine(td.line),
-            title: 'Ride ${leg.vehicleLabel}',
-            from: leg.departureStop,
-            to: leg.arrivalStop,
-            instruction:
-                'Board ${leg.vehicleLabel} ${leg.lineLabel} toward ${leg.headsign.isEmpty ? widget.destinationName : leg.headsign}.',
-            routeSign: leg.routeLabel,
-            fare: route.fare?.text,
-            stopCount: leg.stopCount,
-          ),
-        );
-      } else {
-        final text = _cleanInstruction(step.htmlInstructions);
-        if (text.isNotEmpty) {
-          instructions.add(text);
-          guideLegs.add(
-            _GuideLegViewModel(
-              mode: _modeFromGoogleStep(step),
-              title: _titleForGoogleStep(step),
-              from: '',
-              to: '',
-              instruction: text,
-            ),
-          );
-        }
-      }
-    }
-
-    final polyline = _decodePolyline(route.overviewPolyline);
-    final distanceKm = route.totalDistance;
-    final fareIsConfirmed = route.fare != null && route.fare!.value > 0;
-    final cost = fareIsConfirmed
-        ? route.fare!.value
-        : _estimateCost(mode, distanceKm);
-    final fareLabel = fareIsConfirmed
-        ? (route.fare!.text.isNotEmpty ? route.fare!.text : _formatPhp(cost))
-        : _formatPhp(cost);
-    final tips = _buildTips(mode, route, boardStop, dropOffStop);
-    final routeLabel = transitLegs.isNotEmpty
-        ? transitLegs.first.routeLabel
-        : null;
-    final routeDetails = transitLegs.isNotEmpty
-        ? _routeDetailsFromTransitLeg(transitLegs.first)
-        : _localRouteDetailsForMode(mode);
-
-    return _RouteViewModel(
-      id: 'google_${mode.name}_${DateTime.now().microsecondsSinceEpoch}',
-      mode: mode,
-      duration: route.totalDuration,
-      distanceKm: distanceKm,
-      cost: cost,
-      fareLabel: fareLabel,
-      fareIsConfirmed: fareIsConfirmed,
-      summary: route.summary.isNotEmpty
-          ? route.summary
-          : _defaultSummaryForMode(mode),
-      tips: tips,
-      instructions: instructions,
-      transitLegs: transitLegs,
-      guideLegs: guideLegs,
-      routeLabel: routeLabel,
-      polyline: polyline.isNotEmpty ? polyline : [origin, destination],
-      boardStop: boardStop,
-      dropOffStop: dropOffStop,
-      boardLocation: boardLocation,
-      dropOffLocation: dropOffLocation,
-      transferPoints: _transferPointsFromTransitLegs(transitLegs),
-      fareDetails: fareIsConfirmed
-          ? _fareDetailsFromRegular(mode, cost)
-          : _getFareDetailsForMode(mode, distanceKm),
-      routeDetails: routeDetails,
-    );
-  }
-
-  RouteDetails _routeDetailsFromTransitLeg(_TransitLegViewModel leg) {
-    final headsignText = leg.headsign.trim().isEmpty
-        ? widget.destinationName
-        : leg.headsign.trim();
-    return RouteDetails(
-      routeName: leg.routeLabel,
-      routeCode: leg.lineLabel,
-      keyPoints: [leg.departureStop, leg.arrivalStop],
-      description: '${leg.vehicleLabel} route toward $headsignText.',
-      boardingInstructions:
-          'Go to ${leg.departureStop} and board ${leg.vehicleLabel} ${leg.lineLabel} toward $headsignText.',
-    );
-  }
-
-  List<GoogleStep> _flattenSteps(List<GoogleStep> steps) {
-    final out = <GoogleStep>[];
-    for (final step in steps) {
-      if (step.travelMode.toUpperCase() == 'TRANSIT') {
-        out.add(step);
-        continue;
-      }
-      if (step.subSteps.isNotEmpty) {
-        out.addAll(_flattenSteps(step.subSteps));
-      } else {
-        out.add(step);
-      }
-    }
-    return out;
-  }
-
-  TravelMode _inferMode(List<GoogleStep> steps) {
-    final transitStep = steps
-        .where((s) => s.transitDetails != null)
-        .firstOrNull;
-    if (transitStep != null) {
-      final vehicleType = transitStep.transitDetails!.line.vehicleType
-          .toUpperCase();
-      if (vehicleType.contains('RAIL') ||
-          vehicleType.contains('SUBWAY') ||
-          vehicleType.contains('TRAIN') ||
-          vehicleType.contains('TRAM')) {
-        return TravelMode.train;
-      }
-      if (vehicleType.contains('BUS')) {
-        return TravelMode.bus;
-      }
-      return TravelMode.jeepney;
-    }
-
-    final hasDriving = steps.any(
-      (step) => step.travelMode.toUpperCase() == 'DRIVING',
-    );
-    if (hasDriving) return TravelMode.driving;
-    return TravelMode.walking;
-  }
-
-  TravelMode _modeFromGoogleStep(GoogleStep step) {
-    final mode = step.travelMode.toUpperCase();
-    if (mode == 'DRIVING') return TravelMode.driving;
-    if (mode == 'WALKING') return TravelMode.walking;
-    if (step.transitDetails != null) {
-      return _modeFromTransitLine(step.transitDetails!.line);
-    }
-    return TravelMode.walking;
-  }
-
-  TravelMode _modeFromTransitLine(GoogleTransitLine line) {
-    final vehicleType = line.vehicleType.toUpperCase();
-    if (vehicleType.contains('RAIL') ||
-        vehicleType.contains('SUBWAY') ||
-        vehicleType.contains('TRAIN') ||
-        vehicleType.contains('TRAM')) {
-      return TravelMode.train;
-    }
-    if (vehicleType.contains('BUS')) return TravelMode.bus;
-    return TravelMode.jeepney;
-  }
-
-  String _titleForGoogleStep(GoogleStep step) {
-    return switch (_modeFromGoogleStep(step)) {
-      TravelMode.walking => 'Walk',
-      TravelMode.driving => 'Drive',
-      TravelMode.jeepney => 'Ride jeepney',
-      TravelMode.bus => 'Ride bus',
-      TravelMode.fx => 'Ride UV / FX',
-      TravelMode.train => 'Ride train',
-    };
-  }
-
-  List<_TransferPoint> _transferPointsFromTransitLegs(
-    List<_TransitLegViewModel> legs,
-  ) {
-    if (legs.length <= 1) return const [];
-    return legs.skip(1).where((leg) => leg.departureLocation != null).map((
-      leg,
-    ) {
-      return _TransferPoint(
-        name: leg.departureStop,
-        location: leg.departureLocation!,
-        note: 'Transfer to ${leg.routeLabel}',
-      );
-    }).toList();
-  }
-
   double _estimateCost(TravelMode mode, double distanceKm) {
     switch (mode) {
-      case TravelMode.driving:
-        return (distanceKm / PhilippineFares.vehicleFuelConsumption) *
-                PhilippineFares.fuelPricePerLiter +
-            PhilippineFares.parkingRatePerHour;
       case TravelMode.jeepney:
         return distanceKm <= 4
             ? PhilippineFares.traditionalJeepneyBase
@@ -1073,77 +834,6 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     }
   }
 
-  List<String> _buildTips(
-    TravelMode mode,
-    GoogleRoute route,
-    String? boardStop,
-    String? dropOffStop,
-  ) {
-    final tips = <String>[];
-
-    if (mode == TravelMode.walking) {
-      tips.add('Free route. Wear comfortable footwear.');
-    }
-    if (mode == TravelMode.driving) {
-      tips.add('Watch for toll fees and parking costs.');
-    }
-    if (route.fare != null && route.fare!.value > 0) {
-      tips.add('Live transit fare: ${route.fare!.text}.');
-    } else if (mode == TravelMode.bus ||
-        mode == TravelMode.train ||
-        mode == TravelMode.jeepney ||
-        mode == TravelMode.fx) {
-      tips.add('Fare shown is an estimate when live fare is unavailable.');
-    }
-    if (boardStop != null && boardStop.isNotEmpty) {
-      tips.add('Board at $boardStop.');
-    }
-    if (dropOffStop != null && dropOffStop.isNotEmpty) {
-      tips.add('Get off at $dropOffStop.');
-    }
-    if (route.warnings.isNotEmpty) {
-      tips.addAll(route.warnings.take(2));
-    }
-    return tips;
-  }
-
-  String _defaultSummaryForMode(TravelMode mode) {
-    switch (mode) {
-      case TravelMode.walking:
-        return 'Walking route';
-      case TravelMode.driving:
-        return 'Driving route';
-      case TravelMode.jeepney:
-        return 'Public utility jeepney route';
-      case TravelMode.bus:
-        return 'Bus route';
-      case TravelMode.fx:
-        return 'UV Express / FX route';
-      case TravelMode.train:
-        return 'Train route';
-    }
-  }
-
-  String _resolveVehicleLabel(GoogleTransitLine line) {
-    if (line.vehicleName.trim().isNotEmpty) return line.vehicleName.trim();
-    if (line.vehicleType.trim().isNotEmpty) {
-      final value = line.vehicleType.trim().toLowerCase();
-      return value[0].toUpperCase() + value.substring(1);
-    }
-    return 'Transit';
-  }
-
-  String _resolveLineLabel(GoogleTransitLine line) {
-    if (line.shortName.trim().isNotEmpty) return line.shortName.trim();
-    if (line.name.trim().isNotEmpty) return line.name.trim();
-    return 'Route';
-  }
-
-  String _formatPhp(double amount) {
-    if (amount <= 0) return 'Free';
-    return 'PHP ${amount.toStringAsFixed(0)}';
-  }
-
   FareDetails _getFareDetailsForMode(TravelMode mode, double distance) {
     switch (mode) {
       case TravelMode.jeepney:
@@ -1152,9 +842,6 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         return _calculateBusFare(distance);
       case TravelMode.fx:
         return _calculateFxFare(distance);
-      case TravelMode.driving:
-        final cost = _estimateCost(mode, distance);
-        return _fareDetailsFromRegular(mode, cost);
       case TravelMode.train:
         final cost = _estimateCost(mode, distance);
         return _fareDetailsFromRegular(mode, cost);
@@ -1164,7 +851,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
   }
 
   FareDetails _fareDetailsFromRegular(TravelMode mode, double regularFare) {
-    if (mode == TravelMode.walking || mode == TravelMode.driving) {
+    if (mode == TravelMode.walking) {
       return FareDetails(
         regular: regularFare,
         student: regularFare,
@@ -1214,57 +901,6 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     );
 
     return _fareDetailsFromRegular(TravelMode.fx, regularFare);
-  }
-
-  String _cleanInstruction(String html) {
-    if (html.isEmpty) return '';
-    return html
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&#39;', "'")
-        .trim();
-  }
-
-  List<LatLng> _decodePolyline(String encoded) {
-    if (encoded.isEmpty) return [];
-    final points = <LatLng>[];
-    int index = 0;
-    int lat = 0;
-    int lng = 0;
-
-    try {
-      while (index < encoded.length) {
-        int shift = 0;
-        int result = 0;
-        int byte;
-
-        do {
-          if (index >= encoded.length) return points;
-          byte = encoded.codeUnitAt(index++) - 63;
-          result |= (byte & 0x1f) << shift;
-          shift += 5;
-        } while (byte >= 0x20);
-        final deltaLat = ((result & 1) != 0) ? ~(result >> 1) : (result >> 1);
-        lat += deltaLat;
-
-        shift = 0;
-        result = 0;
-        do {
-          if (index >= encoded.length) return points;
-          byte = encoded.codeUnitAt(index++) - 63;
-          result |= (byte & 0x1f) << shift;
-          shift += 5;
-        } while (byte >= 0x20);
-        final deltaLng = ((result & 1) != 0) ? ~(result >> 1) : (result >> 1);
-        lng += deltaLng;
-
-        points.add(LatLng(lat / 1e5, lng / 1e5));
-      }
-    } catch (_) {
-      return points;
-    }
-    return points;
   }
 
   void _refreshMapOverlays() {
@@ -1359,8 +995,6 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     switch (mode) {
       case TravelMode.walking:
         return const Color(0xFF43A047);
-      case TravelMode.driving:
-        return const Color(0xFF1976D2);
       case TravelMode.jeepney:
         return const Color(0xFFF57C00);
       case TravelMode.bus:
@@ -1420,8 +1054,6 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     switch (mode) {
       case TravelMode.walking:
         return 'Walking';
-      case TravelMode.driving:
-        return 'Driving';
       case TravelMode.jeepney:
         return 'Jeepney';
       case TravelMode.bus:
@@ -1437,8 +1069,6 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     switch (mode) {
       case TravelMode.walking:
         return Icons.directions_walk;
-      case TravelMode.driving:
-        return Icons.directions_car;
       case TravelMode.jeepney:
         return Icons.local_taxi;
       case TravelMode.bus:
@@ -1610,8 +1240,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                         route.fareDetails.regularFare,
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
-                      if (route.mode != TravelMode.walking &&
-                          route.mode != TravelMode.driving)
+                      if (route.mode != TravelMode.walking)
                         Text(
                           'Student: ${route.fareDetails.studentFare}',
                           style: TextStyle(
@@ -1718,17 +1347,15 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
               child: Column(
                 children: [
                   _buildFareRow('Regular', route.fareDetails.regularFare),
-                  if (route.mode != TravelMode.driving) ...[
-                    _buildFareRow(
-                      'Student (20% off)',
-                      route.fareDetails.studentFare,
-                    ),
-                    _buildFareRow('PWD (20% off)', route.fareDetails.pwdFare),
-                    _buildFareRow(
-                      'Senior (20% off)',
-                      route.fareDetails.seniorFare,
-                    ),
-                  ],
+                  _buildFareRow(
+                    'Student (20% off)',
+                    route.fareDetails.studentFare,
+                  ),
+                  _buildFareRow('PWD (20% off)', route.fareDetails.pwdFare),
+                  _buildFareRow(
+                    'Senior (20% off)',
+                    route.fareDetails.seniorFare,
+                  ),
                 ],
               ),
             ),
@@ -2121,8 +1748,4 @@ class _TransitLegViewModel {
     }
     return '$vehicleLabel $lineLabel to $headsign';
   }
-}
-
-extension _FirstOrNull<E> on Iterable<E> {
-  E? get firstOrNull => isEmpty ? null : first;
 }

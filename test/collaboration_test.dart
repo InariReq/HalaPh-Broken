@@ -20,6 +20,10 @@ void main() {
       expect(service.addFriendByCode, isNotNull);
       expect(service.getFriends, isNotNull);
       expect(service.resolveParticipantUids, isNotNull);
+      expect(service.getPublicFavoriteIds, isNotNull);
+      expect(service.getPublicFavoritePlaces, isNotNull);
+      expect(service.publishFavoritePlaceIds, isNotNull);
+      expect(service.publishFavoritePlaces, isNotNull);
     });
 
     test('Plan ID generation is accessible', () {

@@ -20,6 +20,7 @@ class SimplePlanService {
       StreamController<void>.broadcast();
 
   static Stream<void> get changes => _changesController.stream;
+  static bool debugAllowMemoryOnlyPlans = false;
 
   static Future<void> initialize({bool forceRefresh = false}) async {
     if (!forceRefresh && _initialization != null) return _initialization;
@@ -168,14 +169,14 @@ class SimplePlanService {
 
   static TravelPlan? getPlanById(String id) => _plans[id];
 
-  static bool updatePlan({
+  static Future<bool> updatePlan({
     required String planId,
     String? title,
     DateTime? startDate,
     DateTime? endDate,
     List<Destination>? destinations,
     String? bannerImage,
-  }) {
+  }) async {
     final existing = _plans[planId];
     if (existing == null) return false;
 
@@ -199,10 +200,15 @@ class SimplePlanService {
       bannerImage: bannerImage ?? existing.bannerImage,
     );
 
-    _plans[planId] = updated;
-    _notifyChanged();
-    _saveRemotePlanInBackground(updated);
-    return true;
+    try {
+      await _saveRemotePlan(updated);
+      _plans[planId] = updated;
+      _notifyChanged();
+      return true;
+    } catch (error) {
+      debugPrint('Failed to update plan: $error');
+      return false;
+    }
   }
 
   static Future<bool> deletePlan(String id) async {
@@ -255,9 +261,9 @@ class SimplePlanService {
       bannerImage: existing.bannerImage,
     );
 
-    _plans[planId] = updated;
     try {
       await _saveRemotePlan(updated);
+      _plans[planId] = updated;
       _notifyChanged();
       return true;
     } catch (error) {
@@ -334,8 +340,8 @@ class SimplePlanService {
       bannerImage: banner,
     );
 
-    _plans[id] = plan;
     await _saveRemotePlan(plan);
+    _plans[id] = plan;
     _notifyChanged();
     return plan;
   }
@@ -401,10 +407,15 @@ class SimplePlanService {
       bannerImage: existing.bannerImage,
     );
 
-    _plans[planId] = updated;
-    await _saveRemotePlan(updated);
-    _notifyChanged();
-    return true;
+    try {
+      await _saveRemotePlan(updated);
+      _plans[planId] = updated;
+      _notifyChanged();
+      return true;
+    } catch (error) {
+      debugPrint('Failed to add destination to plan: $error');
+      return false;
+    }
   }
 
   static List<DayItinerary> _buildItinerary(
@@ -521,7 +532,14 @@ class SimplePlanService {
 
   static Future<void> _saveRemotePlan(TravelPlan plan) async {
     final currentUid = _currentUserId();
-    if (currentUid == null) return;
+    if (currentUid == null) {
+      if (debugAllowMemoryOnlyPlans) {
+        _ownerUids[plan.id] ??= plan.createdBy;
+        _participantUids[plan.id] = plan.participantIds;
+        return;
+      }
+      throw StateError('Sign in before saving plans to Firebase.');
+    }
 
     final existingOwnerUid = _ownerUids[plan.id];
     final ownerUid = existingOwnerUid ?? currentUid;

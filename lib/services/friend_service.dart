@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:halaph/models/destination.dart';
 import 'package:halaph/models/friend.dart';
 import 'package:halaph/services/firebase_app_service.dart';
 import 'package:halaph/services/remote_sync_service.dart';
@@ -130,6 +131,116 @@ class FriendService {
     final friends = await getFriends();
     friends.removeWhere((friend) => friend.id == friendId);
     await _saveFriends(friends);
+  }
+
+  Future<List<String>> getPublicFavoriteIds(Friend friend) async {
+    final code = _normalizeCode(friend.code);
+    if (code.isEmpty || !await FirebaseAppService.initialize()) {
+      return const <String>[];
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('publicProfiles')
+          .doc(code)
+          .get()
+          .timeout(const Duration(seconds: 5));
+      final data = snapshot.data();
+      final rawFavorites = data?['favoritePlaceIds'];
+      if (rawFavorites is! List) return const <String>[];
+      return rawFavorites
+          .whereType<String>()
+          .where((id) => id.trim().isNotEmpty)
+          .toSet()
+          .toList();
+    } catch (_) {
+      return const <String>[];
+    }
+  }
+
+  Future<List<Destination>> getPublicFavoritePlaces(Friend friend) async {
+    final code = _normalizeCode(friend.code);
+    if (code.isEmpty || !await FirebaseAppService.initialize()) {
+      return const <Destination>[];
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('publicProfiles')
+          .doc(code)
+          .get()
+          .timeout(const Duration(seconds: 5));
+      final data = snapshot.data();
+      final rawPlaces = data?['favoritePlaces'];
+      if (rawPlaces is! List) return const <Destination>[];
+      final places = <Destination>[];
+      for (final rawPlace in rawPlaces) {
+        if (rawPlace is! Map) continue;
+        try {
+          places.add(Destination.fromJson(Map<String, dynamic>.from(rawPlace)));
+        } catch (_) {}
+      }
+      return places;
+    } catch (_) {
+      return const <Destination>[];
+    }
+  }
+
+  Future<void> publishFavoritePlaceIds(List<String> ids) async {
+    if (!await FirebaseAppService.initialize()) return;
+    final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) return;
+
+    final code = _normalizeCode(await getMyCode());
+    if (code.isEmpty) return;
+
+    final deduped = ids
+        .where((id) => id.trim().isNotEmpty)
+        .map((id) => id.trim())
+        .toSet()
+        .toList();
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('publicProfiles')
+          .doc(code)
+          .set({
+            'uid': firebaseUser.uid,
+            'code': code,
+            'favoritePlaceIds': deduped,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {}
+  }
+
+  Future<void> publishFavoritePlaces(List<Destination> destinations) async {
+    if (!await FirebaseAppService.initialize()) return;
+    final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) return;
+
+    final code = _normalizeCode(await getMyCode());
+    if (code.isEmpty) return;
+
+    final deduped = <String, Destination>{
+      for (final destination in destinations) destination.id: destination,
+    };
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('publicProfiles')
+          .doc(code)
+          .set({
+            'uid': firebaseUser.uid,
+            'code': code,
+            'favoritePlaceIds': deduped.keys.toList(),
+            'favoritePlaces': deduped.values
+                .map((destination) => destination.toJson())
+                .toList(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {}
   }
 
   Future<void> updateFriendRole(String friendId, String role) async {

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:halaph/models/destination.dart';
-import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
@@ -49,16 +48,12 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   Future<void> _loadFavorites() async {
     setState(() => _loading = true);
     try {
-      final ids = await _favoritesService.getFavorites();
-      final dests = await Future.wait(
-        ids.map((id) async {
-          final dest = await DestinationService.getDestination(id);
-          return dest;
-        }),
+      final destinations = await _favoritesService.getFavoriteDestinations(
+        forceRefresh: true,
       );
       if (mounted) {
         setState(() {
-          _favorites = dests.where((e) => e != null).map((e) => e!).toList();
+          _favorites = destinations;
           _loading = false;
         });
       }

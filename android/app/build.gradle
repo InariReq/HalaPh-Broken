@@ -1,8 +1,0 @@
-// Minimal Gradle file to satisfy flutter_launcher_icons for icon generation
-apply plugin: 'com.android.application'
-
-android {
-  defaultConfig {
-    minSdkVersion 21
-  }
-}

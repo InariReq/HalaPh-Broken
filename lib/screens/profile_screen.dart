@@ -10,6 +10,7 @@ import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/models/user.dart';
 import 'package:halaph/models/destination.dart';
+import 'package:halaph/models/friend.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/utils/navigation_utils.dart';
 
@@ -79,12 +80,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   StreamSubscription<void>? _favoritesSubscription;
   User? _user;
   String? _myCode;
+  int _selectedTab = 0;
+  bool _friendsLoading = true;
+  List<Friend> _friends = [];
 
   @override
   void initState() {
     super.initState();
     _loadUser();
     _loadFavoritesFromService();
+    _loadFriends();
     _favoritesSubscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
       _loadFavoritesFromService();
     });
@@ -132,6 +137,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: result.success ? Colors.green[600] : Colors.red,
       ),
     );
+    if (result.success) {
+      _friendCodeController.clear();
+      await _loadFriends();
+    }
+  }
+
+  Future<void> _loadFriends() async {
+    try {
+      final friends = await _friendService.getFriends();
+      if (!mounted) return;
+      setState(() {
+        _friends = friends;
+        _friendsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _friendsLoading = false);
+    }
   }
 
   @override
@@ -176,17 +199,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 20),
               _buildProfileSection(),
               const SizedBox(height: 20),
-              _buildUserCodeSection(),
+              _buildProfileTabs(),
               const SizedBox(height: 20),
-              _buildAddFriendsSection(),
-              const SizedBox(height: 20),
-              _buildFavoritesSection(),
-              const SizedBox(height: 20),
-              _buildTripHistoryButton(),
-              const SizedBox(height: 20),
-              _buildLogoutButton(),
-              const SizedBox(height: 20),
-              _buildAccountsButton(),
+              if (_selectedTab == 0) ...[
+                _buildUserCodeSection(),
+                const SizedBox(height: 20),
+                _buildFavoritesSection(),
+                const SizedBox(height: 20),
+                _buildTripHistoryButton(),
+                const SizedBox(height: 20),
+                _buildLogoutButton(),
+                const SizedBox(height: 20),
+                _buildAccountsButton(),
+              ] else ...[
+                _buildFriendsTab(),
+              ],
               const SizedBox(height: 30),
             ],
           ),
@@ -197,23 +224,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadFavoritesFromService() async {
     try {
-      final ids = await FavoritesService().getFavorites();
+      final service = FavoritesService();
+      final destinations = await service.getFavoriteDestinations(
+        forceRefresh: true,
+      );
+      final ids = await service.getFavorites();
       final loaded = <FavoritePlace>[];
+      final byId = {
+        for (final destination in destinations) destination.id: destination,
+      };
       for (final id in ids) {
-        var dest = await DestinationService.getDestination(id);
-        dest ??= await DestinationService.getDestination(id);
-        if (dest != null) {
-          loaded.add(
-            FavoritePlace(
-              id: id,
-              name: dest.name,
-              location: dest.location,
-              type: DestinationService.getCategoryName(dest.category),
-              imageUrl: dest.imageUrl,
-              destination: dest,
-            ),
-          );
-        } else {
+        final destination = byId[id];
+        if (destination == null) {
           loaded.add(
             FavoritePlace(
               id: id,
@@ -222,7 +244,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
               type: 'Place',
             ),
           );
+          continue;
         }
+        loaded.add(
+          FavoritePlace(
+            id: id,
+            name: destination.name,
+            location: destination.location,
+            type: DestinationService.getCategoryName(destination.category),
+            imageUrl: destination.imageUrl,
+            destination: destination,
+          ),
+        );
       }
       if (mounted) {
         setState(() {
@@ -233,6 +266,355 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {
       // ignore and keep defaults
     }
+  }
+
+  Widget _buildProfileTabs() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+      ),
+      child: Row(
+        children: [
+          _buildProfileTabButton('Profile', Icons.person_outline, 0),
+          _buildProfileTabButton('Friends', Icons.people_outline, 1),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileTabButton(String label, IconData icon, int index) {
+    final selected = _selectedTab == index;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _selectedTab = index),
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF2196F3) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: selected ? Colors.white : Colors.grey[700],
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : Colors.grey[700],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFriendsTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildAddFriendsSection(),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            const Icon(Icons.people_outline, color: Color(0xFF2196F3)),
+            const SizedBox(width: 8),
+            const Text(
+              'Your Friends',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const Spacer(),
+            IconButton(
+              tooltip: 'Refresh friends',
+              onPressed: _loadFriends,
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_friendsLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            ),
+          )
+        else if (_friends.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE0E0E0)),
+            ),
+            child: const Text(
+              'No friends yet. Add a friend code to start planning together.',
+              textAlign: TextAlign.center,
+            ),
+          )
+        else
+          Column(children: _friends.map(_buildFriendCard).toList()),
+      ],
+    );
+  }
+
+  Widget _buildFriendCard(Friend friend) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        leading: CircleAvatar(
+          radius: 24,
+          backgroundColor: Colors.grey[200],
+          backgroundImage: friend.avatarUrl != null
+              ? NetworkImage(friend.avatarUrl!)
+              : null,
+          child: friend.avatarUrl == null
+              ? Icon(Icons.person, color: Colors.grey[600])
+              : null,
+        ),
+        title: Text(
+          friend.name,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(friend.code),
+        onTap: () => _showFriendProfile(friend),
+        trailing: IconButton(
+          tooltip: 'Unfriend',
+          icon: const Icon(Icons.person_remove_outlined, color: Colors.red),
+          onPressed: () => _confirmUnfriend(friend),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmUnfriend(Friend friend) async {
+    final shouldRemove = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unfriend'),
+        content: Text('Remove ${friend.name} from your friends?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Unfriend', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (shouldRemove != true) return;
+    await _friendService.removeFriend(friend.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${friend.name} removed')));
+    await _loadFriends();
+  }
+
+  void _showFriendProfile(Friend friend) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.72,
+        minChildSize: 0.45,
+        maxChildSize: 0.92,
+        builder: (context, scrollController) {
+          return FutureBuilder<List<FavoritePlace>>(
+            future: _loadFriendFavoritePlaces(friend),
+            builder: (context, snapshot) {
+              final favorites = snapshot.data ?? const <FavoritePlace>[];
+              return ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  CircleAvatar(
+                    radius: 36,
+                    backgroundColor: Colors.grey[200],
+                    backgroundImage: friend.avatarUrl != null
+                        ? NetworkImage(friend.avatarUrl!)
+                        : null,
+                    child: friend.avatarUrl == null
+                        ? Icon(Icons.person, size: 38, color: Colors.grey[600])
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    friend.name,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    friend.email?.isNotEmpty == true
+                        ? '${friend.code} • ${friend.email}'
+                        : friend.code,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Favorited Places',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 12),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (favorites.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F9FA),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Text(
+                        'No public favorite places yet.',
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  else
+                    ...favorites.map(
+                      (favorite) => _buildFriendFavoriteTile(favorite),
+                    ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Future<List<FavoritePlace>> _loadFriendFavoritePlaces(Friend friend) async {
+    final destinations = await _friendService.getPublicFavoritePlaces(friend);
+    if (destinations.isNotEmpty) {
+      return destinations
+          .take(20)
+          .map((destination) {
+            return FavoritePlace(
+              id: destination.id,
+              name: destination.name,
+              location: destination.location,
+              type: DestinationService.getCategoryName(destination.category),
+              imageUrl: destination.imageUrl,
+              destination: destination,
+            );
+          })
+          .toList(growable: false);
+    }
+
+    final ids = await _friendService.getPublicFavoriteIds(friend);
+    final favorites = <FavoritePlace>[];
+    for (final id in ids.take(20)) {
+      final destination = await DestinationService.getDestination(id);
+      if (destination == null) {
+        favorites.add(
+          FavoritePlace(id: id, name: 'Saved place', type: 'Place'),
+        );
+        continue;
+      }
+      favorites.add(
+        FavoritePlace(
+          id: id,
+          name: destination.name,
+          location: destination.location,
+          type: DestinationService.getCategoryName(destination.category),
+          imageUrl: destination.imageUrl,
+          destination: destination,
+        ),
+      );
+    }
+    return favorites;
+  }
+
+  Widget _buildFriendFavoriteTile(FavoritePlace favorite) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: ListTile(
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: 48,
+            height: 48,
+            color: Colors.grey[200],
+            child: favorite.imageUrl?.startsWith('http') == true
+                ? Image.network(favorite.imageUrl!, fit: BoxFit.cover)
+                : Icon(Icons.place, color: Colors.grey[600]),
+          ),
+        ),
+        title: Text(
+          favorite.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          favorite.location.isNotEmpty ? favorite.location : favorite.type,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        onTap: favorite.destination == null
+            ? null
+            : () {
+                Navigator.pop(context);
+                ExploreDetailsScreen.showAsBottomSheet(
+                  context,
+                  destinationId: favorite.id,
+                  source: 'friend-profile',
+                  destination: favorite.destination,
+                );
+              },
+      ),
+    );
   }
 
   Widget _buildProfileSection() {

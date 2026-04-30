@@ -14,7 +14,10 @@ void main() {
         destination: destination,
       );
 
-      expect(routes.any((route) => route.mode == TravelMode.driving), isFalse);
+      expect(
+        TravelMode.values.map((mode) => mode.name),
+        isNot(contains('driving')),
+      );
 
       final trainRoutes = routes.where(
         (route) => route.mode == TravelMode.train,
