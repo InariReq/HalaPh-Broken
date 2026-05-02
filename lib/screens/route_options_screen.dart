@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/budget_routing_service.dart';
 import 'package:halaph/utils/dev_mode.dart';
+import 'package:halaph/services/database_reset_service.dart';
 import 'package:halaph/services/google_maps_service.dart';
 import 'package:halaph/services/fare_service.dart';
 import 'package:halaph/screens/route_map_screen.dart';
@@ -142,11 +143,13 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       appBar: AppBar(
         title: Text('Route to ${widget.destinationName}'),
         actions: [
-          PopupMenuButton<PassengerType>(
+      PopupMenuButton<PassengerType>(
             onSelected: (pt) {
               setState(() {
                 _passengerType = pt;
               });
+              // Recalculate fares for the new passenger type
+              _loadFares();
             },
             itemBuilder: (context) => <PopupMenuEntry<PassengerType>>[
               const PopupMenuItem(value: PassengerType.adult, child: Text('Adult')),
@@ -439,6 +442,18 @@ class _DevModeSheetContent extends StatelessWidget {
             title: const Text('Emulator'),
             onTap: () {
               DevModeService.set(DevMode.emulator);
+              Navigator.pop(context);
+            },
+          ),
+          // Dev DB reset (FireStore Emulator) - exposed only in emulator mode
+          ListTile(
+            leading: const Icon(Icons.delete_forever),
+            title: const Text('Reset Dev Firestore Emulator Data'),
+            onTap: () async {
+              // Only perform if emulator mode is active
+              if (DevModeService.current.value == DevMode.emulator) {
+                await DatabaseResetService.resetFirestoreEmulatorData();
+              }
               Navigator.pop(context);
             },
           ),

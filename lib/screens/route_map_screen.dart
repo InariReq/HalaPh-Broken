@@ -254,6 +254,29 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                               step['html_instructions'] as String? ?? '';
                           final distance = (step['distance'] as Map?)?['text'] as String? ?? '';
                           final duration = (step['duration'] as Map?)?['text'] as String? ?? '';
+                          // Optional transit details for more precise ride instructions
+                          String transitInfo = '';
+                          final transitDetails = step['transit_details'] as Map<String, dynamic>?;
+                          if (transitDetails != null) {
+                            final line = transitDetails['line'] as Map<String, dynamic>?
+                                ;
+                            final lineName = (line?['short_name'] ?? line?['name'] ?? '').toString();
+                            final depStop = transitDetails['departure_stop'] as Map<String, dynamic>?;
+                            final depStopName = depStop?['name'] ?? '';
+                            final arrStop = transitDetails['arrival_stop'] as Map<String, dynamic>?;
+                            final arrStopName = arrStop?['name'] ?? '';
+                            final depTime = transitDetails['departure_time'] as Map<String, dynamic>?;
+                            final depTimeText = depTime?['text'] ?? '';
+                            final arrTime = transitDetails['arrival_time'] as Map<String, dynamic>?;
+                            final arrTimeText = arrTime?['text'] ?? '';
+                            String detail = '';
+                            if (lineName.isNotEmpty) detail += 'Board $lineName';
+                            if (depStopName.isNotEmpty) detail += (detail.isEmpty ? '' : ' ') + 'at $depStopName';
+                            if (depTimeText.isNotEmpty) detail += ' ($depTimeText)';
+                            if (arrStopName.isNotEmpty) detail += ' to $arrStopName';
+                            if (arrTimeText.isNotEmpty) detail += ' ($arrTimeText)';
+                            if (detail.isNotEmpty) transitInfo = detail;
+                          }
                           final isCurrentStep = index == _currentStep;
 
                           return InkWell(
@@ -320,6 +343,14 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                                 : FontWeight.normal,
                                           ),
                                         ),
+                                        if (transitInfo.isNotEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 6),
+                                            child: Text(
+                                              transitInfo,
+                                              style: const TextStyle(fontSize: 11, color: Colors.black54),
+                                            ),
+                                          ),
                                         if (distance.isNotEmpty || duration.isNotEmpty)
                                           Padding(
                                             padding: const EdgeInsets.only(top: 4),
