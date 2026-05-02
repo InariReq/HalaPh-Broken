@@ -28,7 +28,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   List<_TransportFare> _fares = [];
-  Map<String, List<Map<String, dynamic>>> _directionSteps = {};
+  final Map<String, List<Map<String, dynamic>>> _directionSteps = {};
   LatLng? _origin;
   LatLng? _destination;
   PassengerType _passengerType = PassengerType.adult;
