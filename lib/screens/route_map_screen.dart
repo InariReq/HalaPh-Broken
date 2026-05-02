@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/services/budget_routing_service.dart';
+import 'package:halaph/services/google_maps_service.dart';
 import 'package:halaph/utils/map_utils.dart';
 
 class RouteMapScreen extends StatefulWidget {
@@ -32,10 +33,14 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
   int _currentStep = 0;
+  String _polyline = '';
+  List<LatLng> _routePoints = [];
 
   @override
   void initState() {
     super.initState();
+    _polyline = widget.polyline;
+    _routePoints = _polyline.isNotEmpty ? MapUtils.decodePolyline(_polyline) : [];
     _setupMap();
   }
 
@@ -56,12 +61,12 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
       ),
     };
 
-    // Add polyline if available
-    if (widget.polyline.isNotEmpty) {
+    // Use route points if available
+    if (_routePoints.isNotEmpty) {
       _polylines = {
         Polyline(
           polylineId: const PolylineId('route'),
-          points: MapUtils.decodePolyline(widget.polyline),
+          points: _routePoints,
           color: _getModeColor(),
           width: 5,
         ),
@@ -69,7 +74,45 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     }
   }
 
-  // Polyline decoding moved to MapUtils (MapUtils.decodePolyline)
+  Future<void> _reloadRoute() async {
+    final profile = _modeProfile(widget.mode);
+    final directions = await GoogleMapsService.getDirections(
+      startLat: widget.origin.latitude,
+      startLon: widget.origin.longitude,
+      endLat: widget.destination.latitude,
+      endLon: widget.destination.longitude,
+      profile: profile,
+    );
+    if (directions != null) {
+      final poly = directions['polyline'] as String? ?? '';
+      final pts = MapUtils.decodePolyline(poly);
+      setState(() {
+        _polyline = poly;
+        _routePoints = pts;
+        _polylines = {
+          Polyline(
+            polylineId: const PolylineId('route'),
+            points: pts,
+            color: _getModeColor(),
+            width: 5,
+          )
+        };
+      });
+    }
+  }
+
+  String _modeProfile(TravelMode mode) {
+    switch (mode) {
+      case TravelMode.jeepney:
+      case TravelMode.bus:
+      case TravelMode.fx:
+        return 'driving';
+      case TravelMode.train:
+        return 'transit';
+      case TravelMode.walking:
+        return 'walking';
+    }
+  }
 
   Color _getModeColor() {
     switch (widget.mode) {
@@ -96,6 +139,13 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
       appBar: AppBar(
         title: Text('${widget.modeName} Route'),
         backgroundColor: _getModeColor(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _reloadRoute,
+            tooltip: 'Refresh Route',
+          ),
+        ],
       ),
       body: Stack(
         children: [

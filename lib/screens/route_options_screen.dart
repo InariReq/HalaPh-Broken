@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/budget_routing_service.dart';
 import 'package:halaph/services/google_maps_service.dart';
+import 'package:halaph/services/fare_service.dart';
 import 'package:halaph/screens/route_map_screen.dart';
 
 class RouteOptionsScreen extends StatefulWidget {
@@ -30,6 +31,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
   Map<String, List<Map<String, dynamic>>> _directionSteps = {};
   LatLng? _origin;
   LatLng? _destination;
+  PassengerType _passengerType = PassengerType.adult;
 
   @override
   void initState() {
@@ -59,7 +61,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             origin;
       }
 
-      final distance = BudgetRoutingService.calculateDistance(origin, destination);
+    final distance = BudgetRoutingService.calculateDistance(origin, destination);
       if (distance == 0) {
         throw Exception('Destination is too close or location unavailable.');
       }
@@ -69,20 +71,21 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
 
       final modes = [
         _ModeData(TravelMode.jeepney, 'Traditional Jeepney', Icons.directions_bus,
-            BudgetRoutingService.calculateJeepneyFare, 'driving'),
+        _ModeData(TravelMode.jeepney, 'Traditional Jeepney', Icons.directions_bus,
+            null, 'driving'),
         _ModeData(TravelMode.bus, 'Bus (Ordinary/Aircon)', Icons.directions_bus,
-            BudgetRoutingService.calculateBusFare, 'driving'),
-        _ModeData(TravelMode.train, 'Train (LRT/MRT)', Icons.train,
-            BudgetRoutingService.calculateTrainFare, 'transit'),
-        _ModeData(TravelMode.fx, 'FX/Van', Icons.airport_shuttle,
-            BudgetRoutingService.calculateFXFare, 'driving'),
+            null, 'driving'),
+        _ModeData(TravelMode.train, 'Train (LRT/MRT)', Icons.train, 
+            null, 'transit'),
+        _ModeData(TravelMode.fx, 'FX/Van', Icons.airport_shuttle, 
+            null, 'driving'),
         _ModeData(TravelMode.walking, 'Walking', Icons.directions_walk,
             (double _) => 0.0, 'walking'),
       ];
-
       _fares = [];
       for (final modeData in modes) {
-        final fare = modeData.fareFn(distance);
+        final FareServiceFare =  FareService.estimateFare(modeData.mode, distance, type: _passengerType);
+        final fare = FareServiceFare;
         final duration = BudgetRoutingService.estimateDuration(distance, modeData.mode);
 
         final directions = await GoogleMapsService.getDirections(
