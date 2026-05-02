@@ -1,6 +1,7 @@
 import Flutter
 import GoogleMaps
 import UIKit
+import flutter_local_notifications
 
 @main
 class AppDelegate: FlutterAppDelegate {
@@ -10,6 +11,12 @@ class AppDelegate: FlutterAppDelegate {
        !mapsApiKey.hasPrefix("$(") {
       GMSServices.provideAPIKey(mapsApiKey)
     }
+    
+    // Setup notification permissions for iOS
+    if #available(iOS 10.0, *) {
+      UNUserNotificationCenter.current().delegate = self
+    }
+    
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }

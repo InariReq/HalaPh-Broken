@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    // Profile pictures - users can read all, but only write their own
+    match /profile_pictures/{imageId} {
+      allow read: if signedIn();
+      allow write: if isOwner(request.auth.uid)
+        && imageId.matches('profile_.*\\.jpg')
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Plan images - participants can read/write
+    match /plan_images/{planId}/{imageId} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // User uploads - users can only access their own folder
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if isOwner(userId);
+    }
+  }
+}

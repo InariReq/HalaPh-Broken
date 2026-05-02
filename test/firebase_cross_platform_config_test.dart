@@ -36,7 +36,7 @@ void main() {
     final packageName = androidInfo['package_name'] as String;
 
     final gradle = File('android/app/build.gradle.kts').readAsStringSync();
-    expect(packageName, 'com.example.halaph');
+    expect(packageName, 'com.halaph.app');
     expect(gradle, contains('applicationId = "$packageName"'));
   });
 }

@@ -1,15 +1,15 @@
 {
   "project_info": {
     "project_number": "416537953878",
-    "project_id": "halaph-8a811",
-    "storage_bucket": "halaph-8a811.firebasestorage.app"
+    "project_id": "halaph-d4eaa",
+    "storage_bucket": "halaph-d4eaa.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
         "mobilesdk_app_id": "1:416537953878:android:d3baf6ab846b760c8a5df7",
         "android_client_info": {
-          "package_name": "com.example.halaph"
+          "package_name": "com.halaph.app"
         }
       },
       "oauth_client": [],

@@ -176,6 +176,49 @@ class AuthService {
       name: (name != null && name.isNotEmpty)
           ? name
           : fallbackName ?? email.split('@').first,
+      avatarUrl: firebaseUser.photoURL,
     );
+  }
+
+  Future<User?> updateProfile({String? name, String? avatarUrl}) async {
+    try {
+      final user = firebase_auth.FirebaseAuth.instance.currentUser;
+      if (user == null) return null;
+      
+      if (name != null && name.trim().isNotEmpty) {
+        await user.updateDisplayName(name.trim());
+      }
+      
+      if (avatarUrl != null && avatarUrl.isNotEmpty) {
+        await user.updatePhotoURL(avatarUrl);
+      }
+      
+      await user.reload();
+      return _toAppUser(firebase_auth.FirebaseAuth.instance.currentUser ?? user);
+    } catch (e) {
+      debugPrint('Failed to update profile: $e');
+      return null;
+    }
+  }
+
+  Future<bool> sendPasswordResetEmail(String email) async {
+    if (email.isEmpty) {
+      _lastAuthError = 'Enter your email address.';
+      return false;
+    }
+
+    try {
+      await firebase_auth.FirebaseAuth.instance
+          .sendPasswordResetEmail(email: email);
+      return true;
+    } on firebase_auth.FirebaseAuthException catch (error) {
+      _lastAuthError = _messageForAuthException(error, isRegistration: false);
+      debugPrint('Password reset failed: ${error.code} ${error.message ?? ''}');
+      return false;
+    } catch (error) {
+      _lastAuthError = 'Failed to send reset email. Check your connection.';
+      debugPrint('Password reset failed: $error');
+      return false;
+    }
   }
 }

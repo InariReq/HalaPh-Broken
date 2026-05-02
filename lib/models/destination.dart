@@ -1,6 +1,6 @@
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-enum DestinationCategory { park, landmark, food, activities, museum, market }
+enum DestinationCategory { park, landmark, food, activities, museum, malls }
 
 class Destination {
   final String id;
@@ -12,7 +12,6 @@ class Destination {
   final DestinationCategory category;
   final double rating;
   final List<String> tags;
-  final BudgetInfo budget;
 
   Destination({
     required this.id,
@@ -24,7 +23,6 @@ class Destination {
     required this.category,
     this.rating = 4.5,
     this.tags = const [],
-    required this.budget,
   });
 
   factory Destination.fromJson(Map<String, dynamic> json) {
@@ -49,7 +47,6 @@ class Destination {
       ),
       rating: json['rating']?.toDouble() ?? 4.5,
       tags: List<String>.from(json['tags'] ?? []),
-      budget: BudgetInfo.fromJson(json['budget']),
     );
   }
 
@@ -65,34 +62,6 @@ class Destination {
       'category': category.name,
       'rating': rating,
       'tags': tags,
-      'budget': budget.toJson(),
     };
   }
-}
-
-class BudgetInfo {
-  final double minCost;
-  final double maxCost;
-  final String currency;
-
-  BudgetInfo({
-    required this.minCost,
-    required this.maxCost,
-    this.currency = '₱',
-  });
-
-  factory BudgetInfo.fromJson(Map<String, dynamic> json) {
-    return BudgetInfo(
-      minCost: json['minCost']?.toDouble() ?? 0.0,
-      maxCost: json['maxCost']?.toDouble() ?? 0.0,
-      currency: json['currency'] ?? '₱',
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {'minCost': minCost, 'maxCost': maxCost, 'currency': currency};
-  }
-
-  String get formattedRange =>
-      '$currency${minCost.toStringAsFixed(0)} - $currency${maxCost.toStringAsFixed(0)}';
 }

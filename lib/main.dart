@@ -35,6 +35,8 @@ import 'screens/friends_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _loadEnvSafe();
+  // Allow time for env to be ready
+  await Future.delayed(const Duration(milliseconds: 100));
   await FirebaseAppService.initialize();
 
   runApp(const HalaPhApp());
@@ -43,8 +45,9 @@ void main() async {
 Future<void> _loadEnvSafe() async {
   try {
     await dotenv.load(fileName: '.env');
-  } catch (_) {
-    // Running without .env is supported; APIs will gracefully fall back.
+    debugPrint('main: .env loaded, keys: ${dotenv.env.keys.toList()}');
+  } catch (e) {
+    debugPrint('main: Failed to load .env: $e');
   }
 }
 
@@ -69,7 +72,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     final auth = AuthService();
     final user = await auth.getCurrentUser();
     if (user != null) {
-      unawaited(SimplePlanService.initialize());
+      await SimplePlanService.initialize();
     }
     if (mounted) {
       setState(() {
@@ -223,6 +226,7 @@ class _MainNavigationState extends State<MainNavigation> {
           ExploreScreen(),
           MyPlansScreen(),
           FavoritesScreen(),
+          FriendsScreen(),
           ProfileScreen(),
         ],
       ),
@@ -247,7 +251,8 @@ class _MainNavigationState extends State<MainNavigation> {
                 _buildNavItem(Icons.explore, 'Explore', 1),
                 _buildNavItem(Icons.calendar_today, 'Plans', 2),
                 _buildNavItem(Icons.favorite, 'Favorites', 3),
-                _buildNavItem(Icons.person, 'Profile', 4),
+                _buildNavItem(Icons.people, 'Friends', 4),
+                _buildNavItem(Icons.person, 'Profile', 5),
               ],
             ),
           ),

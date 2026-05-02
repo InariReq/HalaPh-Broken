@@ -31,6 +31,12 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _initializeMap() async {
+    if (!mounted) return;
+    
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       // Get destinations
       if (widget.destinations != null) {
@@ -39,17 +45,19 @@ class _MapScreenState extends State<MapScreen> {
         _allDestinations = await DestinationService.searchDestinations('');
       }
 
-      // Try to get user location
-      try {
-        final location = await DestinationService.getCurrentLocation();
-        _userLocation = location;
-      } catch (e) {
-        debugPrint('Could not get user location: $e');
-        _userLocation = const LatLng(12.8797, 121.7740);
+      // Try to get user location with retry
+      _userLocation = await DestinationService.getCurrentLocation();
+      
+      if (DestinationService.isInvalidLocation(_userLocation!)) {
+        debugPrint('Map: Using default location (user location unavailable)');
+        _userLocation = const LatLng(14.5995, 120.9842); // Manila default
+      } else {
+        debugPrint('Map: User location found: $_userLocation');
       }
 
       final markers = _buildMarkers();
       if (!mounted) return;
+      
       setState(() {
         _markers = markers;
         _isLoading = false;
@@ -58,17 +66,24 @@ class _MapScreenState extends State<MapScreen> {
       // Move camera to show all destinations or selected destination
       _moveCameraToInitialPosition();
     } catch (e) {
+      debugPrint('Error initializing map: $e');
       if (!mounted) return;
+      
       setState(() {
         _isLoading = false;
+        _userLocation = const LatLng(14.5995, 120.9842); // Fallback to Manila
       });
-      debugPrint('Error initializing map: $e');
+      
       // Show error message to user
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Map initialization failed. Please try again.'),
-            backgroundColor: Colors.red,
+            content: Text('Using default location. Turn on GPS for accurate position.'),
+            backgroundColor: Colors.orange,
+            action: SnackBarAction(
+              label: 'Retry',
+              onPressed: _initializeMap,
+            ),
           ),
         );
       }
@@ -199,8 +214,23 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  void _moveToUserLocation() {
-    if (_mapController != null && _userLocation != null) {
+  Future<void> _moveToUserLocation() async {
+    if (_mapController == null) return;
+    
+    // Try to get fresh location
+    try {
+      final location = await DestinationService.getCurrentLocation();
+      if (!DestinationService.isInvalidLocation(location) && mounted) {
+        setState(() {
+          _userLocation = location;
+          _markers = _buildMarkers();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error refreshing location: $e');
+    }
+    
+    if (_userLocation != null && mounted) {
       _mapController!.animateCamera(
         CameraUpdate.newLatLngZoom(_userLocation!, 15.0),
       );

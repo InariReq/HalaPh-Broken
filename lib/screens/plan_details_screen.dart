@@ -56,6 +56,14 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       if (widget.planId != null) {
         _plan = SimplePlanService.getPlanById(widget.planId!);
 
+        if (_plan == null) {
+          final myCode = await _friendService.getMyCode().catchError((_) => '');
+          _plan = await SimplePlanService.joinSharedPlan(
+            widget.planId!,
+            participantCode: myCode,
+          ).timeout(const Duration(seconds: 10), onTimeout: () => null);
+        }
+
         if (_plan != null) {
           _titleController.text = _plan!.title;
           _startDate = _plan!.startDate;
@@ -229,12 +237,17 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       '/share-plan?planId=${Uri.encodeComponent(_plan!.id)}',
                     ),
             ),
-          if (!_isEditing)
+          if (!_isEditing && _plan != null && SimplePlanService.isPlanOwner(_plan!.id))
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.red),
               onPressed: () {
                 _showPlanDeleteConfirmation();
               },
+            ),
+          if (!_isEditing && _plan != null && SimplePlanService.isPlanParticipant(_plan!.id))
+            TextButton(
+              onPressed: _leavePlan,
+              child: const Text('Leave', style: TextStyle(color: Colors.red)),
             ),
           if (_isEditing)
             IconButton(
@@ -418,7 +431,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withOpacity(0.4)],
+                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.4)],
               ),
             ),
             child: Padding(
@@ -529,28 +542,6 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _addPlaceToDay(int dayNumber) async {
-    final result = await Navigator.push<Destination>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddPlaceScreen(targetDay: dayNumber),
-      ),
-    );
-
-    if (result != null) {
-      if (!mounted) return;
-      setState(() {
-        _itinerary[dayNumber] ??= [];
-        _itinerary[dayNumber]!.add(result);
-        _destinationTimes[result.id] = '10:30 AM';
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${result.name} added to Day $dayNumber')),
-      );
-    }
   }
 
   Future<void> _addLocations() async {
@@ -723,9 +714,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               // Add drop target at the end of the day for inserting destinations
               if (_isEditing)
                 DragTarget<DestinationData>(
-                  onWillAccept: (data) => data != null,
-                  onAccept: (data) {
-                    _handleDrop(data, dayNumber, destinations.length);
+                  onWillAcceptWithDetails: (details) => true,
+                  onAcceptWithDetails: (details) {
+                    _handleDrop(details.data, dayNumber, destinations.length);
                   },
                   builder: (context, candidateData, rejectedData) {
                     final isHovering = candidateData.isNotEmpty;
@@ -808,7 +799,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.4),
+                color: Colors.black.withValues(alpha: 0.4),
                 blurRadius: 25,
                 offset: const Offset(0, 12),
                 spreadRadius: 2,
@@ -893,11 +884,11 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         ),
       ),
       child: DragTarget<DestinationData>(
-        onWillAccept: (data) {
-          return data != null && data.destination.id != destination.id;
+        onWillAcceptWithDetails: (details) {
+          return details.data.destination.id != destination.id;
         },
-        onAccept: (data) {
-          _handleDrop(data, day, index);
+        onAcceptWithDetails: (details) {
+          _handleDrop(details.data, day, index);
         },
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;
@@ -914,8 +905,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                 boxShadow: [
                   BoxShadow(
                     color: isHovering
-                        ? Colors.blue.withOpacity(0.2)
-                        : Colors.black.withOpacity(0.08),
+                        ? Colors.blue.withValues(alpha: 0.2)
+                        : Colors.black.withValues(alpha: 0.08),
                     blurRadius: isHovering ? 16 : 12,
                     offset: Offset(0, isHovering ? 6 : 4),
                   ),
@@ -1089,7 +1080,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1317,88 +1308,6 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     }
   }
 
-  Widget _buildDragFeedback(Destination destination) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
-      elevation: 8,
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.7,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.4),
-              blurRadius: 25,
-              offset: const Offset(0, 12),
-              spreadRadius: 2,
-            ),
-          ],
-          border: Border.all(color: Colors.blue[300]!, width: 2),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            height: 140,
-            decoration: BoxDecoration(color: Colors.grey[200]),
-            child: _buildDestinationImage(destination),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDropPlaceholder(Destination destination) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.blue[200]!,
-          width: 2,
-          style: BorderStyle.solid,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue[100],
-                  borderRadius: BorderRadius.circular(50),
-                ),
-                child: Icon(
-                  Icons.drag_indicator,
-                  color: Colors.blue[600],
-                  size: 32,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Drop here',
-                style: TextStyle(
-                  color: Colors.blue[700],
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Move "${destination.name}"',
-                style: TextStyle(color: Colors.grey[600], fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildDefaultDestinationImage(DestinationCategory category) {
     IconData icon;
     Color color = Colors.grey; // Default color
@@ -1424,7 +1333,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         icon = Icons.museum;
         color = Colors.brown;
         break;
-      case DestinationCategory.market:
+      case DestinationCategory.malls:
         icon = Icons.shopping_bag;
         color = Colors.pink;
         break;
@@ -1433,8 +1342,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     return Container(
       width: double.infinity,
       height: double.infinity,
-      color: color.withOpacity(0.1),
-      child: Icon(icon, size: 48, color: color.withOpacity(0.6)),
+      color: color.withValues(alpha: 0.1),
+      child: Icon(icon, size: 48, color: color.withValues(alpha: 0.6)),
     );
   }
 
@@ -1496,5 +1405,46 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _leavePlan() async {
+    if (_plan == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Leave Plan'),
+        content: Text(
+          'Are you sure you want to leave "${_plan?.title ?? 'Untitled Plan'}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Leave', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final success = await SimplePlanService.leavePlan(_plan!.id);
+    if (!mounted) return;
+    if (success) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Left plan successfully')),
+      );
+      router.go('/my-plans');
+    } else {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Failed to leave plan')),
+      );
+    }
   }
 }

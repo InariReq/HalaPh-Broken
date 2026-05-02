@@ -33,7 +33,7 @@ val mapsApiKey = System.getenv("MAPS_API_KEY")
     ?: readMapsApiKeyFromDotEnv()
 
 android {
-    namespace = "com.example.halaph"
+    namespace = "com.halaph.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -44,7 +44,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.halaph"
+        applicationId = "com.halaph.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -53,9 +53,29 @@ android {
         multiDexEnabled = true
     }
 
+    signingConfigs {
+        create("release") {
+            // Load release signing config from environment or keystore
+            val keystorePath = System.getenv("KEYSTORE_PATH") ?: ""
+            val keystorePw = System.getenv("KEYSTORE_PASSWORD") ?: ""
+            val envKeyAlias = System.getenv("KEY_ALIAS") ?: ""
+            val keyPw = System.getenv("KEY_PASSWORD") ?: ""
+
+            if (keystorePath.isNotEmpty() && keystorePw.isNotEmpty()) {
+                storeFile = file(keystorePath)
+                storePassword = keystorePw
+                keyAlias = envKeyAlias
+                keyPassword = keyPw
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (System.getenv("KEYSTORE_PATH") != null)
+                signingConfigs.getByName("release")
+            else
+                signingConfigs.getByName("debug")
         }
     }
 }

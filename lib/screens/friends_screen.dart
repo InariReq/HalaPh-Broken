@@ -22,9 +22,11 @@ class _FriendsScreenState extends State<FriendsScreen> {
   final FriendService _friendService = FriendService();
   final Set<String> _selectedCodes = <String>{};
   List<Friend> _members = [];
+  List<Map<String, dynamic>> _pendingRequests = [];
   String _myCode = '';
   bool _isLoading = true;
   bool _isAddingFriend = false;
+  int _selectedTab = 0;
 
   @override
   void initState() {
@@ -34,23 +36,32 @@ class _FriendsScreenState extends State<FriendsScreen> {
   }
 
   Future<void> _loadData() async {
+    debugPrint('FriendsScreen: Loading data...');
     try {
-      final results = await Future.wait<dynamic>([
-        _friendService.getMyCode(),
-        _friendService.getFriends(),
-      ]);
+      final myCode = await _friendService.getMyCode();
+      final friends = await _friendService.getFriends();
+      final requests = await _loadPendingRequests();
+      debugPrint(
+        'FriendsScreen: Loaded ${friends.length} friends, ${requests.length} pending requests',
+      );
       if (!mounted) return;
       setState(() {
-        _myCode = results[0] as String;
-        _members = results[1] as List<Friend>;
+        _myCode = myCode;
+        _members = friends;
+        _pendingRequests = requests;
         _isLoading = false;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('FriendsScreen: Error loading data: $e');
       if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
     }
+  }
+
+  Future<List<Map<String, dynamic>>> _loadPendingRequests() async {
+    return await _friendService.getPendingFriendRequests();
   }
 
   @override
@@ -91,19 +102,272 @@ class _FriendsScreenState extends State<FriendsScreen> {
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildProfileCodeSection(),
-                    const SizedBox(height: 24),
-                    _buildMembersSection(),
-                  ],
-                ),
+            : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: _buildProfileCodeSection(),
+                  ),
+                  _buildFriendsTabs(),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _selectedTab == 0
+                          ? _buildMembersSection()
+                          : _buildRequestsSection(),
+                    ),
+                  ),
+                ],
               ),
       ),
     );
+  }
+
+  Widget _buildFriendsTabs() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+      ),
+      child: Row(
+        children: [
+          _buildTabButton('Friends', 0, _members.length),
+          _buildTabButton('Requests', 1, _pendingRequests.length),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabButton(String label, int index, int count) {
+    final selected = _selectedTab == index;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _selectedTab = index),
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF2196F3) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : Colors.grey[700],
+                ),
+              ),
+              if (count > 0) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: selected ? Colors.white : Colors.red,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: selected ? const Color(0xFF2196F3) : Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRequestsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Pending Requests (${_pendingRequests.length})',
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (_pendingRequests.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Text(
+              'No pending friend requests.',
+              textAlign: TextAlign.center,
+            ),
+          )
+        else
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: _pendingRequests
+                  .map((request) => _buildRequestTile(request))
+                  .toList(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildRequestTile(Map<String, dynamic> request) {
+    final name = request['fromName'] as String? ?? 'Unknown';
+    final code = request['fromCode'] as String? ?? '';
+    final avatarUrl = request['fromAvatarUrl'] as String?;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                      ? NetworkImage(avatarUrl)
+                      : null,
+                  child: (avatarUrl == null || avatarUrl.isEmpty)
+                      ? Icon(Icons.person, size: 28, color: Colors.grey[600])
+                      : null,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        code,
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.check_circle, color: Colors.green),
+                      onPressed: () => _acceptFriendRequest(request),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.cancel, color: Colors.red),
+                      onPressed: () => _rejectFriendRequest(request),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _acceptFriendRequest(Map<String, dynamic> request) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final result = await _friendService.acceptFriendRequest(request);
+      if (!mounted) return;
+      if (result.success) {
+        setState(() {
+          _pendingRequests.removeWhere((r) => r['fromUid'] == request['fromUid']);
+        });
+        await _loadData();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(result.message),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(result.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Failed to accept request: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _rejectFriendRequest(Map<String, dynamic> request) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final success = await _friendService.declineFriendRequest(request);
+      if (!mounted) return;
+      if (success) {
+        setState(() {
+          _pendingRequests.removeWhere((r) => r['fromUid'] == request['fromUid']);
+        });
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Request from ${request['fromName']} rejected'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Failed to reject request: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildProfileCodeSection() {

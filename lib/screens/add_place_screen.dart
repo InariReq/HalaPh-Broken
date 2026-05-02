@@ -30,7 +30,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     DestinationCategory.food,
     DestinationCategory.activities,
     DestinationCategory.museum,
-    DestinationCategory.market,
+    DestinationCategory.malls,
   ];
 
   @override
@@ -55,12 +55,9 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     final version = ++_searchVersion;
     setState(() => _isLoading = true);
     try {
-      final destinations = await DestinationService.searchDestinationsEnhanced(
-        query: _searchController.text.trim().isEmpty
-            ? null
-            : _searchController.text.trim(),
-        category: _selectedCategory,
-      );
+        final destinations = await DestinationService.searchDestinations(
+          _selectedCategory?.name,
+        );
 
       // For demo purposes, let's mark some as favorites and recently explored
       final favorites = destinations.take(3).toList();

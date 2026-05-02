@@ -88,11 +88,9 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
 
       if (widget.destination != null) {
         found = widget.destination;
-
         // Refresh place details using ID when available.
-        final refreshed = await DestinationService.getDestination(
-          widget.destination!.id,
-        );
+        // Destination no longer fetched by ID - use existing data
+        final refreshed = null;
         if (refreshed != null) {
           found = refreshed;
         }
@@ -110,8 +108,8 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
 
       if (found == null) {
         final searchResults =
-            await DestinationService.searchDestinationsEnhanced(
-              query: widget.destinationId,
+            await DestinationService.searchDestinations(
+              widget.destination?.name ?? widget.destinationId,
             );
         for (var dest in searchResults) {
           if (dest.id == widget.destinationId) {
@@ -121,16 +119,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
         }
       }
 
-      found ??= await DestinationService.getDestination(widget.destinationId);
-
-      found ??= await DestinationService.getDestination(widget.destinationId);
-
-      if (found != null) {
-        final refreshed = await DestinationService.getDestination(found.id);
-        if (refreshed != null) {
-          found = refreshed;
-        }
-      }
+      // Destination no longer fetched by ID - use existing data
 
       final isFav = found != null
           ? await _favoritesService.isFavorite(found.id)
@@ -372,7 +361,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                           ),
                         ),
                       ),
-                      errorWidget: (_, _, _) => _buildFallbackImage(),
+                      errorWidget: (context, url, error) => _buildFallbackImage(),
                     )
                   : _buildFallbackImage(),
             ),
@@ -526,7 +515,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
         return Icons.beach_access;
       case DestinationCategory.museum:
         return Icons.museum;
-      case DestinationCategory.market:
+      case DestinationCategory.malls:
         return Icons.shopping_cart;
     }
   }

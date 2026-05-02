@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/destination_service.dart';
-import 'package:halaph/services/travel_cost_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
@@ -19,11 +18,8 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  DestinationCategory? _selectedCategory;
   List<Destination> _destinations = [];
   bool _isLoading = false;
-  final Map<String, List<TravelCostEstimate>> _travelCosts = {};
   final Set<String> _favoriteIds = {};
   final FavoritesService _favoritesService = FavoritesService();
   StreamSubscription? _subscription;
@@ -31,6 +27,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   int _searchGeneration = 0;
   _ExploreSort _sortMode = _ExploreSort.ratingHigh;
   double _minimumRating = 0;
+  final TextEditingController _searchController = TextEditingController();
+  DestinationCategory? _selectedCategory;
 
   @override
   void initState() {
@@ -83,34 +81,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
     DestinationCategory.food,
     DestinationCategory.activities,
     DestinationCategory.museum,
-    DestinationCategory.market,
+    DestinationCategory.malls,
   ];
 
   Future<void> _loadDestinations() async {
     await _runDestinationSearch();
-  }
-
-  Future<void> _loadTravelCosts(
-    List<Destination> destinations,
-    int generation,
-  ) async {
-    for (final destination in destinations) {
-      if (!mounted || generation != _searchGeneration) return;
-      if (destination.coordinates != null) {
-        try {
-          final costs = await TravelCostService.getTravelCostEstimates(
-            destination.coordinates!,
-          );
-          if (mounted && generation == _searchGeneration) {
-            setState(() {
-              _travelCosts[destination.id] = costs;
-            });
-          }
-        } catch (e) {
-          debugPrint('Error loading travel costs for ${destination.name}: $e');
-        }
-      }
-    }
   }
 
   Future<void> _searchDestinations() async {
@@ -130,18 +105,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      final query = _searchController.text.trim();
-      final destinations = await DestinationService.searchDestinationsEnhanced(
-        query: query.isEmpty ? null : query,
-        category: _selectedCategory,
+      final destinations = await DestinationService.searchDestinations(
+        _selectedCategory?.name,
       );
       final filteredDestinations = _applyAdvancedFilters(destinations);
       if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _destinations = filteredDestinations;
-        _travelCosts.clear();
       });
-      unawaited(_loadTravelCosts(filteredDestinations, generation));
     } catch (e) {
       debugPrint('Search error: $e');
     } finally {
@@ -407,44 +378,76 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Widget _buildSearchResults() {
     if (_destinations.isEmpty) {
-      final providerError = DestinationService.placesProviderError;
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.search, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text(
-              providerError == null
-                  ? 'No destinations found'
-                  : 'Google Places is unavailable',
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
+            const Text(
+              'No destinations found',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
-            if (providerError != null) ...[
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  providerError,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ),
-            ],
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () {
+                _searchController.clear();
+                _selectedCategory = null;
+                _runDestinationSearch();
+              },
+              child: const Text('Clear Filters'),
+            ),
           ],
         ),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: _destinations.length,
-      itemBuilder: (context, index) {
-        final destination = _destinations[index];
-        debugPrint('=== BUILDING CARD FOR: ${destination.name} ===');
-        debugPrint('=== DESTINATION ID: ${destination.id} ===');
-        return _buildDestinationCard(destination);
-      },
+    final hasFewResults = _destinations.length < 5;
+    
+    return Column(
+      children: [
+        if (hasFewResults) _buildFewResultsPrompt(),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: _destinations.length,
+            itemBuilder: (context, index) {
+              final destination = _destinations[index];
+              debugPrint('=== BUILDING CARD FOR: ${destination.name} ===');
+              debugPrint('=== DESTINATION ID: ${destination.id} ===');
+              return _buildDestinationCard(destination);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFewResultsPrompt() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.blue[200]!),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: Colors.blue[700], size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Only ${_destinations.length} found. Try a different search or category!',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.blue[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -470,7 +473,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         const Color(0xFFF06292),
         const Color(0xFFE91E63),
       ),
-      DestinationCategory.market => (
+      DestinationCategory.malls => (
         const Color(0xFF4DB6AC),
         const Color(0xFF009688),
       ),

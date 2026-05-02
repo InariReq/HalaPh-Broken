@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:halaph/services/auth_service.dart';
 import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/friend_service.dart';
@@ -10,7 +12,6 @@ import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/models/user.dart';
 import 'package:halaph/models/destination.dart';
-import 'package:halaph/models/friend.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/utils/navigation_utils.dart';
 
@@ -53,9 +54,7 @@ class ProfileScreen extends StatefulWidget {
   final VoidCallback? onSettingsTap;
   final VoidCallback? onTripHistoryTap;
   final VoidCallback? onViewAllFavoritesTap;
-  final Function(String)? onAddFriend;
   final VoidCallback? onLogout;
-  final Function(String)? onEditProfile;
 
   const ProfileScreen({
     super.key,
@@ -64,9 +63,7 @@ class ProfileScreen extends StatefulWidget {
     this.onSettingsTap,
     this.onTripHistoryTap,
     this.onViewAllFavoritesTap,
-    this.onAddFriend,
     this.onLogout,
-    this.onEditProfile,
   });
 
   @override
@@ -74,22 +71,16 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final TextEditingController _friendCodeController = TextEditingController();
   final AuthService _auth = AuthService();
   final FriendService _friendService = FriendService();
   StreamSubscription<void>? _favoritesSubscription;
   User? _user;
   String? _myCode;
-  int _selectedTab = 0;
-  bool _friendsLoading = true;
-  List<Friend> _friends = [];
-
   @override
   void initState() {
     super.initState();
     _loadUser();
     _loadFavoritesFromService();
-    _loadFriends();
     _favoritesSubscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
       _loadFavoritesFromService();
     });
@@ -128,35 +119,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return const [];
   }
 
-  Future<void> _handleAddFriend(String code) async {
-    final result = await _friendService.addFriendByCode(code);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result.message),
-        backgroundColor: result.success ? Colors.green[600] : Colors.red,
-      ),
-    );
-    if (result.success) {
-      _friendCodeController.clear();
-      await _loadFriends();
-    }
-  }
-
-  Future<void> _loadFriends() async {
-    try {
-      final friends = await _friendService.getFriends();
-      if (!mounted) return;
-      setState(() {
-        _friends = friends;
-        _friendsLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _friendsLoading = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -182,8 +144,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings, color: Colors.black54, size: 24),
-            onPressed:
-                widget.onSettingsTap ??
+            onPressed: widget.onSettingsTap ??
                 () {
                   GoRouter.of(context).push('/accounts');
                 },
@@ -197,27 +158,88 @@ class _ProfileScreenState extends State<ProfileScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 20),
-              _buildProfileSection(),
+              _buildProfileHeader(),
               const SizedBox(height: 20),
-              _buildProfileTabs(),
+              _buildUserCodeSection(),
               const SizedBox(height: 20),
-              if (_selectedTab == 0) ...[
-                _buildUserCodeSection(),
-                const SizedBox(height: 20),
-                _buildFavoritesSection(),
-                const SizedBox(height: 20),
-                _buildTripHistoryButton(),
-                const SizedBox(height: 20),
-                _buildLogoutButton(),
-                const SizedBox(height: 20),
-                _buildAccountsButton(),
-              ] else ...[
-                _buildFriendsTab(),
-              ],
+              _buildFavoritesSection(),
+              const SizedBox(height: 20),
+              _buildTripHistoryButton(),
+              const SizedBox(height: 20),
+              _buildLogoutButton(),
+              const SizedBox(height: 20),
+              _buildAccountsButton(),
               const SizedBox(height: 30),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Stack(
+            children: [
+              GestureDetector(
+                onTap: _pickAndUploadProfilePicture,
+                child: CircleAvatar(
+                  radius: 52,
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage: _userProfile.avatarUrl != null
+                      ? NetworkImage(_userProfile.avatarUrl!)
+                      : null,
+                  child: _userProfile.avatarUrl == null
+                      ? Icon(Icons.person, size: 52, color: Colors.grey[600])
+                      : null,
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: GestureDetector(
+                  onTap: _pickAndUploadProfilePicture,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2196F3),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 3),
+                    ),
+                    child: const Icon(
+                      Icons.edit,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _userProfile.name,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _userProfile.email,
+            style: const TextStyle(fontSize: 14, color: Colors.grey),
+          ),
+        ],
       ),
     );
   }
@@ -266,422 +288,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {
       // ignore and keep defaults
     }
-  }
-
-  Widget _buildProfileTabs() {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
-      ),
-      child: Row(
-        children: [
-          _buildProfileTabButton('Profile', Icons.person_outline, 0),
-          _buildProfileTabButton('Friends', Icons.people_outline, 1),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileTabButton(String label, IconData icon, int index) {
-    final selected = _selectedTab == index;
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _selectedTab = index),
-        borderRadius: BorderRadius.circular(10),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: selected ? const Color(0xFF2196F3) : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: selected ? Colors.white : Colors.grey[700],
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: selected ? Colors.white : Colors.grey[700],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFriendsTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildAddFriendsSection(),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            const Icon(Icons.people_outline, color: Color(0xFF2196F3)),
-            const SizedBox(width: 8),
-            const Text(
-              'Your Friends',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const Spacer(),
-            IconButton(
-              tooltip: 'Refresh friends',
-              onPressed: _loadFriends,
-              icon: const Icon(Icons.refresh),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (_friendsLoading)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: CircularProgressIndicator(),
-            ),
-          )
-        else if (_friends.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE0E0E0)),
-            ),
-            child: const Text(
-              'No friends yet. Add a friend code to start planning together.',
-              textAlign: TextAlign.center,
-            ),
-          )
-        else
-          Column(children: _friends.map(_buildFriendCard).toList()),
-      ],
-    );
-  }
-
-  Widget _buildFriendCard(Friend friend) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        leading: CircleAvatar(
-          radius: 24,
-          backgroundColor: Colors.grey[200],
-          backgroundImage: friend.avatarUrl != null
-              ? NetworkImage(friend.avatarUrl!)
-              : null,
-          child: friend.avatarUrl == null
-              ? Icon(Icons.person, color: Colors.grey[600])
-              : null,
-        ),
-        title: Text(
-          friend.name,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(friend.code),
-        onTap: () => _showFriendProfile(friend),
-        trailing: IconButton(
-          tooltip: 'Unfriend',
-          icon: const Icon(Icons.person_remove_outlined, color: Colors.red),
-          onPressed: () => _confirmUnfriend(friend),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _confirmUnfriend(Friend friend) async {
-    final shouldRemove = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Unfriend'),
-        content: Text('Remove ${friend.name} from your friends?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Unfriend', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-    if (shouldRemove != true) return;
-    await _friendService.removeFriend(friend.id);
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${friend.name} removed')));
-    await _loadFriends();
-  }
-
-  void _showFriendProfile(Friend friend) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (context) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.72,
-        minChildSize: 0.45,
-        maxChildSize: 0.92,
-        builder: (context, scrollController) {
-          return FutureBuilder<List<FavoritePlace>>(
-            future: _loadFriendFavoritePlaces(friend),
-            builder: (context, snapshot) {
-              final favorites = snapshot.data ?? const <FavoritePlace>[];
-              return ListView(
-                controller: scrollController,
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-                children: [
-                  Center(
-                    child: Container(
-                      width: 44,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  CircleAvatar(
-                    radius: 36,
-                    backgroundColor: Colors.grey[200],
-                    backgroundImage: friend.avatarUrl != null
-                        ? NetworkImage(friend.avatarUrl!)
-                        : null,
-                    child: friend.avatarUrl == null
-                        ? Icon(Icons.person, size: 38, color: Colors.grey[600])
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    friend.name,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    friend.email?.isNotEmpty == true
-                        ? '${friend.code} • ${friend.email}'
-                        : friend.code,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Favorited Places',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 12),
-                  if (snapshot.connectionState == ConnectionState.waiting)
-                    const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (favorites.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8F9FA),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Text(
-                        'No public favorite places yet.',
-                        textAlign: TextAlign.center,
-                      ),
-                    )
-                  else
-                    ...favorites.map(
-                      (favorite) => _buildFriendFavoriteTile(favorite),
-                    ),
-                ],
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  Future<List<FavoritePlace>> _loadFriendFavoritePlaces(Friend friend) async {
-    final destinations = await _friendService.getPublicFavoritePlaces(friend);
-    if (destinations.isNotEmpty) {
-      return destinations
-          .take(20)
-          .map((destination) {
-            return FavoritePlace(
-              id: destination.id,
-              name: destination.name,
-              location: destination.location,
-              type: DestinationService.getCategoryName(destination.category),
-              imageUrl: destination.imageUrl,
-              destination: destination,
-            );
-          })
-          .toList(growable: false);
-    }
-
-    final ids = await _friendService.getPublicFavoriteIds(friend);
-    final favorites = <FavoritePlace>[];
-    for (final id in ids.take(20)) {
-      final destination = await DestinationService.getDestination(id);
-      if (destination == null) {
-        favorites.add(
-          FavoritePlace(id: id, name: 'Saved place', type: 'Place'),
-        );
-        continue;
-      }
-      favorites.add(
-        FavoritePlace(
-          id: id,
-          name: destination.name,
-          location: destination.location,
-          type: DestinationService.getCategoryName(destination.category),
-          imageUrl: destination.imageUrl,
-          destination: destination,
-        ),
-      );
-    }
-    return favorites;
-  }
-
-  Widget _buildFriendFavoriteTile(FavoritePlace favorite) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: ListTile(
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            width: 48,
-            height: 48,
-            color: Colors.grey[200],
-            child: favorite.imageUrl?.startsWith('http') == true
-                ? Image.network(favorite.imageUrl!, fit: BoxFit.cover)
-                : Icon(Icons.place, color: Colors.grey[600]),
-          ),
-        ),
-        title: Text(
-          favorite.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(
-          favorite.location.isNotEmpty ? favorite.location : favorite.type,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        onTap: favorite.destination == null
-            ? null
-            : () {
-                Navigator.pop(context);
-                ExploreDetailsScreen.showAsBottomSheet(
-                  context,
-                  destinationId: favorite.id,
-                  source: 'friend-profile',
-                  destination: favorite.destination,
-                );
-              },
-      ),
-    );
-  }
-
-  Widget _buildProfileSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.transparent, // Hidden box for alignment
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Stack(
-            children: [
-              GestureDetector(
-                onTap: () => widget.onEditProfile?.call(_userProfile.name),
-                child: CircleAvatar(
-                  radius: 52,
-                  backgroundColor: Colors.grey[200],
-                  backgroundImage: _userProfile.avatarUrl != null
-                      ? NetworkImage(_userProfile.avatarUrl!)
-                      : null,
-                  child: _userProfile.avatarUrl == null
-                      ? Icon(Icons.person, size: 52, color: Colors.grey[600])
-                      : null,
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: GestureDetector(
-                  onTap: () => widget.onEditProfile?.call(_userProfile.name),
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2196F3),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 3),
-                    ),
-                    child: const Icon(
-                      Icons.edit,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _userProfile.name,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            _userProfile.email,
-            style: const TextStyle(fontSize: 14, color: Colors.grey),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildUserCodeSection() {
@@ -763,119 +369,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAddFriendsSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.person_add, color: const Color(0xFF2196F3), size: 20),
-              const SizedBox(width: 8),
-              const Text(
-                'Add New Friends',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _friendCodeController,
-                  style: const TextStyle(fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: 'Enter friend\'s code (e.g. BB-0000)',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF2196F3)),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    filled: true,
-                    fillColor: const Color(0xFFF8F9FA),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton(
-                onPressed: () {
-                  final friendCode = _friendCodeController.text.trim();
-                  if (friendCode.isNotEmpty) {
-                    widget.onAddFriend?.call(friendCode);
-                    _handleAddFriend(friendCode);
-                    _friendCodeController.clear();
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter a friend code'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2196F3),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 14,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Add',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Enter your friend\'s code to add them as your travel buddy',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[600],
-              height: 1.3,
-            ),
           ),
         ],
       ),
@@ -1156,10 +649,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _pickAndUploadProfilePicture() async {
+    try {
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+
+      if (image == null || !mounted) return;
+
+      final user = await _auth.getCurrentUser();
+      if (user == null) return;
+
+      try {
+        final fileName =
+            'profile_${_user?.email ?? 'user'}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('profile_pictures')
+            .child(fileName);
+
+        await storageRef.putData(await image.readAsBytes());
+        final downloadUrl = await storageRef.getDownloadURL();
+
+        final updatedUser = await _auth.updateProfile(avatarUrl: downloadUrl);
+        if (updatedUser != null && mounted) {
+          setState(() {
+            _user = updatedUser;
+          });
+          await _friendService.ensurePublicProfilePublished();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Profile picture updated!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        }
+      } on FirebaseException catch (e) {
+        if (e.code == 'storage/bucket-not-found' ||
+            e.code == 'storage/unauthorized') {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Firebase Storage not set up. Please enable it in Firebase Console.',
+                ),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
+        } else {
+          rethrow;
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update profile picture: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _favoritesSubscription?.cancel();
-    _friendCodeController.dispose();
     super.dispose();
   }
 }

@@ -13,6 +13,12 @@
 	<string>This app needs location access to show nearby destinations and provide accurate distances.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs location access to show nearby destinations and provide accurate distances.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs location access to show nearby destinations and provide accurate distances.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to select profile pictures and destination images.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to take profile pictures and destination photos.</string>
 	<!-- Google Maps API Key -->
 	<key>GMSServicesAPIKey</key>
 	<string>$(MAPS_API_KEY)</string>
@@ -57,6 +63,13 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+	<key>UNUserNotificationCenterDelegate</key>
+	<string>$(PRODUCT_MODULE_NAME).AppDelegate</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

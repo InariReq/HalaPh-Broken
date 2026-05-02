@@ -48,9 +48,7 @@ class MapService {
   ) {
     return destinations.where((dest) {
       if (dest.coordinates == null) return false;
-      final distance = DestinationService.isInvalidLocation(
-        LatLng(dest.coordinates!.latitude, dest.coordinates!.longitude),
-      )
+      final distance = DestinationService.isInvalidLocation(dest.coordinates!)
           ? double.infinity
           : calculateDistance(location, dest.coordinates!);
       return distance <= radiusKm;

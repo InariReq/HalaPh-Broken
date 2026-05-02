@@ -547,7 +547,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withOpacity(0.6)],
+                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
               ),
             ),
             child: Padding(
@@ -585,7 +585,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
@@ -612,7 +612,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
+                  color: Colors.black.withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -786,9 +786,9 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         // Destinations with circles aligned in same Row
         if (destinations.isEmpty)
           DragTarget<DestinationData>(
-            onWillAccept: (data) => data != null,
-            onAccept: (data) {
-              _handleDrop(data, dayNumber, 0);
+            onWillAcceptWithDetails: (details) => true,
+            onAcceptWithDetails: (details) {
+              _handleDrop(details.data, dayNumber, 0);
             },
             builder: (context, candidateData, rejectedData) {
               final isHovering = candidateData.isNotEmpty;
@@ -858,9 +858,9 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
               }),
               // Add drop target at the end of the day for inserting destinations
               DragTarget<DestinationData>(
-                onWillAccept: (data) => data != null,
-                onAccept: (data) {
-                  _handleDrop(data, dayNumber, destinations.length);
+                onWillAcceptWithDetails: (details) => true,
+                onAcceptWithDetails: (details) {
+                  _handleDrop(details.data, dayNumber, destinations.length);
                 },
                 builder: (context, candidateData, rejectedData) {
                   final isHovering = candidateData.isNotEmpty;
@@ -938,7 +938,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.4),
+                        color: Colors.black.withValues(alpha: 0.4),
                         blurRadius: 25,
                         offset: const Offset(0, 12),
                         spreadRadius: 2,
@@ -1042,11 +1042,11 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                 ),
               ),
               child: DragTarget<DestinationData>(
-                onWillAccept: (data) {
-                  return data != null && data.destination.id != destination.id;
+                onWillAcceptWithDetails: (details) {
+                  return details.data.destination.id != destination.id;
                 },
-                onAccept: (data) {
-                  _handleDrop(data, day, index);
+                onAcceptWithDetails: (details) {
+                  _handleDrop(details.data, day, index);
                 },
                 onMove: (details) {
                   // Optional: Add haptic feedback or other interactions
@@ -1066,8 +1066,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                         boxShadow: [
                           BoxShadow(
                             color: isHovering
-                                ? Colors.blue.withOpacity(0.2)
-                                : Colors.black.withOpacity(0.08),
+                                ? Colors.blue.withValues(alpha: 0.2)
+                                : Colors.black.withValues(alpha: 0.08),
                             blurRadius: isHovering ? 16 : 12,
                             offset: Offset(0, isHovering ? 6 : 4),
                           ),
@@ -1133,7 +1133,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                                       end: Alignment.bottomCenter,
                                       colors: [
                                         Colors.transparent,
-                                        Colors.black.withOpacity(0.7),
+                                        Colors.black.withValues(alpha: 0.7),
                                       ],
                                     ),
                                   ),
@@ -1264,643 +1264,6 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     );
   }
 
-  Widget _buildSynchronizedLocationBar() {
-    if (_startDate == null || _endDate == null) {
-      return const SizedBox.shrink();
-    }
-
-    final days = _endDate!.difference(_startDate!).inDays + 1;
-
-    return SingleChildScrollView(
-      controller: _scrollController, // Use the same scroll controller
-      child: Column(
-        children: [
-          // Match the exact same structure as main content
-          const SizedBox(height: 16), // Match banner margin
-          // Create circles for each day's destinations
-          ...List.generate(days, (dayIndex) {
-            final dayNumber = dayIndex + 1;
-            final destinations = _itinerary[dayNumber] ?? [];
-
-            return [
-              // Day header - match exact height of day header
-              const SizedBox(height: 80), // Day header height
-              // Circles for this day's destinations - aligned with card centers
-              ...List.generate(destinations.length, (destIndex) {
-                final destination = destinations[destIndex];
-                final isCurrent =
-                    dayNumber == _currentVisibleDay &&
-                    destIndex == _currentVisibleDestination;
-                final isLastDest = destIndex == destinations.length - 1;
-
-                return Column(
-                  children: [
-                    // Circle positioned at center of destination card (80px from start of card)
-                    const SizedBox(height: 80), // Center of 160px image
-                    Center(
-                      child: Container(
-                        width: isCurrent ? 20 : 16,
-                        height: isCurrent ? 20 : 16,
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          shape: BoxShape.circle,
-                          border: isCurrent
-                              ? Border.all(color: Colors.white, width: 2)
-                              : null,
-                          boxShadow: isCurrent
-                              ? [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.3),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                      ),
-                    ),
-                    // Remaining card height to match total card height
-                    const SizedBox(
-                      height: 80,
-                    ), // Rest of card (160 total - 80 to center = 80)
-                    // Card bottom margin
-                    const SizedBox(height: 16),
-                    // Connecting line between cards
-                    if (!isLastDest)
-                      Container(
-                        width: 2,
-                        height: 16, // Card margin
-                        color: Colors.grey[300],
-                      ),
-                  ],
-                );
-              }),
-
-              // Day spacing between day cards
-              if (dayNumber < days)
-                const SizedBox(height: 16), // Day card margin
-            ];
-          }).expand((element) => element),
-
-          const SizedBox(height: 100), // Bottom spacing
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDayCard(int dayNumber) {
-    final destinations = _itinerary[dayNumber] ?? [];
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: DragTarget<DestinationData>(
-        onWillAccept: (data) {
-          return data != null && data.fromDay != dayNumber;
-        },
-        onAccept: (data) {
-          _handleDrop(
-            data,
-            dayNumber,
-            destinations.length,
-          ); // Add to end of day
-        },
-        builder: (context, candidateData, rejectedData) {
-          final isHovering = candidateData.isNotEmpty;
-          return Container(
-            decoration: BoxDecoration(
-              color: isHovering ? Colors.blue[50] : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Day header
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Itinerary Day $dayNumber',
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            ),
-                            if (_startDate != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                _formatDate(
-                                  _startDate!.add(
-                                    Duration(days: dayNumber - 1),
-                                  ),
-                                ),
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      // Add place button for this day
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: IconButton(
-                          onPressed: () => _addPlace(dayNumber),
-                          icon: const Icon(Icons.add, color: Colors.white),
-                          iconSize: 18,
-                          constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Drop zone indicator for empty days
-                if (destinations.isEmpty && isHovering)
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    width: double.infinity,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Colors.blue[100],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.blue[300]!,
-                        width: 2,
-                        style: BorderStyle.solid,
-                      ),
-                    ),
-                    child: const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add_circle_outline,
-                            color: Colors.blue,
-                            size: 24,
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'Drop destination here',
-                            style: TextStyle(
-                              color: Colors.blue,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else if (destinations.isEmpty)
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Text(
-                      'No places added yet',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 14),
-                    ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      children: destinations.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final destination = entry.value;
-                        return _buildDestinationItem(
-                          destination,
-                          dayNumber,
-                          index,
-                        );
-                      }).toList(),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildDestinationItem(Destination destination, int day, int index) {
-    final time = _destinationTimes[destination.id] ?? '10:30 AM';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        children: [
-          // Main destination card with drag and drop (entire card draggable)
-          LongPressDraggable<DestinationData>(
-            data: DestinationData(
-              destination: destination,
-              fromDay: day,
-              fromIndex: index,
-            ),
-            feedback: Material(
-              color: Colors.transparent,
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.8,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Opacity(
-                  opacity: 0.8,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Image in feedback with overlay (longer height)
-                      Container(
-                        width: double.infinity,
-                        height: 140, // Slightly shorter for feedback
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.blue[300]!, Colors.blue[600]!],
-                          ),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Stack(
-                            children: [
-                              // Background gradient
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.blue[300]!,
-                                      Colors.blue[600]!,
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              // Gradient overlay for text visibility
-                              Positioned(
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                child: Container(
-                                  height: 60,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Colors.transparent,
-                                        Colors.black.withOpacity(0.7),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              // Time overlay
-                              Positioned(
-                                top: 8,
-                                left: 8,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    time,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              // Location info overlay
-                              Positioned(
-                                bottom: 8,
-                                left: 8,
-                                right: 8,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      destination.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    Text(
-                                      destination.location,
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 11,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            childWhenDragging: DragTarget<DestinationData>(
-              onWillAccept: (data) {
-                return data != null && data.destination.id != destination.id;
-              },
-              onAccept: (data) {
-                _handleDrop(data, day, index);
-              },
-              builder: (context, candidateData, rejectedData) {
-                return Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.drag_indicator,
-                            color: Colors.grey[400],
-                            size: 40,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Dragging ${destination.name}...',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-            child: DragTarget<DestinationData>(
-              onWillAccept: (data) {
-                return data != null && data.destination.id != destination.id;
-              },
-              onAccept: (data) {
-                _handleDrop(data, day, index);
-              },
-              builder: (context, candidateData, rejectedData) {
-                final isHovering = candidateData.isNotEmpty;
-                return Container(
-                  decoration: BoxDecoration(
-                    color: isHovering ? Colors.blue[50] : null,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 12,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                      border: isHovering
-                          ? Border.all(color: Colors.blue[300]!, width: 2)
-                          : null,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Image section with time overlay, location info (no drag handle)
-                        Stack(
-                          children: [
-                            // Destination Image (taller to match image)
-                            Container(
-                              width: double.infinity,
-                              height: 160, // Increased to match image design
-                              decoration: BoxDecoration(
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(12),
-                                ),
-                                color: Colors.grey[200],
-                              ),
-                              child: ClipRRect(
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(12),
-                                ),
-                                child:
-                                    destination.imageUrl.isNotEmpty &&
-                                        destination.imageUrl.startsWith('http')
-                                    ? Image.network(
-                                        destination.imageUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                              return _buildDefaultDestinationImage(
-                                                destination.category,
-                                              );
-                                            },
-                                      )
-                                    : _buildDefaultDestinationImage(
-                                        destination.category,
-                                      ),
-                              ),
-                            ),
-
-                            // Gradient overlay for better text visibility
-                            Positioned(
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
-                              child: Container(
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  borderRadius: const BorderRadius.vertical(
-                                    bottom: Radius.circular(12),
-                                  ),
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Colors.transparent,
-                                      Colors.black.withOpacity(0.7),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            // Time overlay (editable)
-                            Positioned(
-                              top: 12,
-                              left: 12,
-                              child: GestureDetector(
-                                onTap: () =>
-                                    _selectTimeForDestination(destination),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        time,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      const Icon(
-                                        Icons.edit,
-                                        color: Colors.white,
-                                        size: 12,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            // Hidden alignment circle for location bar tracking
-                            Positioned(
-                              top: 80, // Center of 160px image
-                              left: 0,
-                              right: 0,
-                              child: Center(
-                                child: Container(
-                                  key: ValueKey('alignment_${destination.id}'),
-                                  width: 1,
-                                  height: 1,
-                                  color: Colors.transparent,
-                                ),
-                              ),
-                            ),
-
-                            // Location name and address overlay
-                            Positioned(
-                              bottom: 12,
-                              left: 12,
-                              right: 12,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    destination.name,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    destination.location,
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 13,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        // Action buttons section
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              // Add Place After button
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () => _addPlaceAfter(day, index),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.blue,
-                                    side: const BorderSide(color: Colors.blue),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: const Text('+ Place After'),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Delete button
-                              OutlinedButton(
-                                onPressed: () => _removeDestination(day, index),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.red,
-                                  side: const BorderSide(color: Colors.red),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                child: const Icon(Icons.delete, size: 16),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildDefaultDestinationImage(DestinationCategory category) {
     Color startColor, endColor;
@@ -1932,7 +1295,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         endColor = const Color(0xFFE91E63);
         iconData = Icons.museum;
         break;
-      case DestinationCategory.market:
+      case DestinationCategory.malls:
         startColor = const Color(0xFF4DB6AC);
         endColor = const Color(0xFF009688);
         iconData = Icons.shopping_cart;

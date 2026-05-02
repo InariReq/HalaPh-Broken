@@ -1,4 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -6,8 +8,6 @@ import '../firebase_options.dart';
 
 class FirebaseAppService {
   FirebaseAppService._();
-
-  static Future<bool>? _initialization;
 
   static bool get isInitialized => Firebase.apps.isNotEmpty;
 
@@ -19,10 +19,14 @@ class FirebaseAppService {
   }
 
   static Future<bool> initialize({bool forceRetry = false}) async {
-    if (Firebase.apps.isNotEmpty) return true;
+    if (Firebase.apps.isNotEmpty) {
+      // Ensure Realtime Database URL is set
+      _initializeDatabase();
+      return true;
+    }
     if (forceRetry) _initialization = null;
 
-    final initialization = _initialization ??= _initialize();
+    final initialization = _initialization ??= _doInitialize();
     final success = await initialization;
     if (!success && identical(_initialization, initialization)) {
       _initialization = null;
@@ -30,7 +34,8 @@ class FirebaseAppService {
     return success;
   }
 
-  static Future<bool> _initialize() async {
+  static Future<bool>? _initialization;
+  static Future<bool> _doInitialize() async {
     if (Firebase.apps.isNotEmpty) return true;
 
     try {
@@ -42,10 +47,29 @@ class FirebaseAppService {
         await Firebase.initializeApp();
         debugPrint('Firebase initialized with native platform config.');
       }
+      
+      // Enable Firestore offline persistence
+      FirebaseFirestore.instance.settings = const Settings(
+        persistenceEnabled: true,
+        cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+      );
+      
+      // Initialize Realtime Database
+      _initializeDatabase();
+      
       return true;
     } catch (error) {
       debugPrint('Firebase not configured; cloud sync disabled: $error');
       return false;
+    }
+  }
+
+  static void _initializeDatabase() {
+    try {
+      FirebaseDatabase.instance.databaseURL =
+          'https://halaph-d4eaa-default-rtdb.asia-southeast1.firebasedatabase.app/';
+    } catch (e) {
+      debugPrint('Realtime Database initialization skipped: $e');
     }
   }
 

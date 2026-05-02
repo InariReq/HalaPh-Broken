@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:halaph/services/destination_service.dart';
-import 'package:halaph/services/travel_cost_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/friend_service.dart';
@@ -11,7 +10,6 @@ import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:halaph/config/app_config.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,7 +21,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Destination> _trendingDestinations = [];
   bool _isLoading = false;
-  final Map<String, List<TravelCostEstimate>> _travelCosts = {};
   final Set<String> _favoriteIds = {};
   final FavoritesService _favoritesService = FavoritesService();
   final FriendService _friendService = FriendService();
@@ -43,25 +40,39 @@ class _HomeScreenState extends State<HomeScreen> {
       _loadFavorites();
     });
     _plansSubscription = SimplePlanService.changes.listen((_) {
-      _loadUpcomingPlan(forceRefresh: true);
+      _loadUpcomingPlan();
     });
   }
 
   Future<void> _checkLocationStatus() async {
+    if (!mounted) return;
+    setState(() {
+      _locationStatus = 'Getting location...';
+      _locationEnabled = false;
+    });
+    
     try {
       final location = await DestinationService.getCurrentLocation();
       if (!mounted) return;
+      final hasValidLocation = !DestinationService.isInvalidLocation(location);
+      
       setState(() {
-        _locationEnabled = !DestinationService.isInvalidLocation(location);
-        _locationStatus = _locationEnabled
-            ? 'Location found'
-            : 'Using default location';
+        _locationEnabled = hasValidLocation;
+        _locationStatus = hasValidLocation
+            ? 'Location found • Showing nearby places'
+            : 'Location off • Showing popular destinations';
       });
+      
+      // Reload destinations based on location
+      if (hasValidLocation) {
+        _loadTrendingDestinations();
+      }
     } catch (e) {
+      debugPrint('Location check error: $e');
       if (!mounted) return;
       setState(() {
         _locationEnabled = false;
-        _locationStatus = 'Location unavailable';
+        _locationStatus = 'Location unavailable • Showing popular destinations';
       });
     }
   }
@@ -76,9 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final myCode = await _friendService.getMyCode().catchError(
         (_) => 'current_user',
       );
-      final nextPlan =
-          SimplePlanService.getNextUpcomingPlan(userId: myCode) ??
-          _latestVisiblePlan(myCode);
+      final nextPlan = SimplePlanService.getNextUpcomingPlan(userId: myCode);
       if (!mounted) return;
       setState(() {
         _nextPlan = nextPlan;
@@ -153,32 +162,10 @@ class _HomeScreenState extends State<HomeScreen> {
         _trendingDestinations = destinations;
         _isLoading = false;
       });
-      _loadTravelCosts(destinations);
     } catch (e) {
       debugPrint('Error loading trending destinations: $e');
       setState(() {
         _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _loadTravelCosts(List<Destination> destinations) async {
-    final Map<String, List<TravelCostEstimate>> results = {};
-    for (final destination in destinations) {
-      if (destination.coordinates != null) {
-        try {
-          final costs = await TravelCostService.getTravelCostEstimates(
-            destination.coordinates!,
-          );
-          results[destination.id] = costs;
-        } catch (e) {
-          debugPrint('Error loading travel costs for ${destination.name}: $e');
-        }
-      }
-    }
-    if (mounted && results.isNotEmpty) {
-      setState(() {
-        _travelCosts.addAll(results);
       });
     }
   }
@@ -257,55 +244,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: TextStyle(fontSize: 12, color: Colors.orange[700]),
                     ),
                   ),
-                // TEST BUTTONS: Remove after debugging
-                Row(
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        DestinationService.setTestLocation(
-                          14.5995,
-                          120.9842,
-                        ); // Manila
-                        setState(() {
-                          _locationEnabled = true;
-                          _locationStatus = 'Test: Manila';
-                        });
-                        _loadTrendingDestinations();
-                      },
-                      child: const Text(
-                        'Set Manila',
-                        style: TextStyle(fontSize: 10),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        DestinationService.clearTestLocation();
-                        setState(() {
-                          _locationEnabled = false;
-                          _locationStatus = 'Test cleared';
-                        });
-                      },
-                      child: const Text(
-                        'Clear',
-                        style: TextStyle(fontSize: 10),
-                      ),
-                    ),
-                    // TEST MODE TOGGLE
-                    Switch(
-                      value: AppConfig.testModeEnabled,
-                      onChanged: (value) {
-                        setState(() {
-                          AppConfig.setTestMode(value);
-                        });
-                      },
-                      activeColor: Colors.orange,
-                    ),
-                    const Text(
-                      'Test Mode',
-                      style: TextStyle(fontSize: 10, color: Colors.orange),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
@@ -322,26 +260,31 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _retryLocation() async {
     setState(() {
       _locationStatus = 'Getting location...';
+      _locationEnabled = false;
     });
+    
     try {
       final location = await DestinationService.getCurrentLocation();
-      if (!DestinationService.isInvalidLocation(location)) {
-        setState(() {
-          _locationEnabled = true;
-          _locationStatus = 'Location found';
-        });
-        // Reload destinations with new location
+      final hasValidLocation = !DestinationService.isInvalidLocation(location);
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _locationEnabled = hasValidLocation;
+        _locationStatus = hasValidLocation
+            ? 'Location found • Showing nearby places'
+            : 'Unable to get location • Tap refresh to retry';
+      });
+      
+      if (hasValidLocation) {
         _loadTrendingDestinations();
-      } else {
-        setState(() {
-          _locationEnabled = false;
-          _locationStatus = 'Using default location';
-        });
       }
     } catch (e) {
+      debugPrint('Retry location error: $e');
+      if (!mounted) return;
       setState(() {
         _locationEnabled = false;
-        _locationStatus = 'Location unavailable';
+        _locationStatus = 'Location error • Tap refresh to retry';
       });
     }
   }
@@ -451,8 +394,16 @@ class _HomeScreenState extends State<HomeScreen> {
       plan.startDate.month,
       plan.startDate.day,
     );
+    final endDay = DateTime(
+      plan.endDate.year,
+      plan.endDate.month,
+      plan.endDate.day,
+    );
     final daysUntil = planDay.difference(today).inDays;
-    final dayText = daysUntil == 0
+    final isActive = !planDay.isAfter(today) && !endDay.isBefore(today);
+    final dayText = isActive && daysUntil < 0
+        ? 'Now'
+        : daysUntil == 0
         ? 'Today'
         : daysUntil == 1
         ? 'Tomorrow'
@@ -602,22 +553,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  TravelPlan? _latestVisiblePlan(String myCode) {
-    final plansById = <String, TravelPlan>{};
-    for (final plan in SimplePlanService.getUserPlans(ownerId: myCode)) {
-      plansById[plan.id] = plan;
-    }
-    for (final plan in SimplePlanService.getCollaborativePlans(
-      ownerId: myCode,
-    )) {
-      plansById[plan.id] = plan;
-    }
-
-    final plans = plansById.values.toList()
-      ..sort((a, b) => b.startDate.compareTo(a.startDate));
-    return plans.isEmpty ? null : plans.first;
-  }
-
   static const List<String> _months = [
     'Jan',
     'Feb',
@@ -646,6 +581,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTrendingSection(BuildContext context) {
+    final hasFewResults = !_isLoading && _trendingDestinations.length < 5;
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -654,20 +591,56 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Nearby Trending Places',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Nearby Trending Places',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    if (hasFewResults)
+                      Text(
+                        'Only ${_trendingDestinations.length} found',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              Text(
-                'See All',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.blue[600],
-                  fontWeight: FontWeight.w600,
+              GestureDetector(
+                onTap: () {
+                  // Navigate to explore screen to search for more
+                  DefaultTabController.of(context).animateTo(1);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.search, size: 16, color: Colors.blue[600]),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Search More',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.blue[600],
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -681,21 +654,87 @@ class _HomeScreenState extends State<HomeScreen> {
               )
             : _trendingDestinations.isEmpty
             ? _buildEmptyPlacesState()
-            : SizedBox(
-                height: _trendingDestinations.length * 300,
-                child: ListView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _trendingDestinations.length,
-                  itemBuilder: (context, index) =>
-                      _buildTrendingCard(_trendingDestinations[index]),
-                ),
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: _trendingDestinations.length * 310,
+                    child: ListView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _trendingDestinations.length,
+                      itemBuilder: (context, index) =>
+                          _buildTrendingCard(_trendingDestinations[index]),
+                    ),
+                  ),
+                  if (hasFewResults) _buildSearchPrompt(),
+                ],
               ),
       ],
     );
   }
 
+  Widget _buildSearchPrompt() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Want more options?',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.orange[900],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Search for specific places, restaurants, or attractions to discover more destinations.',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.orange[800],
+            ),
+          ),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: () {
+              // Navigate to explore/search tab
+              GoRouter.of(context).push('/explore-details?destinationName=popular destinations');
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.orange[600],
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Search Destinations',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyPlacesState() {
-    final providerError = DestinationService.placesProviderError;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       height: 220,
@@ -712,23 +751,11 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const Icon(Icons.trending_up, size: 48, color: Colors.grey),
               const SizedBox(height: 8),
-              Text(
-                providerError == null
-                    ? 'No nearby places available'
-                    : 'Google Places is unavailable',
+              const Text(
+                'No nearby places found from your current location',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
+                style: TextStyle(color: Colors.grey),
               ),
-              if (providerError != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  providerError,
-                  textAlign: TextAlign.center,
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
             ],
           ),
         ),
@@ -758,7 +785,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const Color(0xFFF06292),
         const Color(0xFFE91E63),
       ),
-      DestinationCategory.market => (
+      DestinationCategory.malls => (
         const Color(0xFF4DB6AC),
         const Color(0xFF009688),
       ),

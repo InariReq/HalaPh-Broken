@@ -1,0 +1,14 @@
+{
+    "dart.flutterSdkPath": "/opt/homebrew/share/flutter",
+    "dart.lineLength": 80,
+    "editor.formatOnSave": true,
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "dart.sdkPaths": ["/opt/homebrew/share/flutter/bin/cache/dart-sdk"],
+    "search.exclude": {
+        "**/build": true,
+        "**/ios/Pods": true,
+        "**/.dart_tool": true,
+        "**/DerivedData": true
+    }
+}

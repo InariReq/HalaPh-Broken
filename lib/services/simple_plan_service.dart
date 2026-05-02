@@ -8,14 +8,16 @@ import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/firebase_app_service.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/remote_sync_service.dart';
+typedef _RemotePlanSnapshot = QuerySnapshot<Map<String, dynamic>>;
 
 class SimplePlanService {
   static final Map<String, TravelPlan> _plans = {};
-  static int _planIdCounter = 1;
-  static String? _loadedForUserId;
   static Future<void>? _initialization;
   static final Map<String, String> _ownerUids = {};
   static final Map<String, List<String>> _participantUids = {};
+  static StreamSubscription<_RemotePlanSnapshot>? _remotePlansSubscription;
+  static String? _loadedForUserId;
+  static final Set<String> _recentlyDeletedPlanIds = {};
   static final StreamController<void> _changesController =
       StreamController<void>.broadcast();
 
@@ -25,11 +27,14 @@ class SimplePlanService {
   static Future<void> initialize({bool forceRefresh = false}) async {
     if (!forceRefresh && _initialization != null) return _initialization;
 
-    _initialization = _initialize(forceRefresh: forceRefresh);
+    // Use a lock to prevent race conditions
+    final initialization = _initialization = _initialize(forceRefresh: forceRefresh);
     try {
-      await _initialization;
+      await initialization;
     } finally {
-      _initialization = null;
+      if (identical(_initialization, initialization)) {
+        _initialization = null;
+      }
     }
   }
 
@@ -45,7 +50,10 @@ class SimplePlanService {
       return;
     }
 
-    if (!forceRefresh && _loadedForUserId == userId) return;
+    if (!forceRefresh && _loadedForUserId == userId) {
+      _listenToRemotePlans(userId);
+      return;
+    }
 
     try {
       final remotePlans = await _loadRemotePlans().timeout(
@@ -54,13 +62,12 @@ class SimplePlanService {
       _plans
         ..clear()
         ..addEntries(remotePlans.map((plan) => MapEntry(plan.id, plan)));
-      _planIdCounter = _nextPlanId(remotePlans);
       _loadedForUserId = userId;
+      _listenToRemotePlans(userId);
     } catch (error) {
       debugPrint('Plan load failed: $error');
       if (_loadedForUserId != userId) {
         _plans.clear();
-        _planIdCounter = 1;
         _ownerUids.clear();
         _participantUids.clear();
         _loadedForUserId = userId;
@@ -102,39 +109,15 @@ class SimplePlanService {
   }
 
   static TravelPlan? getNextUpcomingPlan({String? userId}) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
     final identities = _identityCandidates(userId ?? 'current_user');
-
-    final upcoming = _plans.values.where((plan) {
-      final isUserPartOfPlan = _isPlanParticipant(plan, identities);
-      final planDay = DateTime(
-        plan.startDate.year,
-        plan.startDate.month,
-        plan.startDate.day,
-      );
-      final hasNotStarted = !planDay.isBefore(today);
-      return isUserPartOfPlan && hasNotStarted;
-    }).toList()..sort((a, b) => a.startDate.compareTo(b.startDate));
+    final upcoming = _visibleCurrentOrFuturePlans(identities);
 
     return upcoming.isNotEmpty ? upcoming.first : null;
   }
 
   static List<TravelPlan> getAllUpcomingPlans({String? userId}) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
     final identities = _identityCandidates(userId ?? 'current_user');
-
-    return _plans.values.where((plan) {
-      final isUserPartOfPlan = _isPlanParticipant(plan, identities);
-      final planDay = DateTime(
-        plan.startDate.year,
-        plan.startDate.month,
-        plan.startDate.day,
-      );
-      final hasNotStarted = !planDay.isBefore(today);
-      return isUserPartOfPlan && hasNotStarted;
-    }).toList()..sort((a, b) => a.startDate.compareTo(b.startDate));
+    return _visibleCurrentOrFuturePlans(identities);
   }
 
   static TravelPlan createPlan({
@@ -213,22 +196,107 @@ class SimplePlanService {
 
   static Future<bool> deletePlan(String id) async {
     final existing = _plans[id];
-    if (existing == null) return false;
+    if (existing == null) {
+      debugPrint('Delete failed: Plan $id not found locally');
+      return false;
+    }
 
+    debugPrint('Attempting to delete plan $id');
+    // Mark as recently deleted to prevent real-time listener from re-adding
+    _recentlyDeletedPlanIds.add(id);
+    
     final deleted = await _deleteRemotePlan(id);
-    if (!deleted) return false;
+    if (!deleted) {
+      debugPrint('Delete failed: Remote delete failed for plan $id');
+      _recentlyDeletedPlanIds.remove(id);
+      return false;
+    }
     _plans.remove(id);
     _ownerUids.remove(id);
     _participantUids.remove(id);
     _notifyChanged();
+    // Clear the recently deleted marker after a delay
+    Future.delayed(const Duration(seconds: 5), () {
+      _recentlyDeletedPlanIds.remove(id);
+    });
+    debugPrint('Plan $id deleted successfully');
     return true;
   }
 
   static List<TravelPlan> getAllPlans() => _plans.values.toList();
 
+  static Future<TravelPlan?> joinSharedPlan(
+    String planId, {
+    String? participantCode,
+  }) async {
+    final normalizedPlanId = planId.trim();
+    if (normalizedPlanId.isEmpty) return null;
+
+    if (!await FirebaseAppService.initialize()) return null;
+    final currentUid = _currentUserId();
+    if (currentUid == null) return null;
+
+    try {
+      final doc = await _plansCollection
+          .doc(normalizedPlanId)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      if (!doc.exists) return null;
+
+      final data = doc.data();
+      if (data == null) return null;
+
+      final plan = TravelPlan.fromJson(Map<String, dynamic>.from(data));
+      final existingUids = data['participantUids'] is List
+          ? List<String>.from(data['participantUids'] as List)
+          : <String>[];
+      final updatedUids = <String>{...existingUids, currentUid}.toList();
+
+      final code = _normalizeCode(participantCode ?? '');
+      final update = <String, Object>{
+        'participantUids': FieldValue.arrayUnion([currentUid]),
+        'isShared': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (code.isNotEmpty) {
+        update['participantIds'] = FieldValue.arrayUnion([code]);
+        update['participantCodes'] = FieldValue.arrayUnion([code]);
+      }
+
+      await doc.reference.update(update).timeout(const Duration(seconds: 8));
+
+      final participantIds = <String>{...plan.participantIds};
+      if (code.isNotEmpty) participantIds.add(code);
+      final joined = TravelPlan(
+        id: plan.id,
+        title: plan.title,
+        startDate: plan.startDate,
+        endDate: plan.endDate,
+        participantIds: participantIds.toList(),
+        createdBy: plan.createdBy,
+        itinerary: plan.itinerary,
+        isShared: true,
+        bannerImage: plan.bannerImage,
+      );
+
+      _plans[joined.id] = joined;
+      _ownerUids[joined.id] = data['ownerUid'] as String? ?? currentUid;
+      _participantUids[joined.id] = updatedUids;
+      _loadedForUserId = currentUid;
+      _listenToRemotePlans(currentUid);
+      _notifyChanged();
+      return joined;
+    } catch (error) {
+      debugPrint('Failed to join shared plan: $error');
+      return null;
+    }
+  }
+
   static void resetCache() {
+    unawaited(_remotePlansSubscription?.cancel());
+    _remotePlansSubscription = null;
+    _loadedForUserId = null;
     _plans.clear();
-    _planIdCounter = 1;
     _loadedForUserId = null;
     _initialization = null;
     _ownerUids.clear();
@@ -349,7 +417,6 @@ class SimplePlanService {
   static void clearAllPlans() {
     final ids = _plans.keys.toList();
     _plans.clear();
-    _planIdCounter = 1;
     _ownerUids.clear();
     _participantUids.clear();
     _notifyChanged();
@@ -487,22 +554,62 @@ class SimplePlanService {
         .get()
         .timeout(const Duration(seconds: 8));
 
+    final plans = _decodeRemotePlanDocs(snapshot.docs, userId);
+    final knownIds = plans.map((plan) => plan.id).toSet();
+    unawaited(_migrateLegacyPlans(knownIds));
+    return plans;
+  }
+
+  static List<TravelPlan> _decodeRemotePlanDocs(
+    Iterable<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+    String userId,
+  ) {
     _ownerUids.clear();
     _participantUids.clear();
 
     final plans = <TravelPlan>[];
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-      final plan = TravelPlan.fromJson(Map<String, dynamic>.from(data));
-      plans.add(plan);
-      _ownerUids[plan.id] = data['ownerUid'] as String? ?? userId;
-      _participantUids[plan.id] = data['participantUids'] is List
-          ? List<String>.from(data['participantUids'] as List)
-          : <String>[userId];
+    for (final doc in docs) {
+      try {
+        final data = doc.data();
+        final plan = TravelPlan.fromJson(Map<String, dynamic>.from(data));
+        plans.add(plan);
+        _ownerUids[plan.id] = data['ownerUid'] as String? ?? userId;
+        _participantUids[plan.id] = data['participantUids'] is List
+            ? List<String>.from(data['participantUids'] as List)
+            : <String>[userId];
+      } catch (error) {
+        debugPrint('Skipping invalid remote plan ${doc.id}: $error');
+      }
     }
-    final knownIds = plans.map((plan) => plan.id).toSet();
-    unawaited(_migrateLegacyPlans(knownIds));
     return plans;
+  }
+
+  static void _listenToRemotePlans(String userId) {
+    if (_loadedForUserId == userId && _remotePlansSubscription != null) {
+      return;
+    }
+
+    unawaited(_remotePlansSubscription?.cancel());
+    _loadedForUserId = userId;
+    _remotePlansSubscription = _plansCollection
+        .where('participantUids', arrayContains: userId)
+        .snapshots()
+        .listen(
+          (snapshot) {
+            if (_currentUserId() != userId) return;
+            final remotePlans = _decodeRemotePlanDocs(snapshot.docs, userId)
+                .where((plan) => !_recentlyDeletedPlanIds.contains(plan.id))
+                .toList();
+            _plans
+              ..clear()
+              ..addEntries(remotePlans.map((plan) => MapEntry(plan.id, plan)));
+            _loadedForUserId = userId;
+            _notifyChanged();
+          },
+          onError: (Object error) {
+            debugPrint('Plan live updates failed: $error');
+          },
+        );
   }
 
   static Future<void> _migrateLegacyPlans(Set<String> knownIds) async {
@@ -607,15 +714,17 @@ class SimplePlanService {
       return <String>[ownerUid];
     }
 
-    final resolved = await FriendService()
-        .resolveParticipantUids(participantCodes)
-        .timeout(const Duration(seconds: 6));
-    if (resolved.length < collaboratorCodes.length + 1) {
-      throw Exception(
-        'Could not resolve every selected friend. Add them by friend code first.',
-      );
+    try {
+      final resolved = await FriendService()
+          .resolveParticipantUids(participantCodes)
+          .timeout(const Duration(seconds: 6));
+      return <String>{...resolved, ownerUid}.toList();
+    } catch (e) {
+      debugPrint('Failed to resolve some participants: $e');
+      // Fallback: use existing resolved UIDs from Firebase if available
+      final existingUids = _participantUids[plan.id] ?? <String>[];
+      return <String>{...existingUids, ownerUid}.toList();
     }
-    return resolved;
   }
 
   static Future<bool> _deleteRemotePlan(String id) async {
@@ -625,7 +734,91 @@ class SimplePlanService {
           .delete()
           .timeout(const Duration(seconds: 8));
       return true;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Delete plan error: $e');
+      return false;
+    }
+  }
+
+  static Future<Map<String, dynamic>> getPlanStatistics() async {
+    final userId = _currentUserId();
+    if (userId == null) return <String, dynamic>{};
+
+    final userPlans = getUserPlans();
+    final collaborativePlans = getCollaborativePlans();
+
+    var totalDestinations = 0;
+    var totalDays = 0;
+    var upcomingTrips = 0;
+    final now = DateTime.now();
+
+    for (final plan in [...userPlans, ...collaborativePlans]) {
+      for (final day in plan.itinerary) {
+        totalDestinations += day.items.length;
+        totalDays++;
+      }
+      if (plan.startDate.isAfter(now)) {
+        upcomingTrips++;
+      }
+    }
+
+    return <String, dynamic>{
+      'totalPlans': userPlans.length + collaborativePlans.length,
+      'userPlans': userPlans.length,
+      'collaborativePlans': collaborativePlans.length,
+      'totalDestinations': totalDestinations,
+      'totalDays': totalDays,
+      'upcomingTrips': upcomingTrips,
+    };
+  }
+
+  static Future<List<TravelPlan>> searchPlans(String query) async {
+    if (query.trim().isEmpty) return [];
+    final lowerQuery = query.toLowerCase();
+
+    final allPlans = getAllPlans();
+    return allPlans.where((plan) {
+      if (plan.title.toLowerCase().contains(lowerQuery)) return true;
+      for (final day in plan.itinerary) {
+        for (final item in day.items) {
+          if (item.destination.name.toLowerCase().contains(lowerQuery)) return true;
+        }
+      }
+      return false;
+    }).toList();
+  }
+
+  static Future<bool> leavePlan(String planId) async {
+    final currentUid = _currentUserId();
+    if (currentUid == null) return false;
+
+    try {
+      final doc = await _plansCollection
+          .doc(planId)
+          .get()
+          .timeout(const Duration(seconds: 5));
+      if (!doc.exists) return false;
+
+      final data = doc.data();
+      if (data == null) return false;
+
+      final ownerUid = data['ownerUid'] as String?;
+      if (ownerUid == currentUid) return false;
+
+      await doc.reference.update({
+        'participantUids': FieldValue.arrayRemove([currentUid]),
+        'participantIds': FieldValue.arrayRemove([currentUid]),
+        'participantCodes': FieldValue.arrayRemove([currentUid]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }).timeout(const Duration(seconds: 5));
+
+      _plans.remove(planId);
+      _ownerUids.remove(planId);
+      _participantUids.remove(planId);
+      _notifyChanged();
+      return true;
+    } catch (e) {
+      debugPrint('Failed to leave plan: $e');
       return false;
     }
   }
@@ -633,15 +826,24 @@ class SimplePlanService {
   static String shareLink(String planId) =>
       'https://halaph.app/plan-details?planId=${Uri.encodeComponent(planId)}';
 
-  static int _nextPlanId(List<TravelPlan> plans) {
-    var highest = 0;
-    for (final plan in plans) {
-      final match = RegExp(r'^plan(\d+)$').firstMatch(plan.id);
-      if (match == null) continue;
-      final number = int.tryParse(match.group(1) ?? '');
-      if (number != null && number > highest) highest = number;
-    }
-    return highest + 1;
+  static bool isPlanOwner(String planId) {
+    final userId = _currentUserId();
+    if (userId == null) return false;
+
+    final plan = _plans[planId];
+    if (plan == null) return false;
+
+    return _isPlanOwner(plan, {userId});
+  }
+
+  static bool isPlanParticipant(String planId) {
+    final userId = _currentUserId();
+    if (userId == null) return false;
+
+    final plan = _plans[planId];
+    if (plan == null) return false;
+
+    return _isPlanParticipant(plan, {userId}) && !_isPlanOwner(plan, {userId});
   }
 
   static bool _sameDate(DateTime a, DateTime b) {
@@ -693,7 +895,37 @@ class SimplePlanService {
 
     return plan.isShared ||
         participantCodes.length > 1 ||
-        remoteParticipants.length > 1;
+        remoteParticipants.length > 1 ||
+        (plan.participantIds.isNotEmpty && plan.participantIds.first != plan.createdBy);
+  }
+
+  static List<TravelPlan> _visibleCurrentOrFuturePlans(Set<String> identities) {
+    final today = _today();
+    return _plans.values.where((plan) {
+      return _isPlanParticipant(plan, identities) &&
+          !_dayOnly(plan.endDate).isBefore(today);
+    }).toList()..sort(_compareCurrentOrUpcomingPlans);
+  }
+
+  static int _compareCurrentOrUpcomingPlans(TravelPlan a, TravelPlan b) {
+    final today = _today();
+    final aActive =
+        !_dayOnly(a.startDate).isAfter(today) &&
+        !_dayOnly(a.endDate).isBefore(today);
+    final bActive =
+        !_dayOnly(b.startDate).isAfter(today) &&
+        !_dayOnly(b.endDate).isBefore(today);
+    if (aActive != bActive) return aActive ? -1 : 1;
+    return a.startDate.compareTo(b.startDate);
+  }
+
+  static DateTime _today() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  static DateTime _dayOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
   }
 
   static bool _matchesAnyIdentity(String? value, Set<String> identities) {
@@ -736,9 +968,10 @@ class SimplePlanService {
   }
 
   static String _newPlanId() {
-    final id = 'plan_${DateTime.now().microsecondsSinceEpoch}_$_planIdCounter';
-    _planIdCounter++;
-    return id;
+    // Use UUID-style ID to avoid collisions across devices
+    final timestamp = DateTime.now().microsecondsSinceEpoch;
+    final random = (timestamp.hashCode.abs() % 100000).toString().padLeft(5, '0');
+    return 'plan_${timestamp}_$random';
   }
 
   static String _normalizeCode(String code) {

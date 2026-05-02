@@ -1,8 +1,31 @@
-# Uncomment this line to define a global platform for your project
-platform :ios, '16.0'
-
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+# Suppress all warnings from Pods (third-party deprecation warnings)
+platform :ios, '17.0'
+inhibit_all_warnings!
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    # Fix "Create Symlinks to Header Folders" warning
+    target.shell_script_build_phases.each do |build_phase|
+      if build_phase.name == 'Create Symlinks to Header Folders'
+        build_phase.output_paths = ['$(DERIVED_FILE_DIR)/$(PRODUCT_NAME)']
+      end
+    end
+    # Suppress duplicate -lstdc++ warnings and set iOS 17.0 for ALL targets
+    target.build_configurations.each do |config|
+      config.build_settings['OTHER_LDFLAGS'] = '$(inherited) -Wl,-no_warn_duplicate_libraries'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '17.0'
+    end
+  end
+  
+  # Also update the Pods project deployment target
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '17.0'
+  end
+end
 
 project 'Runner', {
   'Debug' => :debug,
@@ -25,7 +48,7 @@ end
 
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
-flutter_ios_podfile_setup
+flutter_ios_podfile_setup()
 
 target 'Runner' do
   use_frameworks!
@@ -33,14 +56,5 @@ target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
     inherit! :search_paths
-  end
-end
-
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target)
-    target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
-    end
   end
 end
