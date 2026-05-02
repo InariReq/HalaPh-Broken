@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:halaph/utils/firebase_modes.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:halaph/models/plan.dart';
@@ -39,6 +40,14 @@ class SimplePlanService {
   }
 
   static Future<void> _initialize({required bool forceRefresh}) async {
+    if (FirebaseModes.offline) {
+      // Offline mode: reset in-memory caches to a clean slate
+      _plans.clear();
+      _ownerUids.clear();
+      _participantUids.clear();
+      _loadedForUserId = null;
+      return;
+    }
     if (!await FirebaseAppService.initialize()) {
       resetCache();
       return;
@@ -229,6 +238,10 @@ class SimplePlanService {
     String planId, {
     String? participantCode,
   }) async {
+    if (FirebaseModes.offline) {
+      // In offline mode, do not attempt remote join
+      return null;
+    }
     final normalizedPlanId = planId.trim();
     if (normalizedPlanId.isEmpty) return null;
 
@@ -546,8 +559,11 @@ class SimplePlanService {
   }
 
   static Future<List<TravelPlan>> _loadRemotePlans() async {
+    if (FirebaseModes.offline) {
+      return <TravelPlan>[];
+    }
     final userId = _currentUserId();
-    if (userId == null) return [];
+    if (userId == null) return <TravelPlan>[];
 
     final snapshot = await _plansCollection
         .where('participantUids', arrayContains: userId)
@@ -585,6 +601,7 @@ class SimplePlanService {
   }
 
   static void _listenToRemotePlans(String userId) {
+    if (FirebaseModes.offline) return;
     if (_loadedForUserId == userId && _remotePlansSubscription != null) {
       return;
     }
@@ -638,6 +655,13 @@ class SimplePlanService {
   }
 
   static Future<void> _saveRemotePlan(TravelPlan plan) async {
+    if (FirebaseModes.offline) {
+      _plans[plan.id] = plan;
+      _ownerUids[plan.id] = plan.createdBy;
+      _participantUids[plan.id] = plan.participantIds;
+      _notifyChanged();
+      return;
+    }
     final currentUid = _currentUserId();
     if (currentUid == null) {
       if (debugAllowMemoryOnlyPlans) {
@@ -728,6 +752,13 @@ class SimplePlanService {
   }
 
   static Future<bool> _deleteRemotePlan(String id) async {
+    if (FirebaseModes.offline) {
+      _plans.remove(id);
+      _ownerUids.remove(id);
+      _participantUids.remove(id);
+      _notifyChanged();
+      return true;
+    }
     try {
       await _plansCollection
           .doc(id)

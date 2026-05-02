@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../firebase_options.dart';
+import 'package:halaph/utils/firebase_modes.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
 class FirebaseAppService {
   FirebaseAppService._();
@@ -31,6 +33,10 @@ class FirebaseAppService {
     if (!success && identical(_initialization, initialization)) {
       _initialization = null;
     }
+    // If Firebase failed to initialize, enable offline mode to keep app usable
+    if (!success) {
+      FirebaseModes.offline = true;
+    }
     return success;
   }
 
@@ -56,12 +62,37 @@ class FirebaseAppService {
       
       // Initialize Realtime Database
       _initializeDatabase();
-      
+      // Optionally connect to Firebase emulators if configured and not offline
+      if (!FirebaseModes.offline && _shouldUseEmulators()) {
+        try {
+          FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
+        } catch (_) {
+          // ignore emulator connection errors
+        }
+        try {
+          firebase_auth.FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
+        } catch (_) {
+          // ignore emulator connection errors
+        }
+        try {
+          FirebaseDatabase.instance.useDatabaseEmulator('localhost', 9000);
+        } catch (_) {
+          // ignore emulator connection errors
+        }
+      }
       return true;
     } catch (error) {
       debugPrint('Firebase not configured; cloud sync disabled: $error');
       return false;
     }
+  }
+
+  static bool _shouldUseEmulators() {
+    final v1 = (dotenv.env['USE_FIREBASE_EMULATORS'] ?? '').toLowerCase();
+    final v2 = (dotenv.env['FIREBASE_EMULATORS'] ?? '').toLowerCase();
+    if (v1 == 'true' || v2 == 'true') return true;
+    // Default: do not use emulators unless explicitly enabled
+    return false;
   }
 
   static void _initializeDatabase() {
