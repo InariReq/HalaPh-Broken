@@ -8,8 +8,9 @@ import 'package:halaph/models/destination.dart';
 class GoogleMapsService {
   static String get _googleApiKey => (dotenv.env['MAPS_API_KEY'] ?? '').trim();
 
-  // Always configured since key is hardcoded
-  static bool get isConfigured => true;
+  // Determine if Google Maps API key is actually configured in the environment.
+  // If missing, API calls will gracefully fail and UI can show an estimated state.
+  static bool get isConfigured => _googleApiKey.isNotEmpty;
 
   /// Get directions using Google Directions API.
   /// Costs: ~$5 per 1,000 requests.
