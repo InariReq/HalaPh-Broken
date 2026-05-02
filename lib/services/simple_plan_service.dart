@@ -740,6 +740,55 @@ class SimplePlanService {
     }
   }
 
+  // Collaboration helpers: add/remove collaborator to a plan
+  static Future<bool> addCollaborator(String planId, String collaboratorUid) async {
+    final plan = _plans[planId];
+    if (plan == null) return false;
+    final ownerUid = _ownerUids[planId] ?? plan.ownerUid;
+    if (collaboratorUid == ownerUid) return false; // can't add owner as collaborator
+    try {
+      await _plansCollection
+          .doc(planId)
+          .update({
+        'participantUids': FieldValue.arrayUnion([collaboratorUid]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }).timeout(const Duration(seconds: 8));
+      // Update local cache
+      final list = List<String>.from(_participantUids[planId] ?? []);
+      if (!list.contains(collaboratorUid)) list.add(collaboratorUid);
+      _participantUids[planId] = list;
+      _notifyChanged();
+      return true;
+    } catch (e) {
+      debugPrint('Add collaborator failed: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> removeCollaborator(String planId, String collaboratorUid) async {
+    final plan = _plans[planId];
+    if (plan == null) return false;
+    final ownerUid = _ownerUids[planId] ?? plan.ownerUid;
+    if (collaboratorUid == ownerUid) return false; // cannot remove owner from plan
+    try {
+      await _plansCollection
+          .doc(planId)
+          .update({
+        'participantUids': FieldValue.arrayRemove([collaboratorUid]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }).timeout(const Duration(seconds: 8));
+      // Update local cache
+      final list = List<String>.from(_participantUids[planId] ?? []);
+      list.remove(collaboratorUid);
+      _participantUids[planId] = list;
+      _notifyChanged();
+      return true;
+    } catch (e) {
+      debugPrint('Remove collaborator failed: $e');
+      return false;
+    }
+  }
+
   static Future<Map<String, dynamic>> getPlanStatistics() async {
     final userId = _currentUserId();
     if (userId == null) return <String, dynamic>{};
