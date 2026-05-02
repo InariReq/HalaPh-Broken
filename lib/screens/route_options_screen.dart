@@ -188,8 +188,27 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     if (_fares.isEmpty) {
       return Center(child: Text('No routes available at this moment.'));
     }
+    final bool mapsConfigured = GoogleMapsService.isConfigured;
     return Column(
       children: [
+        if (!mapsConfigured)
+          Container(
+            width: double.infinity,
+            color: Colors.amber[100],
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: const [
+                Icon(Icons.info_outline),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Google Maps Directions API key not configured. Route estimates are based on distance. Enable MAPS_API_KEY for live directions.',
+                    style: TextStyle(color: Colors.black87),
+                  ),
+                ),
+              ],
+            ),
+          ),
         Container(
           padding: const EdgeInsets.all(16),
           color: Colors.blue[50],

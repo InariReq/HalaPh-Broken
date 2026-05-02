@@ -744,7 +744,7 @@ class SimplePlanService {
   static Future<bool> addCollaborator(String planId, String collaboratorUid) async {
     final plan = _plans[planId];
     if (plan == null) return false;
-    final ownerUid = _ownerUids[planId] ?? plan.ownerUid;
+    final ownerUid = _ownerUids[planId] ?? (plan.createdBy);
     if (collaboratorUid == ownerUid) return false; // can't add owner as collaborator
     try {
       await _plansCollection
@@ -768,7 +768,7 @@ class SimplePlanService {
   static Future<bool> removeCollaborator(String planId, String collaboratorUid) async {
     final plan = _plans[planId];
     if (plan == null) return false;
-    final ownerUid = _ownerUids[planId] ?? plan.ownerUid;
+    final ownerUid = _ownerUids[planId] ?? (plan.createdBy);
     if (collaboratorUid == ownerUid) return false; // cannot remove owner from plan
     try {
       await _plansCollection
@@ -854,12 +854,24 @@ class SimplePlanService {
       final ownerUid = data['ownerUid'] as String?;
       if (ownerUid == currentUid) return false;
 
-      await doc.reference.update({
+      // Remove current user from participant lists using UID and codes
+      final Map<String, Object?> updateMap = {
         'participantUids': FieldValue.arrayRemove([currentUid]),
-        'participantIds': FieldValue.arrayRemove([currentUid]),
-        'participantCodes': FieldValue.arrayRemove([currentUid]),
         'updatedAt': FieldValue.serverTimestamp(),
-      }).timeout(const Duration(seconds: 5));
+      };
+      // Also remove the current user's code from participantIds and participantCodes if available
+      try {
+        final friendService = FriendService();
+        final myCode = await friendService.getMyCode();
+        final normalizedCode = _normalizeCode(myCode);
+        if (normalizedCode.isNotEmpty) {
+          updateMap['participantIds'] = FieldValue.arrayRemove([normalizedCode]);
+          updateMap['participantCodes'] = FieldValue.arrayRemove([normalizedCode]);
+        }
+      } catch (_) {
+        // If we fail to fetch the code, proceed without removing codes
+      }
+      await doc.reference.update(updateMap).timeout(const Duration(seconds: 5));
 
       _plans.remove(planId);
       _ownerUids.remove(planId);
