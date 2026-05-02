@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/budget_routing_service.dart';
+import 'package:halaph/utils/dev_mode.dart';
 import 'package:halaph/services/google_maps_service.dart';
 import 'package:halaph/services/fare_service.dart';
 import 'package:halaph/screens/route_map_screen.dart';
@@ -37,6 +38,13 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
   void initState() {
     super.initState();
     _loadFares();
+  }
+
+  void _openDevModeSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => const _DevModeSheetContent(),
+    );
   }
 
   Future<void> _loadFares() async {
@@ -147,6 +155,10 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             ],
             icon: Icon(Icons.person),
           ),
+          IconButton(
+            icon: const Icon(Icons.developer_board),
+            onPressed: _openDevModeSheet,
+          ),
         ],
         elevation: 0,
       ),
@@ -191,6 +203,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     final bool mapsConfigured = GoogleMapsService.isConfigured;
     return Column(
       children: [
+        _buildDevModeBanner(),
         if (!mapsConfigured)
           Container(
             width: double.infinity,
@@ -394,4 +407,75 @@ class _TransportFare {
     this.steps = const [],
     this.polyline = '',
   });
+}
+
+// Dev mode sheet widget (in-app)
+class _DevModeSheetContent extends StatelessWidget {
+  const _DevModeSheetContent({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Wrap(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.cloud_done),
+            title: const Text('Online'),
+            onTap: () {
+              DevModeService.set(DevMode.online);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.offline_bolt),
+            title: const Text('Offline'),
+            onTap: () {
+              DevModeService.set(DevMode.offline);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.router),
+            title: const Text('Emulator'),
+            onTap: () {
+              DevModeService.set(DevMode.emulator);
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+extension DevModeExtensions on DevMode {
+  String toShortName() {
+    switch (this) {
+      case DevMode.online:
+        return 'Online';
+      case DevMode.offline:
+        return 'Offline';
+      case DevMode.emulator:
+        return 'Emulator';
+    }
+  }
+}
+
+// Banner widget showing current dev mode
+Widget _buildDevModeBanner() {
+  final mode = DevModeService.current.value;
+  final text = mode.toShortName();
+  return Container(
+    width: double.infinity,
+    color: Colors.amber[50],
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.developer_board, size: 14),
+        const SizedBox(width: 6),
+        Text('Dev mode: $text', style: const TextStyle(fontSize: 12)),
+      ],
+    ),
+  );
 }
