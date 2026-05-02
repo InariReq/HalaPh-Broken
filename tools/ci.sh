@@ -3,10 +3,14 @@ set -euo pipefail
 
 echo "[CI] Starting build and test pipeline..."
 
-echo "[CI] iOS: Installing CocoaPods..."
-cd ios
-pod install --repo-update
-cd ..
+echo "[CI] iOS: Installing CocoaPods... (macOS only)"
+if [ "$(uname)" = "Darwin" ]; then
+  cd ios
+  pod install --repo-update
+  cd ..
+else
+  echo "[CI] Skipping CocoaPods install: non-macOS environment"
+fi
 
 echo "[CI] Running Flutter analysis..."
 flutter analyze
