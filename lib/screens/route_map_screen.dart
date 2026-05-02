@@ -165,6 +165,33 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
             zoomControlsEnabled: true,
           ),
           // Bottom panel with step instructions
+          // Optional informational banner when live directions are unavailable
+          if (!GoogleMapsService.isConfigured || widget.polyline.isEmpty)
+            Positioned(
+              top: 8,
+              left: 12,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.amber[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.info_outline),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Live directions are unavailable. Using estimated route data.',
+                        style: TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           DraggableScrollableSheet(
             initialChildSize: 0.3,
             minChildSize: 0.1,
