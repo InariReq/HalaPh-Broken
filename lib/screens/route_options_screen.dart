@@ -184,6 +184,10 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       );
     }
 
+    // If there are no fares available, show an empty state instead of crashing
+    if (_fares.isEmpty) {
+      return Center(child: Text('No routes available at this moment.'));
+    }
     return Column(
       children: [
         Container(
