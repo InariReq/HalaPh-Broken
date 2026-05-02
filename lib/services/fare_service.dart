@@ -1,8 +1,9 @@
 import 'package:halaph/services/budget_routing_service.dart';
 
-// Simple fare estimator with rough rates per mode and distance.
-// Note: This is a heuristic estimator to provide UX for pricing incentives
-// (eg. Student/PWD discounts). Replace with official fare data for production.
+// Simple fare estimator with rail-shipper-like integration.
+// This delegates to BudgetRoutingService for base fare calculation and
+// applies simple passenger-type discounts for UX. In production, substitute
+// with official fare data sources.
 enum PassengerType { adult, student, pwd }
 
 class FareService {
@@ -10,28 +11,9 @@ class FareService {
       {PassengerType type = PassengerType.adult}) {
     if (mode == TravelMode.walking) return 0.0;
 
-    double base;
-    switch (mode) {
-      case TravelMode.jeepney:
-        base = 8.0;
-        break;
-      case TravelMode.bus:
-        base = 12.0;
-        break;
-      case TravelMode.train:
-        base = 14.0;
-        break;
-      case TravelMode.fx:
-        base = 16.0;
-        break;
-      case TravelMode.walking:
-        base = 0.0;
-        break;
-    }
-
-    // Rough distance-based increment (simplified)
-    final distComponent = distanceKm * 6.0; // ~6 PHP per km as a rough guide
-    double fare = base + distComponent;
+    // Base fare from budget routing provider (already distance-aware)
+    final baseFare = BudgetRoutingService.calculateFare(mode, distanceKm);
+    var fare = baseFare;
 
     // Apply simple discounts
     switch (type) {
