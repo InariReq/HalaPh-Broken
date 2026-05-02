@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../firebase_options.dart';
 import 'package:halaph/utils/firebase_modes.dart';
+import 'package:halaph/utils/dev_mode.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
 class FirebaseAppService {
@@ -87,7 +88,11 @@ class FirebaseAppService {
     }
   }
 
-  static bool _shouldUseEmulators() {
+static bool _shouldUseEmulators() {
+    // Also honor in-app dev mode (emulator)
+    try {
+      if (DevModeService.current.value == DevMode.emulator) return true;
+    } catch (_) {}
     final v1 = (dotenv.env['USE_FIREBASE_EMULATORS'] ?? '').toLowerCase();
     final v2 = (dotenv.env['FIREBASE_EMULATORS'] ?? '').toLowerCase();
     if (v1 == 'true' || v2 == 'true') return true;
