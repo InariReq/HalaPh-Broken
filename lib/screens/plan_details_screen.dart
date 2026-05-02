@@ -109,12 +109,14 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       ),
     );
     if (selected == null) return;
-    // Map selected friend codes to UIDs using the friend service
-    final friendService = FriendService();
-    final participantUids = await friendService.resolveParticipantUids(selected);
+    // Use selected codes directly; membership will be resolved to UIDs on save
+    final selectedCodes = selected
+        .map((code) => code.trim())
+        .where((code) => code.isNotEmpty)
+        .toList();
     final success = await SimplePlanService.updatePlanParticipants(
       planId: _plan!.id,
-      participantIds: participantUids,
+      participantIds: selectedCodes,
     );
     if (!mounted) return;
     if (!success) {
