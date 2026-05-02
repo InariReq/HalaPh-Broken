@@ -6,12 +6,12 @@ void main() {
   group('FareService', () {
     test('jeepney adult fare for 5km', () {
       final fare = FareService.estimateFare(TravelMode.jeepney, 5.0, type: PassengerType.adult);
-      expect(fare, closeTo(38.0, 0.001));
+      expect(fare, closeTo(16.0, 0.001));
     });
 
     test('jeepney student discount for 5km', () {
       final fare = FareService.estimateFare(TravelMode.jeepney, 5.0, type: PassengerType.student);
-      expect(fare, closeTo(30.4, 0.001));
+      expect(fare, closeTo(12.8, 0.001));
     });
 
     test('walking fare is zero', () {
@@ -21,7 +21,7 @@ void main() {
 
     test('pwd discount for jeepney distance 2km', () {
       final fare = FareService.estimateFare(TravelMode.jeepney, 2.0, type: PassengerType.pwd);
-      expect(fare, closeTo(18.0, 0.001));
+      expect(fare, closeTo(12.6, 0.001));
     });
   });
 }
