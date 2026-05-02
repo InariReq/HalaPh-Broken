@@ -71,21 +71,24 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
 
       final modes = [
         _ModeData(TravelMode.jeepney, 'Traditional Jeepney', Icons.directions_bus,
-        _ModeData(TravelMode.jeepney, 'Traditional Jeepney', Icons.directions_bus,
-            null, 'driving'),
+            (double distance) => FareService.estimateFare(TravelMode.jeepney, distance, type: _passengerType),
+            'driving'),
         _ModeData(TravelMode.bus, 'Bus (Ordinary/Aircon)', Icons.directions_bus,
-            null, 'driving'),
-        _ModeData(TravelMode.train, 'Train (LRT/MRT)', Icons.train, 
-            null, 'transit'),
-        _ModeData(TravelMode.fx, 'FX/Van', Icons.airport_shuttle, 
-            null, 'driving'),
+            (double distance) => FareService.estimateFare(TravelMode.bus, distance, type: _passengerType),
+            'driving'),
+        _ModeData(TravelMode.train, 'Train (LRT/MRT)', Icons.train,
+            (double distance) => FareService.estimateFare(TravelMode.train, distance, type: _passengerType),
+            'transit'),
+        _ModeData(TravelMode.fx, 'FX/Van', Icons.airport_shuttle,
+            (double distance) => FareService.estimateFare(TravelMode.fx, distance, type: _passengerType),
+            'driving'),
         _ModeData(TravelMode.walking, 'Walking', Icons.directions_walk,
-            (double _) => 0.0, 'walking'),
+            (double distance) => FareService.estimateFare(TravelMode.walking, distance, type: _passengerType),
+            'walking'),
       ];
       _fares = [];
       for (final modeData in modes) {
-        final FareServiceFare =  FareService.estimateFare(modeData.mode, distance, type: _passengerType);
-        final fare = FareServiceFare;
+        final fare = FareService.estimateFare(modeData.mode, distance, type: _passengerType);
         final duration = BudgetRoutingService.estimateDuration(distance, modeData.mode);
 
         final directions = await GoogleMapsService.getDirections(
@@ -130,6 +133,21 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Route to ${widget.destinationName}'),
+        actions: [
+          PopupMenuButton<PassengerType>(
+            onSelected: (pt) {
+              setState(() {
+                _passengerType = pt;
+              });
+            },
+            itemBuilder: (context) => <PopupMenuEntry<PassengerType>>[
+              const PopupMenuItem(value: PassengerType.adult, child: Text('Adult')),
+              const PopupMenuItem(value: PassengerType.student, child: Text('Student')),
+              const PopupMenuItem(value: PassengerType.pwd, child: Text('PWD')),
+            ],
+            icon: Icon(Icons.person),
+          ),
+        ],
         elevation: 0,
       ),
       body: _buildBody(),
