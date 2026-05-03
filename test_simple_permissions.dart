@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:halaph/services/simple_plan_service.dart';
@@ -22,7 +23,7 @@ void main() {
       expect(json['createdBy'], isA<String>());
       expect(json['title'], isA<String>());
 
-      print('✅ Plan model schema validation passed');
+      debugPrint('✅ Plan model schema validation passed');
     });
 
     test('Plan creation data structure matches Firestore rules', () {
@@ -43,7 +44,7 @@ void main() {
       expect(plan.createdBy, equals('owner123'));
       expect(plan.participantUids.length, equals(1));
 
-      print('✅ Plan data structure validation passed');
+      debugPrint('✅ Plan creation data structure validation passed');
     });
 
     test('SimplePlanService createPlan works correctly', () {
@@ -62,7 +63,7 @@ void main() {
       expect(plan.createdBy, equals('demo_user'));
       expect(plan.isShared, isFalse);
 
-      print('✅ SimplePlanService createPlan validation passed');
+      debugPrint('✅ Simple permissions test passed');
     });
   });
 }

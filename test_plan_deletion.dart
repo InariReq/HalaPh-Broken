@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:halaph/services/firebase_app_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
@@ -27,7 +28,7 @@ void main() {
       // Verify plan is gone
       expect(SimplePlanService.getPlanById(plan.id), isNull);
 
-      print('✅ Regular plan deletion test passed');
+      debugPrint('✅ Plan deletion test passed');
     });
 
     testWidgets('Collaboration plan deletion works for owner', (tester) async {
@@ -58,7 +59,7 @@ void main() {
       // Verify plan is gone
       expect(SimplePlanService.getPlanById(plan.id), isNull);
 
-      print('✅ Collaboration plan deletion test passed');
+      debugPrint('✅ Plan deletion functionality test passed');
     });
 
     testWidgets('Plan deletion fails for non-owner', (tester) async {
@@ -79,7 +80,7 @@ void main() {
       final isOwner = SimplePlanService.isPlanOwner(plan.id);
       expect(isOwner, isTrue);
 
-      print('✅ Plan ownership verification test passed');
+      debugPrint('✅ Plan deletion functionality test passed');
     });
 
     testWidgets('Plan deletion handles missing plan gracefully',
@@ -93,7 +94,7 @@ void main() {
           await SimplePlanService.deletePlan('non_existent_plan_id');
       expect(deleteSuccess, isFalse);
 
-      print('✅ Missing plan deletion test passed');
+      debugPrint('✅ Permission validation test passed');
     });
   });
 }

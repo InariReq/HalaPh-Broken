@@ -1,8 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:halaph/services/firebase_app_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/services/friend_service.dart';
-import 'package:halaph/models/plan.dart';
 
 void main() {
   group('Complete App Functionality Tests', () {
@@ -11,7 +11,7 @@ void main() {
       await FirebaseAppService.initialize();
       expect(FirebaseAppService.isInitialized, isTrue);
 
-      print('✅ Firebase initialization test passed');
+      debugPrint('✅ Firebase initialization test passed');
     });
 
     testWidgets('Plan creation works end-to-end', (tester) async {
@@ -36,7 +36,7 @@ void main() {
       final retrievedPlan = SimplePlanService.getPlanById(plan.id);
       expect(retrievedPlan?.title, equals(plan.title));
 
-      print('✅ Plan creation end-to-end test passed');
+      debugPrint('✅ Plan creation end-to-end test passed');
     });
 
     testWidgets('Plan update and collaboration works', (tester) async {
@@ -64,7 +64,7 @@ void main() {
           plan.id, 'collaborator_user_123');
       expect(collabSuccess, isTrue);
 
-      print('✅ Plan update and collaboration test passed');
+      debugPrint('✅ Plan update and collaboration test passed');
     });
 
     testWidgets('Plan deletion works correctly', (tester) async {
@@ -88,7 +88,7 @@ void main() {
       final deletedPlan = SimplePlanService.getPlanById(plan.id);
       expect(deletedPlan, isNull);
 
-      print('✅ Plan deletion test passed');
+      debugPrint('✅ Plan deletion test passed');
     });
 
     testWidgets('Friend service functionality works', (tester) async {
@@ -105,7 +105,7 @@ void main() {
       final friends = await friendService.getFriends();
       expect(friends, isA<List>());
 
-      print('✅ Friend service functionality test passed');
+      debugPrint('✅ Complete functionality test passed');
     });
 
     testWidgets('Real-time sync works', (tester) async {
@@ -138,7 +138,7 @@ void main() {
 
       expect(changeDetected, isTrue);
 
-      print('✅ Real-time sync test passed');
+      debugPrint('✅ Plan saving test passed');
     });
   });
 }

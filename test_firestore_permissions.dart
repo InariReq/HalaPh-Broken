@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/services/firebase_app_service.dart';
@@ -22,7 +23,7 @@ void main() {
       expect(plan.participantUids, isNotEmpty);
       expect(plan.createdBy, isNotEmpty);
 
-      print('✅ Plan creation test passed');
+      debugPrint('✅ Plan creation test passed');
     });
 
     test('Plan update should work for owner', () async {
@@ -42,7 +43,7 @@ void main() {
       );
 
       expect(success, isTrue);
-      print('✅ Plan update test passed');
+      debugPrint('✅ Plan update test passed');
     });
 
     test('Plan deletion should work for owner', () async {
@@ -58,7 +59,7 @@ void main() {
       // Delete plan
       final success = await SimplePlanService.deletePlan(plan.id);
       expect(success, isTrue);
-      print('✅ Plan deletion test passed');
+      debugPrint('✅ Plan deletion permission test passed');
     });
 
     test('Collaborator addition should work', () async {
@@ -75,7 +76,7 @@ void main() {
       final success =
           await SimplePlanService.addCollaborator(plan.id, 'test_user_123');
       expect(success, isTrue);
-      print('✅ Collaborator addition test passed');
+      debugPrint('✅ Collaborator addition test passed');
     });
   });
 }

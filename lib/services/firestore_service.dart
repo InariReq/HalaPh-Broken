@@ -168,8 +168,9 @@ class FirestoreService {
       {String? fromName, String? fromCode}) async {
     final fromUid = currentUserId;
     if (fromUid == null) throw Exception('User not authenticated');
-    if (fromUid == toUid)
+    if (fromUid == toUid) {
       throw Exception('Cannot send friend request to yourself');
+    }
 
     try {
       final requestData = {
@@ -339,6 +340,162 @@ class FirestoreService {
   }
 
   // ===== SHARED PLANS =====
+
+  /// Get a single shared plan by ID
+  static Future<TravelPlan?> getSharedPlan(String planId) async {
+    final userId = currentUserId;
+    if (userId == null) return null;
+
+    try {
+      final doc = await _db.collection('sharedPlans').doc(planId).get();
+      if (!doc.exists) return null;
+
+      final data = doc.data()!;
+      data['id'] = doc.id; // Ensure document ID is included
+
+      // Check if user has access to this plan
+      final participantUids = List<String>.from(data['participantUids'] ?? []);
+      if (!participantUids.contains(userId)) {
+        developer.log(
+            'FirestoreService: User $userId does not have access to plan $planId');
+        return null;
+      }
+
+      return TravelPlan.fromJson(data);
+    } catch (e) {
+      developer.log('FirestoreService: Error getting shared plan $planId: $e');
+      return null;
+    }
+  }
+
+  /// Get friends stream for real-time updates
+  static Stream<QuerySnapshot<Map<String, dynamic>>> getFriendsStream(
+      String userId) {
+    developer
+        .log('FirestoreService: Setting up friends stream for user $userId');
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('friends')
+        .snapshots();
+  }
+
+  /// Remove friend from user's friends list
+  static Future<void> removeFriend(String userId, String friendId) async {
+    developer
+        .log('FirestoreService: Removing friend $friendId from user $userId');
+    await _db
+        .collection('users')
+        .doc(userId)
+        .collection('friends')
+        .doc(friendId)
+        .delete();
+  }
+
+  /// Remove friend request
+  static Future<void> removeFriendRequest(
+      String userId, String requestId) async {
+    developer.log(
+        'FirestoreService: Removing friend request $requestId from user $userId');
+    await _db
+        .collection('users')
+        .doc(userId)
+        .collection('friend_requests')
+        .doc(requestId)
+        .delete();
+  }
+
+  /// Save friends list for a user
+  static Future<void> saveFriends(String userId, List<Friend> friends) async {
+    developer.log(
+        'FirestoreService: Saving ${friends.length} friends for user $userId');
+
+    final batch = _db.batch();
+    final collection =
+        _db.collection('users').doc(userId).collection('friends');
+
+    // Get existing friends to delete
+    final existingDocs = await collection.get();
+    for (final doc in existingDocs.docs) {
+      batch.delete(doc.reference);
+    }
+
+    // Add all friends
+    for (final friend in friends) {
+      final docRef = collection.doc(friend.uid ?? friend.id);
+      batch.set(docRef, {
+        'ownerUid': userId,
+        'friendUid': friend.uid ?? friend.id,
+        'friendId': friend.id,
+        'name': friend.name,
+        'role': friend.role,
+        'code': friend.code,
+        'email': friend.email,
+        'avatarUrl': friend.avatarUrl,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+    developer
+        .log('FirestoreService: Successfully saved friends for user $userId');
+  }
+
+  /// Get friends list for a user
+  static Future<List<Friend>> getFriends(String userId) async {
+    developer.log('FirestoreService: Getting friends for user $userId');
+
+    try {
+      final snapshot =
+          await _db.collection('users').doc(userId).collection('friends').get();
+
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return Friend(
+          id: data['friendId'] as String? ?? doc.id,
+          uid: data['friendUid'] as String?,
+          name: data['name'] as String? ?? 'Unknown',
+          role: data['role'] as String? ?? 'Viewer',
+          code: data['code'] as String? ?? '',
+          email: data['email'] as String?,
+          avatarUrl: data['avatarUrl'] as String?,
+        );
+      }).toList();
+    } catch (e) {
+      developer.log('FirestoreService: Error getting friends: $e');
+      return [];
+    }
+  }
+
+  /// Get pending friend requests for current user
+  static Future<QuerySnapshot<Map<String, dynamic>>>
+      getPendingFriendRequests() async {
+    final userId = currentUserId;
+    if (userId == null) throw Exception('User not authenticated');
+
+    developer.log(
+        'FirestoreService: Getting pending friend requests for user $userId');
+
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('friend_requests')
+        .get();
+  }
+
+  /// Get public profile by code
+  static Future<Map<String, dynamic>?> getPublicProfile(String code) async {
+    final userId = currentUserId;
+    if (userId == null) return null;
+
+    try {
+      final doc = await _db.collection('publicProfiles').doc(code).get();
+      return doc.exists ? doc.data() : null;
+    } catch (e) {
+      developer.log('FirestoreService: Error getting public profile: $e');
+      return null;
+    }
+  }
 
   /// Get shared plans with proper query (array-contains + limit)
   static Stream<List<TravelPlan>> getMySharedPlans() {

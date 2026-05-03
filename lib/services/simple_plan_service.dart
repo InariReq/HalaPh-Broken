@@ -862,8 +862,9 @@ class SimplePlanService {
       if (plan.title.toLowerCase().contains(lowerQuery)) return true;
       for (final day in plan.itinerary) {
         for (final item in day.items) {
-          if (item.destination.name.toLowerCase().contains(lowerQuery))
+          if (item.destination.name.toLowerCase().contains(lowerQuery)) {
             return true;
+          }
         }
       }
       return false;

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:halaph/utils/firebase_modes.dart';
 
 class DatabaseResetService {
@@ -40,7 +41,7 @@ class DatabaseResetService {
       if (!FirebaseModes.offline) return;
       await _wipeAllCollections();
     } catch (e) {
-      print(
+      debugPrint(
           'DatabaseResetService: failed to reset Firestore emulator data: $e');
     }
   }

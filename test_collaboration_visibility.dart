@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:halaph/services/firebase_app_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
@@ -35,7 +36,7 @@ void main() {
           SimplePlanService.getPlansSharedWithUser(collaboratorId);
       expect(sharedPlans, isNotEmpty);
 
-      print('✅ Collaboration plans appear on both users apps');
+      debugPrint('✅ Collaboration plans appear on both users apps');
     });
 
     testWidgets('Real-time sync works for shared plans', (tester) async {
@@ -70,7 +71,7 @@ void main() {
       final updatedPlan = SimplePlanService.getPlanById(plan.id);
       expect(updatedPlan?.participantUids, contains('realtime_user_456'));
 
-      print('✅ Real-time sync works for shared plans');
+      debugPrint('✅ Real-time sync works for shared plans');
     });
 
     testWidgets('Plan sharing between different users works', (tester) async {
@@ -109,7 +110,7 @@ void main() {
         expect(sharedPlans.any((p) => p.id == plan.id), isTrue);
       }
 
-      print('✅ Plan sharing between different users works');
+      debugPrint('✅ Plan sharing between different users works');
     });
 
     testWidgets('Added friends can see collaboration plans', (tester) async {
@@ -141,7 +142,7 @@ void main() {
       expect(ownerPlans, isNotEmpty);
       expect(ownerPlans.any((p) => p.id == plan.id), isTrue);
 
-      print('✅ Added friends can see collaboration plans');
+      debugPrint('✅ Added friends can see collaboration plans');
     });
 
     testWidgets('Plan visibility persists after updates', (tester) async {
@@ -179,7 +180,7 @@ void main() {
       final updatedPlan = SimplePlanService.getPlanById(plan.id);
       expect(updatedPlan?.title, equals('Updated Persistent Visibility Plan'));
 
-      print('✅ Plan visibility persists after updates');
+      debugPrint('✅ Plan visibility persists after updates');
     });
 
     testWidgets('Real-time listeners work correctly', (tester) async {
@@ -220,7 +221,7 @@ void main() {
       // Verify changes were detected
       expect(changeCount, greaterThan(0));
 
-      print('✅ Real-time listeners work correctly');
+      debugPrint('✅ Real-time listeners work correctly');
     });
   });
 }

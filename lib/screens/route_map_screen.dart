@@ -40,7 +40,8 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   void initState() {
     super.initState();
     _polyline = widget.polyline;
-    _routePoints = _polyline.isNotEmpty ? MapUtils.decodePolyline(_polyline) : [];
+    _routePoints =
+        _polyline.isNotEmpty ? MapUtils.decodePolyline(_polyline) : [];
     _setupMap();
   }
 
@@ -172,7 +173,8 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
               left: 12,
               right: 12,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.amber[100],
                   borderRadius: BorderRadius.circular(8),
@@ -252,30 +254,54 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                           final step = widget.steps[index];
                           final instruction =
                               step['html_instructions'] as String? ?? '';
-                          final distance = (step['distance'] as Map?)?['text'] as String? ?? '';
-                          final duration = (step['duration'] as Map?)?['text'] as String? ?? '';
+                          final distance =
+                              (step['distance'] as Map?)?['text'] as String? ??
+                                  '';
+                          final duration =
+                              (step['duration'] as Map?)?['text'] as String? ??
+                                  '';
                           // Optional transit details for more precise ride instructions
                           String transitInfo = '';
-                          final transitDetails = step['transit_details'] as Map<String, dynamic>?;
+                          final transitDetails =
+                              step['transit_details'] as Map<String, dynamic>?;
                           if (transitDetails != null) {
-                            final line = transitDetails['line'] as Map<String, dynamic>?
-                                ;
-                            final lineName = (line?['short_name'] ?? line?['name'] ?? '').toString();
-                            final depStop = transitDetails['departure_stop'] as Map<String, dynamic>?;
+                            final line =
+                                transitDetails['line'] as Map<String, dynamic>?;
+                            final lineName =
+                                (line?['short_name'] ?? line?['name'] ?? '')
+                                    .toString();
+                            final depStop = transitDetails['departure_stop']
+                                as Map<String, dynamic>?;
                             final depStopName = depStop?['name'] ?? '';
-                            final arrStop = transitDetails['arrival_stop'] as Map<String, dynamic>?;
+                            final arrStop = transitDetails['arrival_stop']
+                                as Map<String, dynamic>?;
                             final arrStopName = arrStop?['name'] ?? '';
-                            final depTime = transitDetails['departure_time'] as Map<String, dynamic>?;
+                            final depTime = transitDetails['departure_time']
+                                as Map<String, dynamic>?;
                             final depTimeText = depTime?['text'] ?? '';
-                            final arrTime = transitDetails['arrival_time'] as Map<String, dynamic>?;
+                            final arrTime = transitDetails['arrival_time']
+                                as Map<String, dynamic>?;
                             final arrTimeText = arrTime?['text'] ?? '';
                             String detail = '';
-                            if (lineName.isNotEmpty) detail += 'Board $lineName';
-                            if (depStopName.isNotEmpty) detail += (detail.isEmpty ? '' : ' ') + 'at $depStopName';
-                            if (depTimeText.isNotEmpty) detail += ' ($depTimeText)';
-                            if (arrStopName.isNotEmpty) detail += ' to $arrStopName';
-                            if (arrTimeText.isNotEmpty) detail += ' ($arrTimeText)';
-                            if (detail.isNotEmpty) transitInfo = detail;
+                            if (lineName.isNotEmpty) {
+                              detail += 'Board $lineName';
+                            }
+                            if (depStopName.isNotEmpty) {
+                              detail +=
+                                  '${detail.isEmpty ? '' : ' '}at $depStopName';
+                            }
+                            if (depTimeText.isNotEmpty) {
+                              detail += ' ($depTimeText)';
+                            }
+                            if (arrStopName.isNotEmpty) {
+                              detail += ' to $arrStopName';
+                            }
+                            if (arrTimeText.isNotEmpty) {
+                              detail += ' ($arrTimeText)';
+                            }
+                            if (detail.isNotEmpty) {
+                              transitInfo = detail;
+                            }
                           }
                           final isCurrentStep = index == _currentStep;
 
@@ -310,7 +336,8 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                   Container(
                                     width: 24,
                                     height: 24,
-                                    margin: const EdgeInsets.only(left: 8, right: 12),
+                                    margin: const EdgeInsets.only(
+                                        left: 8, right: 12),
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: isCurrentStep
@@ -332,7 +359,8 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                   ),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           _stripHtml(instruction),
@@ -345,15 +373,20 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                         ),
                                         if (transitInfo.isNotEmpty)
                                           Padding(
-                                            padding: const EdgeInsets.only(top: 6),
+                                            padding:
+                                                const EdgeInsets.only(top: 6),
                                             child: Text(
                                               transitInfo,
-                                              style: const TextStyle(fontSize: 11, color: Colors.black54),
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.black54),
                                             ),
                                           ),
-                                        if (distance.isNotEmpty || duration.isNotEmpty)
+                                        if (distance.isNotEmpty ||
+                                            duration.isNotEmpty)
                                           Padding(
-                                            padding: const EdgeInsets.only(top: 4),
+                                            padding:
+                                                const EdgeInsets.only(top: 4),
                                             child: Text(
                                               '$distance • $duration',
                                               style: TextStyle(
