@@ -8,7 +8,7 @@ void main() {
       title: 'Test Plan',
       startDate: DateTime.now(),
       endDate: DateTime.now().add(const Duration(days: 1)),
-      participantIds: ['u1'],
+      participantUids: ['u1'],
       createdBy: 'u1',
       itinerary: [],
       isShared: false,

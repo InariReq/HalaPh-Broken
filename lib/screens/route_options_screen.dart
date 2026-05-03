@@ -95,6 +95,10 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             (double distance) => FareService.estimateFare(TravelMode.walking, distance, type: _passengerType),
             'walking'),
       ];
+      // If there is a meaningful distance, drop walking from the quick options to better reflect discounts
+      if (distance > 0) {
+        modes.removeWhere((m) => m.mode == TravelMode.walking);
+      }
       _fares = [];
       for (final modeData in modes) {
         final fare = FareService.estimateFare(modeData.mode, distance, type: _passengerType);
@@ -299,7 +303,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+              Row(
                       children: [
                         Text(
                           fare.modeName,
@@ -340,7 +344,18 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    fare.fare > 0 ? '₱${fare.fare.toStringAsFixed(0)}' : 'FREE',
+                    // Compute base fare to determine discount percentage
+                    (() {
+                      try {
+                        final base = BudgetRoutingService.calculateFare(fare.mode, fare.distance);
+                        final discountPct = base > 0
+                            ? ((base - fare.fare) / base) * 100
+                            : 0.0;
+                        return '☑ ${fare.fare > 0 ? '₱${fare.fare.toStringAsFixed(0)}' : 'FREE'}${discountPct > 0 ? ' • ' + discountPct.toStringAsFixed(0) + '% off' : ''}';
+                      } catch (_) {
+                        return fare.fare > 0 ? '₱${fare.fare.toStringAsFixed(0)}' : 'FREE';
+                      }
+                    })(),
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,

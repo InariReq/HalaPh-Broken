@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:halaph/models/destination.dart';
 
 class TravelPlan {
@@ -6,7 +7,7 @@ class TravelPlan {
   final String title;
   final DateTime startDate;
   final DateTime endDate;
-  final List<String> participantIds;
+  final List<String> participantUids;
   final String createdBy;
   final List<DayItinerary> itinerary;
   final bool isShared;
@@ -17,7 +18,7 @@ class TravelPlan {
     required this.title,
     required this.startDate,
     required this.endDate,
-    required this.participantIds,
+    required this.participantUids,
     required this.createdBy,
     this.itinerary = const [],
     this.isShared = false,
@@ -25,16 +26,24 @@ class TravelPlan {
   });
 
   factory TravelPlan.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(dynamic value) {
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.parse(value);
+      return DateTime.now();
+    }
+
     return TravelPlan(
       id: json['id'],
       title: json['title'],
-      startDate: DateTime.parse(json['startDate']),
-      endDate: DateTime.parse(json['endDate']),
-      participantIds: List<String>.from(json['participantIds'] ?? []),
+      startDate: parseDate(json['startDate']),
+      endDate: parseDate(json['endDate']),
+      participantUids: List<String>.from(
+          json['participantUids'] ?? json['participantIds'] ?? []),
       createdBy: json['createdBy'],
       itinerary: (json['itinerary'] as List?)
-          ?.map((e) => DayItinerary.fromJson(e))
-          .toList() ?? [],
+              ?.map((e) => DayItinerary.fromJson(e))
+              .toList() ??
+          [],
       isShared: json['isShared'] ?? false,
       bannerImage: json['bannerImage'],
     );
@@ -44,9 +53,9 @@ class TravelPlan {
     return {
       'id': id,
       'title': title,
-      'startDate': startDate.toIso8601String(),
-      'endDate': endDate.toIso8601String(),
-      'participantIds': participantIds,
+      'startDate': Timestamp.fromDate(startDate),
+      'endDate': Timestamp.fromDate(endDate),
+      'participantUids': participantUids,
       'createdBy': createdBy,
       'itinerary': itinerary.map((e) => e.toJson()).toList(),
       'isShared': isShared,
@@ -76,8 +85,9 @@ class DayItinerary {
     return DayItinerary(
       date: DateTime.parse(json['date']),
       items: (json['items'] as List?)
-          ?.map((e) => ItineraryItem.fromJson(e))
-          .toList() ?? [],
+              ?.map((e) => ItineraryItem.fromJson(e))
+              .toList() ??
+          [],
     );
   }
 
@@ -143,6 +153,6 @@ class ItineraryItem {
     };
   }
 
-  String get formattedStartTime => '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
+  String get formattedStartTime =>
+      '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
 }
-
