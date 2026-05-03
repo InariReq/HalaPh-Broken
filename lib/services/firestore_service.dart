@@ -1,0 +1,689 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:halaph/services/firebase_app_service.dart';
+import 'package:halaph/models/friend.dart';
+import 'package:halaph/models/plan.dart';
+
+/// Centralized Firestore service layer that enforces production security rules
+class FirestoreService {
+  static final FirebaseFirestore _db = FirebaseFirestore.instance;
+  static firebase_auth.User? _currentUser;
+  static StreamSubscription<firebase_auth.User?>? _authSubscription;
+
+  /// Initialize the service and listen to auth changes
+  static Future<void> initialize() async {
+    await FirebaseAppService.initialize();
+
+    _authSubscription =
+        firebase_auth.FirebaseAuth.instance.authStateChanges().listen((user) {
+      _currentUser = user;
+      developer
+          .log('FirestoreService: Auth state changed - User: ${user?.uid}');
+    });
+
+    _currentUser = firebase_auth.FirebaseAuth.instance.currentUser;
+  }
+
+  /// Get current authenticated user
+  static firebase_auth.User? get currentUser => _currentUser;
+
+  /// Get current user ID with validation
+  static String? get currentUserId {
+    final user = _currentUser;
+    if (user == null) {
+      developer.log('FirestoreService: No authenticated user');
+      return null;
+    }
+    return user.uid;
+  }
+
+  /// Handle Firestore errors with user-friendly messages
+  static String handleFirestoreError(dynamic error) {
+    if (error is FirebaseException) {
+      switch (error.code) {
+        case 'permission-denied':
+          return 'You don\'t have permission to perform this action.';
+        case 'unauthenticated':
+          return 'Please sign in to continue.';
+        case 'not-found':
+          return 'The requested data was not found.';
+        case 'already-exists':
+          return 'This data already exists.';
+        case 'unavailable':
+          return 'Service is temporarily unavailable. Please try again.';
+        case 'deadline-exceeded':
+          return 'Request timed out. Please check your connection and try again.';
+        default:
+          return 'An error occurred: ${error.message}';
+      }
+    }
+    return 'An unexpected error occurred.';
+  }
+
+  /// Validate required fields before Firestore write
+  static bool validateRequiredFields(
+      Map<String, dynamic> data, List<String> requiredFields) {
+    for (final field in requiredFields) {
+      if (!data.containsKey(field) || data[field] == null) {
+        developer.log('FirestoreService: Missing required field: $field');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Validate immutable fields are not changed
+  static bool validateImmutableFields(
+    Map<String, dynamic> newData,
+    Map<String, dynamic> oldData,
+    List<String> immutableFields,
+  ) {
+    for (final field in immutableFields) {
+      if (oldData.containsKey(field) && newData.containsKey(field)) {
+        if (oldData[field] != newData[field]) {
+          developer.log(
+              'FirestoreService: Attempted to change immutable field: $field');
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  // ===== USER SYNC DATA =====
+
+  /// Get user's private sync data
+  static Future<Map<String, dynamic>?> getMySyncData(String namespace) async {
+    final userId = currentUserId;
+    if (userId == null) throw Exception('User not authenticated');
+
+    try {
+      final doc = await _db
+          .collection('users')
+          .doc(userId)
+          .collection('sync')
+          .doc(namespace)
+          .get();
+
+      return doc.exists ? doc.data() : null;
+    } catch (e) {
+      developer.log('FirestoreService: Error getting sync data: $e');
+      rethrow;
+    }
+  }
+
+  /// Save user's private sync data
+  static Future<void> saveMySyncData(
+      String namespace, Map<String, dynamic> data) async {
+    final userId = currentUserId;
+    if (userId == null) throw Exception('User not authenticated');
+
+    try {
+      data['_updatedAt'] = FieldValue.serverTimestamp();
+      await _db
+          .collection('users')
+          .doc(userId)
+          .collection('sync')
+          .doc(namespace)
+          .set(data, SetOptions(merge: true));
+    } catch (e) {
+      developer.log('FirestoreService: Error saving sync data: $e');
+      rethrow;
+    }
+  }
+
+  // ===== FRIENDS (READ-ONLY) =====
+
+  /// Get user's friends (read-only from client perspective)
+  static Stream<List<Friend>> getMyFriends() {
+    final userId = currentUserId;
+    if (userId == null) {
+      return Stream.value([]);
+    }
+
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('friends')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Friend(
+                  id: doc.id,
+                  uid: doc.data()['friendUid'],
+                  name: doc.data()['name'] ?? 'Unknown',
+                  role: doc.data()['role'] ?? 'Viewer',
+                  code: doc.data()['code'] ?? '',
+                  email: doc.data()['email'],
+                  avatarUrl: doc.data()['avatarUrl'],
+                ))
+            .toList());
+  }
+
+  // ===== FRIEND REQUESTS =====
+
+  /// Send friend request using proper path: /users/{toUid}/friend_requests/{fromUid}
+  static Future<void> sendFriendRequest(String toUid,
+      {String? fromName, String? fromCode}) async {
+    final fromUid = currentUserId;
+    if (fromUid == null) throw Exception('User not authenticated');
+    if (fromUid == toUid)
+      throw Exception('Cannot send friend request to yourself');
+
+    try {
+      final requestData = {
+        'fromUid': fromUid,
+        'toUid': toUid,
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      // Add optional fields if provided
+      if (fromName != null) requestData['fromName'] = fromName;
+      if (fromCode != null) requestData['fromCode'] = fromCode;
+
+      await _db
+          .collection('users')
+          .doc(toUid)
+          .collection('friend_requests')
+          .doc(fromUid)
+          .set(requestData);
+
+      developer
+          .log('FirestoreService: Friend request sent from $fromUid to $toUid');
+    } catch (e) {
+      developer.log('FirestoreService: Error sending friend request: $e');
+      rethrow;
+    }
+  }
+
+  /// Respond to friend request (accept/reject)
+  static Future<void> respondToFriendRequest(
+      String fromUid, bool accept) async {
+    final toUid = currentUserId;
+    if (toUid == null) throw Exception('User not authenticated');
+
+    try {
+      final updateData = {
+        'status': accept ? 'accepted' : 'rejected',
+        'respondedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      await _db
+          .collection('users')
+          .doc(toUid)
+          .collection('friend_requests')
+          .doc(fromUid)
+          .update(updateData);
+
+      developer.log(
+          'FirestoreService: Friend request $fromUid -> $toUid ${accept ? 'accepted' : 'rejected'}');
+    } catch (e) {
+      developer.log('FirestoreService: Error responding to friend request: $e');
+      rethrow;
+    }
+  }
+
+  /// Cancel pending friend request
+  static Future<void> cancelFriendRequest(String toUid) async {
+    final fromUid = currentUserId;
+    if (fromUid == null) throw Exception('User not authenticated');
+
+    try {
+      await _db
+          .collection('users')
+          .doc(toUid)
+          .collection('friend_requests')
+          .doc(fromUid)
+          .delete();
+
+      developer.log(
+          'FirestoreService: Friend request cancelled from $fromUid to $toUid');
+    } catch (e) {
+      developer.log('FirestoreService: Error cancelling friend request: $e');
+      rethrow;
+    }
+  }
+
+  /// Get incoming friend requests
+  static Stream<List<Map<String, dynamic>>> getMyFriendRequests() {
+    final userId = currentUserId;
+    if (userId == null) {
+      return Stream.value([]);
+    }
+
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('friend_requests')
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList());
+  }
+
+  // ===== PUBLIC PROFILES =====
+
+  /// Get public profile by exact code (no listing allowed)
+  static Future<Map<String, dynamic>?> getPublicProfileByCode(
+      String code) async {
+    if (currentUserId == null) throw Exception('User not authenticated');
+
+    try {
+      final doc = await _db.collection('publicProfiles').doc(code).get();
+      return doc.exists ? doc.data() : null;
+    } catch (e) {
+      developer.log('FirestoreService: Error getting public profile: $e');
+      rethrow;
+    }
+  }
+
+  /// Create public profile with proper validation
+  static Future<void> createPublicProfile(
+      String code, Map<String, dynamic> profileData) async {
+    final userId = currentUserId;
+    if (userId == null) throw Exception('User not authenticated');
+
+    try {
+      final requiredFields = ['uid', 'code', 'name', 'createdAt', 'updatedAt'];
+      if (!validateRequiredFields(profileData, requiredFields)) {
+        throw Exception('Missing required fields for public profile');
+      }
+
+      // Ensure immutable fields match
+      profileData['uid'] = userId;
+      profileData['code'] = code;
+      profileData['createdAt'] = FieldValue.serverTimestamp();
+      profileData['updatedAt'] = FieldValue.serverTimestamp();
+
+      await _db.collection('publicProfiles').doc(code).set(profileData);
+
+      developer.log(
+          'FirestoreService: Public profile created for user $userId with code $code');
+    } catch (e) {
+      developer.log('FirestoreService: Error creating public profile: $e');
+      rethrow;
+    }
+  }
+
+  /// Update public profile (immutable fields protected)
+  static Future<void> updatePublicProfile(
+      String code, Map<String, dynamic> updateData) async {
+    final userId = currentUserId;
+    if (userId == null) throw Exception('User not authenticated');
+
+    try {
+      // Get current profile to validate immutable fields
+      final doc = await _db.collection('publicProfiles').doc(code).get();
+      if (!doc.exists) throw Exception('Profile not found');
+
+      final currentData = doc.data()!;
+      final immutableFields = ['uid', 'code', 'createdAt'];
+
+      if (!validateImmutableFields(updateData, currentData, immutableFields)) {
+        throw Exception('Cannot modify immutable fields');
+      }
+
+      updateData['updatedAt'] = FieldValue.serverTimestamp();
+
+      await _db.collection('publicProfiles').doc(code).update(updateData);
+
+      developer
+          .log('FirestoreService: Public profile updated for user $userId');
+    } catch (e) {
+      developer.log('FirestoreService: Error updating public profile: $e');
+      rethrow;
+    }
+  }
+
+  // ===== SHARED PLANS =====
+
+  /// Get shared plans with proper query (array-contains + limit)
+  static Stream<List<TravelPlan>> getMySharedPlans() {
+    final userId = currentUserId;
+    if (userId == null) {
+      return Stream.value([]);
+    }
+
+    developer.log(
+        'FirestoreService: Setting up real-time listener for shared plans of user $userId');
+
+    return _db
+        .collection('sharedPlans')
+        .where('participantUids', arrayContains: userId)
+        .limit(50)
+        .snapshots()
+        .map((snapshot) {
+      developer.log(
+          'FirestoreService: Real-time update received with ${snapshot.docs.length} plans');
+
+      final plans = snapshot.docs.map((doc) {
+        final data = doc.data();
+        // Ensure document ID is included in the data
+        data['id'] = doc.id;
+
+        try {
+          final plan = TravelPlan.fromJson(data);
+          developer.log(
+              'FirestoreService: Successfully parsed plan ${plan.id} with ${plan.participantUids.length} participants');
+          return plan;
+        } catch (e) {
+          developer.log('FirestoreService: Failed to parse plan ${doc.id}: $e');
+          // Return a minimal valid plan to avoid breaking the stream
+          return TravelPlan(
+            id: doc.id,
+            title: data['title'] ?? 'Unknown Plan',
+            startDate:
+                (data['startDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+            endDate:
+                (data['endDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+            participantUids:
+                List<String>.from(data['participantUids'] ?? [userId]),
+            createdBy: data['createdBy'] ?? userId,
+            isShared: data['isShared'] ?? true,
+          );
+        }
+      }).toList();
+
+      developer.log(
+          'FirestoreService: Processed ${plans.length} valid plans for user $userId');
+      return plans;
+    }).handleError((error) {
+      developer.log('FirestoreService: Real-time listener error: $error');
+      return <TravelPlan>[];
+    });
+  }
+
+  /// Create shared plan with proper validation
+  static Future<String> createSharedPlan(Map<String, dynamic> planData) async {
+    final userId = currentUserId;
+    if (userId == null) throw Exception('User not authenticated');
+
+    try {
+      final requiredFields = [
+        'title',
+        'startDate',
+        'endDate',
+        'participantUids',
+        'createdBy',
+        'ownerUid',
+        'createdAt',
+        'updatedAt'
+      ];
+
+      if (!validateRequiredFields(planData, requiredFields)) {
+        throw Exception('Missing required fields for shared plan');
+      }
+
+      // Validate ownership
+      if (planData['createdBy'] != userId || planData['ownerUid'] != userId) {
+        throw Exception('createdBy and ownerUid must match current user');
+      }
+
+      // Validate participantUids includes owner
+      final participantUids = List<String>.from(planData['participantUids']);
+      if (!participantUids.contains(userId)) {
+        throw Exception('participantUids must include the owner');
+      }
+
+      // Validate dates
+      final startDate = (planData['startDate'] as Timestamp).toDate();
+      final endDate = (planData['endDate'] as Timestamp).toDate();
+      if (endDate.isBefore(startDate)) {
+        throw Exception('endDate must be after startDate');
+      }
+
+      // Set server timestamps and ensure proper collaboration fields
+      final finalPlanData = Map<String, dynamic>.from(planData);
+      finalPlanData['createdAt'] = FieldValue.serverTimestamp();
+      finalPlanData['updatedAt'] = FieldValue.serverTimestamp();
+      finalPlanData['isShared'] = true; // Ensure this is marked as shared
+
+      // Ensure all required collaboration fields are present
+      finalPlanData['createdBy'] = userId;
+      finalPlanData['ownerUid'] = userId;
+
+      developer.log(
+          'FirestoreService: Creating shared plan with ${finalPlanData['participantUids']} participants');
+
+      final docRef = await _db.collection('sharedPlans').add(finalPlanData);
+
+      developer.log(
+          'FirestoreService: Shared plan created: ${docRef.id} for user $userId');
+      return docRef.id;
+    } catch (e) {
+      developer.log('FirestoreService: Error creating shared plan: $e');
+      rethrow;
+    }
+  }
+
+  /// Update shared plan as owner (can change membership and status)
+  static Future<void> updateSharedPlanAsOwner(
+      String planId, Map<String, dynamic> updateData) async {
+    final userId = currentUserId;
+    if (userId == null) throw Exception('User not authenticated');
+
+    try {
+      // Get current plan to validate ownership
+      final doc = await _db.collection('sharedPlans').doc(planId).get();
+      if (!doc.exists) throw Exception('Plan not found');
+
+      final currentData = doc.data()!;
+      if (currentData['ownerUid'] != userId ||
+          currentData['createdBy'] != userId) {
+        throw Exception('Only plan owner can perform this update');
+      }
+
+      // Validate immutable fields
+      final immutableFields = ['createdBy', 'ownerUid', 'createdAt'];
+      if (!validateImmutableFields(updateData, currentData, immutableFields)) {
+        throw Exception('Cannot modify immutable fields');
+      }
+
+      // Ensure owner is still in participantUids
+      if (updateData.containsKey('participantUids')) {
+        final participantUids =
+            List<String>.from(updateData['participantUids']);
+        if (!participantUids.contains(userId)) {
+          throw Exception('Owner must remain in participantUids');
+        }
+
+        developer.log(
+            'FirestoreService: Updating participants to: $participantUids');
+
+        // Validate all participants are valid UIDs
+        for (final participant in participantUids) {
+          if (participant.isEmpty) {
+            throw Exception('Invalid participant UID: empty string');
+          }
+        }
+      }
+
+      updateData['updatedAt'] = FieldValue.serverTimestamp();
+
+      developer.log(
+          'FirestoreService: Updating shared plan $planId with fields: ${updateData.keys.toList()}');
+
+      await _db.collection('sharedPlans').doc(planId).update(updateData);
+
+      developer.log('FirestoreService: Shared plan updated as owner: $planId');
+    } catch (e) {
+      developer
+          .log('FirestoreService: Error updating shared plan as owner: $e');
+      rethrow;
+    }
+  }
+
+  /// Update shared plan as participant (limited fields)
+  static Future<void> updateSharedPlanAsParticipant(
+      String planId, Map<String, dynamic> updateData) async {
+    final userId = currentUserId;
+    if (userId == null) throw Exception('User not authenticated');
+
+    try {
+      // Get current plan to validate participation
+      final doc = await _db.collection('sharedPlans').doc(planId).get();
+      if (!doc.exists) throw Exception('Plan not found');
+
+      final currentData = doc.data()!;
+      final participantUids = List<String>.from(currentData['participantUids']);
+
+      if (!participantUids.contains(userId)) {
+        throw Exception('Only plan participants can perform this update');
+      }
+
+      // Validate restricted fields for participants
+      final restrictedFields = [
+        'participantUids',
+        'ownerUid',
+        'createdBy',
+        'createdAt',
+        'status'
+      ];
+      for (final field in restrictedFields) {
+        if (updateData.containsKey(field)) {
+          throw Exception('Participants cannot modify $field');
+        }
+      }
+
+      // Validate immutable fields
+      final immutableFields = ['createdBy', 'ownerUid', 'createdAt'];
+      if (!validateImmutableFields(updateData, currentData, immutableFields)) {
+        throw Exception('Cannot modify immutable fields');
+      }
+
+      updateData['updatedAt'] = FieldValue.serverTimestamp();
+
+      await _db.collection('sharedPlans').doc(planId).update(updateData);
+
+      developer
+          .log('FirestoreService: Shared plan updated as participant: $planId');
+    } catch (e) {
+      developer.log(
+          'FirestoreService: Error updating shared plan as participant: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete shared plan (owner only)
+  static Future<void> deleteSharedPlan(String planId) async {
+    final userId = currentUserId;
+    if (userId == null) throw Exception('User not authenticated');
+
+    try {
+      // Get current plan to validate ownership
+      final doc = await _db.collection('sharedPlans').doc(planId).get();
+      if (!doc.exists) throw Exception('Plan not found');
+
+      final currentData = doc.data()!;
+      if (currentData['ownerUid'] != userId ||
+          currentData['createdBy'] != userId) {
+        throw Exception('Only plan owner can delete the plan');
+      }
+
+      await _db.collection('sharedPlans').doc(planId).delete();
+
+      developer.log('FirestoreService: Shared plan deleted: $planId');
+    } catch (e) {
+      developer.log('FirestoreService: Error deleting shared plan: $e');
+      rethrow;
+    }
+  }
+
+  // ===== NOTIFICATIONS (READ-ONLY FOR CLIENT) =====
+
+  /// Get user's notifications
+  static Stream<List<Map<String, dynamic>>> getMyNotifications() {
+    final userId = currentUserId;
+    if (userId == null) {
+      return Stream.value([]);
+    }
+
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList());
+  }
+
+  /// Mark notification as read (only allowed update for clients)
+  static Future<void> markNotificationAsRead(String notificationId) async {
+    final userId = currentUserId;
+    if (userId == null) throw Exception('User not authenticated');
+
+    try {
+      await _db
+          .collection('users')
+          .doc(userId)
+          .collection('notifications')
+          .doc(notificationId)
+          .update({
+        'read': true,
+        'readAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      developer.log(
+          'FirestoreService: Notification marked as read: $notificationId');
+    } catch (e) {
+      developer.log('FirestoreService: Error marking notification as read: $e');
+      rethrow;
+    }
+  }
+
+  // ===== ACTIVITY FEED =====
+
+  /// Add activity entry
+  static Future<void> addActivity(String type, String description,
+      {Map<String, dynamic>? metadata}) async {
+    final userId = currentUserId;
+    if (userId == null) throw Exception('User not authenticated');
+
+    try {
+      final activityData = {
+        'userId': userId,
+        'type': type,
+        'description': description,
+        'timestamp': FieldValue.serverTimestamp(),
+        if (metadata != null) 'metadata': metadata,
+      };
+
+      await _db
+          .collection('users')
+          .doc(userId)
+          .collection('activity')
+          .add(activityData);
+
+      developer.log('FirestoreService: Activity added: $type');
+    } catch (e) {
+      developer.log('FirestoreService: Error adding activity: $e');
+      rethrow;
+    }
+  }
+
+  // ===== CACHED DESTINATIONS (READ-ONLY) =====
+
+  /// Get cached destination (public read)
+  static Future<Map<String, dynamic>?> getCachedDestination(
+      String destinationId) async {
+    try {
+      final doc =
+          await _db.collection('cached_destinations').doc(destinationId).get();
+      return doc.exists ? doc.data() : null;
+    } catch (e) {
+      developer.log('FirestoreService: Error getting cached destination: $e');
+      rethrow;
+    }
+  }
+
+  /// Dispose resources
+  static void dispose() {
+    _authSubscription?.cancel();
+    _authSubscription = null;
+  }
+}
