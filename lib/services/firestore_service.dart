@@ -32,6 +32,12 @@ class FirestoreService {
 
   /// Get current user ID with validation
   static String? get currentUserId {
+    final liveUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (liveUser != null) {
+      _currentUser = liveUser;
+      return liveUser.uid;
+    }
+
     final user = _currentUser;
     if (user == null) {
       developer.log('FirestoreService: No authenticated user');
