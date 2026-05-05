@@ -276,9 +276,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
             _buildFilterChips(),
             const SizedBox(height: 16),
             Expanded(
-              child: _isLoading
-                  ? _buildLoadingIndicator()
-                  : _buildSearchResults(),
+              child:
+                  _isLoading ? _buildLoadingIndicator() : _buildSearchResults(),
             ),
           ],
         ),
@@ -403,7 +402,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
 
     final hasFewResults = _destinations.length < 5;
-    
+
     return Column(
       children: [
         if (hasFewResults) _buildFewResultsPrompt(),
@@ -454,29 +453,29 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget _buildFallbackImage(DestinationCategory category) {
     final (startColor, endColor) = switch (category) {
       DestinationCategory.park => (
-        const Color(0xFF81C784),
-        const Color(0xFF4CAF50),
-      ),
+          const Color(0xFF81C784),
+          const Color(0xFF4CAF50),
+        ),
       DestinationCategory.landmark => (
-        const Color(0xFF64B5F6),
-        const Color(0xFF2196F3),
-      ),
+          const Color(0xFF64B5F6),
+          const Color(0xFF2196F3),
+        ),
       DestinationCategory.food => (
-        const Color(0xFFFFB74D),
-        const Color(0xFFFF9800),
-      ),
+          const Color(0xFFFFB74D),
+          const Color(0xFFFF9800),
+        ),
       DestinationCategory.activities => (
-        const Color(0xFFBA68C8),
-        const Color(0xFF9C27B0),
-      ),
+          const Color(0xFFBA68C8),
+          const Color(0xFF9C27B0),
+        ),
       DestinationCategory.museum => (
-        const Color(0xFFF06292),
-        const Color(0xFFE91E63),
-      ),
+          const Color(0xFFF06292),
+          const Color(0xFFE91E63),
+        ),
       DestinationCategory.malls => (
-        const Color(0xFF4DB6AC),
-        const Color(0xFF009688),
-      ),
+          const Color(0xFF4DB6AC),
+          const Color(0xFF009688),
+        ),
     };
 
     return Container(
@@ -541,8 +540,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(16),
                     ),
-                    child:
-                        destination.imageUrl.isNotEmpty &&
+                    child: destination.imageUrl.isNotEmpty &&
                             destination.imageUrl.startsWith('http')
                         ? CachedNetworkImage(
                             imageUrl: destination.imageUrl,

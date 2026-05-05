@@ -50,19 +50,19 @@ class _HomeScreenState extends State<HomeScreen> {
       _locationStatus = 'Getting location...';
       _locationEnabled = false;
     });
-    
+
     try {
       final location = await DestinationService.getCurrentLocation();
       if (!mounted) return;
       final hasValidLocation = !DestinationService.isInvalidLocation(location);
-      
+
       setState(() {
         _locationEnabled = hasValidLocation;
         _locationStatus = hasValidLocation
             ? 'Location found • Showing nearby places'
             : 'Location off • Showing popular destinations';
       });
-      
+
       // Reload destinations based on location
       if (hasValidLocation) {
         _loadTrendingDestinations();
@@ -85,8 +85,8 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await SimplePlanService.initialize(forceRefresh: forceRefresh);
       final myCode = await _friendService.getMyCode().catchError(
-        (_) => 'current_user',
-      );
+            (_) => 'current_user',
+          );
       final nextPlan = SimplePlanService.getNextUpcomingPlan(userId: myCode);
       if (!mounted) return;
       setState(() {
@@ -262,20 +262,20 @@ class _HomeScreenState extends State<HomeScreen> {
       _locationStatus = 'Getting location...';
       _locationEnabled = false;
     });
-    
+
     try {
       final location = await DestinationService.getCurrentLocation();
       final hasValidLocation = !DestinationService.isInvalidLocation(location);
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _locationEnabled = hasValidLocation;
         _locationStatus = hasValidLocation
             ? 'Location found • Showing nearby places'
             : 'Unable to get location • Tap refresh to retry';
       });
-      
+
       if (hasValidLocation) {
         _loadTrendingDestinations();
       }
@@ -404,10 +404,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final dayText = isActive && daysUntil < 0
         ? 'Now'
         : daysUntil == 0
-        ? 'Today'
-        : daysUntil == 1
-        ? 'Tomorrow'
-        : 'In $daysUntil days';
+            ? 'Today'
+            : daysUntil == 1
+                ? 'Tomorrow'
+                : 'In $daysUntil days';
     final destinationCount = _destinationCount(plan);
 
     return Container(
@@ -582,7 +582,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTrendingSection(BuildContext context) {
     final hasFewResults = !_isLoading && _trendingDestinations.length < 5;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -621,7 +621,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   DefaultTabController.of(context).animateTo(1);
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.blue[50],
                     borderRadius: BorderRadius.circular(16),
@@ -653,22 +654,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Center(child: CircularProgressIndicator()),
               )
             : _trendingDestinations.isEmpty
-            ? _buildEmptyPlacesState()
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    height: _trendingDestinations.length * 310,
-                    child: ListView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _trendingDestinations.length,
-                      itemBuilder: (context, index) =>
-                          _buildTrendingCard(_trendingDestinations[index]),
-                    ),
+                ? _buildEmptyPlacesState()
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        height: _trendingDestinations.length * 310,
+                        child: ListView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _trendingDestinations.length,
+                          itemBuilder: (context, index) =>
+                              _buildTrendingCard(_trendingDestinations[index]),
+                        ),
+                      ),
+                      if (hasFewResults) _buildSearchPrompt(),
+                    ],
                   ),
-                  if (hasFewResults) _buildSearchPrompt(),
-                ],
-              ),
       ],
     );
   }
@@ -711,7 +712,8 @@ class _HomeScreenState extends State<HomeScreen> {
           GestureDetector(
             onTap: () {
               // Navigate to explore/search tab
-              GoRouter.of(context).push('/explore-details?destinationName=popular destinations');
+              GoRouter.of(context).push(
+                  '/explore-details?destinationName=popular destinations');
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -766,29 +768,29 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildFallbackImage(DestinationCategory category) {
     final (startColor, endColor) = switch (category) {
       DestinationCategory.park => (
-        const Color(0xFF81C784),
-        const Color(0xFF4CAF50),
-      ),
+          const Color(0xFF81C784),
+          const Color(0xFF4CAF50),
+        ),
       DestinationCategory.landmark => (
-        const Color(0xFF64B5F6),
-        const Color(0xFF2196F3),
-      ),
+          const Color(0xFF64B5F6),
+          const Color(0xFF2196F3),
+        ),
       DestinationCategory.food => (
-        const Color(0xFFFFB74D),
-        const Color(0xFFFF9800),
-      ),
+          const Color(0xFFFFB74D),
+          const Color(0xFFFF9800),
+        ),
       DestinationCategory.activities => (
-        const Color(0xFFBA68C8),
-        const Color(0xFF9C27B0),
-      ),
+          const Color(0xFFBA68C8),
+          const Color(0xFF9C27B0),
+        ),
       DestinationCategory.museum => (
-        const Color(0xFFF06292),
-        const Color(0xFFE91E63),
-      ),
+          const Color(0xFFF06292),
+          const Color(0xFFE91E63),
+        ),
       DestinationCategory.malls => (
-        const Color(0xFF4DB6AC),
-        const Color(0xFF009688),
-      ),
+          const Color(0xFF4DB6AC),
+          const Color(0xFF009688),
+        ),
     };
 
     return Container(
@@ -853,8 +855,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(16),
                     ),
-                    child:
-                        destination.imageUrl.isNotEmpty &&
+                    child: destination.imageUrl.isNotEmpty &&
                             destination.imageUrl.startsWith('http')
                         ? CachedNetworkImage(
                             imageUrl: destination.imageUrl,
