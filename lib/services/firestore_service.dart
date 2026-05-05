@@ -428,8 +428,7 @@ class FirestoreService {
           .collection('friend_requests')
           .doc(fromUid);
       batch.update(nestedRef, {
-        'status': accept ? 'accepted' : 'rejected',
-        'respondedAt': FieldValue.serverTimestamp(),
+        'status': accept ? 'accepted' : 'declined',
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -437,8 +436,7 @@ class FirestoreService {
       final topRef =
           _db.collection('friendRequests').doc('$fromUid' '_' '$toUid');
       batch.update(topRef, {
-        'status': accept ? 'accepted' : 'rejected',
-        'respondedAt': FieldValue.serverTimestamp(),
+        'status': accept ? 'accepted' : 'declined',
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
