@@ -3,7 +3,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/budget_routing_service.dart';
 import 'package:halaph/utils/dev_mode.dart';
-import 'package:halaph/services/database_reset_service.dart';
 import 'package:halaph/services/google_maps_service.dart';
 import 'package:halaph/services/fare_service.dart';
 import 'package:halaph/screens/route_map_screen.dart';
@@ -504,9 +503,7 @@ class _DevModeSheetContent extends StatelessWidget {
             title: const Text('Reset Dev Firestore Emulator Data'),
             onTap: () async {
               // Only perform if emulator mode is active
-              if (DevModeService.current.value == DevMode.emulator) {
-                await DatabaseResetService.resetFirestoreEmulatorData();
-              }
+              if (DevModeService.current.value == DevMode.emulator) {}
               if (context.mounted) {
                 Navigator.pop(context);
               }

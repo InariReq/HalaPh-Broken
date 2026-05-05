@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:halaph/models/destination.dart';
 
 class TravelPlan {
@@ -6,52 +7,108 @@ class TravelPlan {
   final String title;
   final DateTime startDate;
   final DateTime endDate;
-  final List<String> participantIds;
+  final List<String> participantUids;
   final String createdBy;
   final List<DayItinerary> itinerary;
   final bool isShared;
   final String? bannerImage;
+  final List<String> collaboratorUids;
 
   TravelPlan({
     required this.id,
     required this.title,
     required this.startDate,
     required this.endDate,
-    required this.participantIds,
+    required this.participantUids,
     required this.createdBy,
     this.itinerary = const [],
     this.isShared = false,
     this.bannerImage,
+    this.collaboratorUids = const [],
   });
 
   factory TravelPlan.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(dynamic value) {
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.parse(value);
+      return DateTime.now();
+    }
+
     return TravelPlan(
-      id: json['id'],
-      title: json['title'],
-      startDate: DateTime.parse(json['startDate']),
-      endDate: DateTime.parse(json['endDate']),
-      participantIds: List<String>.from(json['participantIds'] ?? []),
-      createdBy: json['createdBy'],
+      id: json['id'] as String? ?? '',
+      title: (json['title'] as String? ?? '').trim(),
+      startDate: parseDate(json['startDate']),
+      endDate: parseDate(json['endDate']),
+      participantUids: List<String>.from(
+          json['participantUids'] ?? json['participantIds'] ?? []),
+      createdBy:
+          (json['createdBy'] as String? ?? json['ownerUid'] as String? ?? '')
+              .trim(),
       itinerary: (json['itinerary'] as List?)
-          ?.map((e) => DayItinerary.fromJson(e))
-          .toList() ?? [],
+              ?.map((e) => DayItinerary.fromJson(e))
+              .toList() ??
+          [],
       isShared: json['isShared'] ?? false,
-      bannerImage: json['bannerImage'],
+      bannerImage: (json['bannerImage'] as String?)?.trim(),
+      collaboratorUids: List<String>.from(json['collaboratorUids'] ?? []),
     );
   }
 
+  /// Create TravelPlan from Firestore data, using provided id.
+  /// This is the helper for tests and fromFirestore.
+  static TravelPlan fromFirestoreData({
+    required String id,
+    required Map<String, dynamic> data,
+  }) {
+    DateTime parseDate(dynamic value) {
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.parse(value);
+      return DateTime.now();
+    }
+
+    return TravelPlan(
+      id: id,
+      title: (data['title'] as String? ?? '').trim(),
+      startDate: parseDate(data['startDate']),
+      endDate: parseDate(data['endDate']),
+      participantUids: List<String>.from(
+          data['participantUids'] ?? data['participantIds'] ?? []),
+      createdBy:
+          (data['createdBy'] as String? ?? data['ownerUid'] as String? ?? '')
+              .trim(),
+      itinerary: (data['itinerary'] as List?)
+              ?.map((e) => DayItinerary.fromJson(e))
+              .toList() ??
+          [],
+      isShared: data['isShared'] ?? false,
+      bannerImage: (data['bannerImage'] as String?)?.trim(),
+      collaboratorUids: List<String>.from(data['collaboratorUids'] ?? []),
+    );
+  }
+
+  /// Create TravelPlan from Firestore document, using doc.id as the plan ID.
+  /// Delegates to fromFirestoreData.
+  factory TravelPlan.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return TravelPlan.fromFirestoreData(id: doc.id, data: data);
+  }
+
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'startDate': startDate.toIso8601String(),
-      'endDate': endDate.toIso8601String(),
-      'participantIds': participantIds,
-      'createdBy': createdBy,
+    final data = {
+      // Do NOT include 'id' - not in planFields() firestore.rules
+      'title': title.trim(),
+      'startDate': Timestamp.fromDate(startDate),
+      'endDate': Timestamp.fromDate(endDate),
+      'createdBy': createdBy.trim(),
+      'ownerUid': createdBy.trim(),
+      'ownerId': createdBy.trim(),
+      'participantUids': participantUids.map((e) => e.trim()).toList(),
+      'collaboratorUids': collaboratorUids.map((e) => e.trim()).toList(),
       'itinerary': itinerary.map((e) => e.toJson()).toList(),
       'isShared': isShared,
-      'bannerImage': bannerImage,
+      if (bannerImage?.isNotEmpty == true) 'bannerImage': bannerImage!.trim(),
     };
+    return data;
   }
 
   String get formattedDateRange {
@@ -76,8 +133,9 @@ class DayItinerary {
     return DayItinerary(
       date: DateTime.parse(json['date']),
       items: (json['items'] as List?)
-          ?.map((e) => ItineraryItem.fromJson(e))
-          .toList() ?? [],
+              ?.map((e) => ItineraryItem.fromJson(e))
+              .toList() ??
+          [],
     );
   }
 
@@ -143,6 +201,6 @@ class ItineraryItem {
     };
   }
 
-  String get formattedStartTime => '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
+  String get formattedStartTime =>
+      '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
 }
-

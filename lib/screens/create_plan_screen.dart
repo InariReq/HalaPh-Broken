@@ -313,24 +313,21 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
       final fallbackUserId = await _authService.getCurrentUserIdentifier();
 
       // Save with timeout to prevent hanging
-      final savedPlan =
-          await SimplePlanService.savePlan(
-            title: _titleController.text.trim(),
-            startDate: _startDate!,
-            endDate: _endDate!,
-            itinerary: _itinerary,
-            destinationTimes: _destinationTimes,
-            createdBy: currentUserId.isNotEmpty
-                ? currentUserId
-                : fallbackUserId,
-            participantIds: _selectedCollaboratorCodes.toList(),
-            bannerImage: bannerImagePath,
-          ).timeout(
-            const Duration(seconds: 15),
-            onTimeout: () {
-              throw Exception('Save timed out. Please check your connection.');
-            },
-          );
+      final savedPlan = await SimplePlanService.savePlan(
+        title: _titleController.text.trim(),
+        startDate: _startDate!,
+        endDate: _endDate!,
+        itinerary: _itinerary,
+        destinationTimes: _destinationTimes,
+        createdBy: currentUserId.isNotEmpty ? currentUserId : fallbackUserId,
+        participantUids: _selectedCollaboratorCodes.toList(),
+        bannerImage: bannerImagePath,
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw Exception('Save timed out. Please check your connection.');
+        },
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -393,8 +390,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
       hour: isPM && hour < 12
           ? hour + 12
           : (hour == 12 && !isPM)
-          ? 0
-          : hour,
+              ? 0
+              : hour,
       minute: minute,
     );
 
@@ -547,7 +544,10 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.6)
+                ],
               ),
             ),
             child: Padding(
@@ -799,9 +799,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                 decoration: BoxDecoration(
                   color: isHovering ? Colors.blue[50] : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
-                  border: isHovering
-                      ? Border.all(color: Colors.blue[300]!)
-                      : null,
+                  border:
+                      isHovering ? Border.all(color: Colors.blue[300]!) : null,
                 ),
                 child: Container(
                   padding: const EdgeInsets.all(16),
@@ -818,9 +817,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                               ? Icons.add_circle_outline
                               : Icons.place_outlined,
                           size: 32,
-                          color: isHovering
-                              ? Colors.blue[600]
-                              : Colors.grey[400],
+                          color:
+                              isHovering ? Colors.blue[600] : Colors.grey[400],
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -967,18 +965,17 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                               borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(12),
                               ),
-                              child:
-                                  destination.imageUrl.isNotEmpty &&
+                              child: destination.imageUrl.isNotEmpty &&
                                       destination.imageUrl.startsWith('http')
                                   ? Image.network(
                                       destination.imageUrl,
                                       fit: BoxFit.cover,
                                       errorBuilder:
                                           (context, error, stackTrace) {
-                                            return _buildDefaultDestinationImage(
-                                              destination.category,
-                                            );
-                                          },
+                                        return _buildDefaultDestinationImage(
+                                          destination.category,
+                                        );
+                                      },
                                     )
                                   : _buildDefaultDestinationImage(
                                       destination.category,
@@ -1096,8 +1093,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                                   borderRadius: const BorderRadius.vertical(
                                     top: Radius.circular(12),
                                   ),
-                                  child:
-                                      destination.imageUrl.isNotEmpty &&
+                                  child: destination.imageUrl.isNotEmpty &&
                                           destination.imageUrl.startsWith(
                                             'http',
                                           )
@@ -1106,10 +1102,10 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                                           fit: BoxFit.cover,
                                           errorBuilder:
                                               (context, error, stackTrace) {
-                                                return _buildDefaultDestinationImage(
-                                                  destination.category,
-                                                );
-                                              },
+                                            return _buildDefaultDestinationImage(
+                                              destination.category,
+                                            );
+                                          },
                                         )
                                       : _buildDefaultDestinationImage(
                                           destination.category,
@@ -1263,7 +1259,6 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
       ),
     );
   }
-
 
   Widget _buildDefaultDestinationImage(DestinationCategory category) {
     Color startColor, endColor;

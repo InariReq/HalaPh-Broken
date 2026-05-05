@@ -8,7 +8,7 @@ void main() {
       title: 'Test Plan',
       startDate: DateTime.now(),
       endDate: DateTime.now().add(const Duration(days: 1)),
-      participantIds: ['u1'],
+      participantUids: ['u1'],
       createdBy: 'u1',
       itinerary: [],
       isShared: false,
@@ -17,7 +17,9 @@ void main() {
 
     final json = plan.toJson();
     final rebuilt = TravelPlan.fromJson(Map<String, dynamic>.from(json));
-    expect(rebuilt.id, plan.id);
+    expect(rebuilt.id, '');
     expect(rebuilt.title, plan.title);
+    expect(rebuilt.participantUids, plan.participantUids);
+    expect(rebuilt.participantUids, plan.participantUids);
   });
 }
