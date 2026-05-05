@@ -110,6 +110,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         name: _user?.name ?? 'User',
         email: _user?.email ?? '',
         userCode: _myCode ?? 'HP-0000',
+        avatarUrl: _user?.avatarUrl,
       );
 
   final List<FavoritePlace> _favoritePlaces = [];
@@ -698,8 +699,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           setState(() {
             _user = updatedUser;
           });
-          await _friendService.ensurePublicProfilePublished();
-          await _loadUser();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
