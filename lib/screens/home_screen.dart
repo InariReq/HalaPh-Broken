@@ -617,8 +617,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               GestureDetector(
                 onTap: () {
-                  // Navigate to explore screen to search for more
-                  DefaultTabController.of(context).animateTo(1);
+                  GoRouter.of(context).go('/explore');
                 },
                 child: Container(
                   padding:
@@ -711,9 +710,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 12),
           GestureDetector(
             onTap: () {
-              // Navigate to explore/search tab
-              GoRouter.of(context).push(
-                  '/explore-details?destinationName=popular destinations');
+              GoRouter.of(context).go('/explore');
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

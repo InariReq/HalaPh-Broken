@@ -106,7 +106,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     setState(() => _isLoading = true);
     try {
       final destinations = await DestinationService.searchDestinations(
-        _selectedCategory?.name,
+        _searchController.text,
       );
       final filteredDestinations = _applyAdvancedFilters(destinations);
       if (!mounted || generation != _searchGeneration) return;
