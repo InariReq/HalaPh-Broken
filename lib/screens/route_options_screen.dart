@@ -33,7 +33,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
   final Map<String, List<Map<String, dynamic>>> _directionSteps = {};
   LatLng? _origin;
   LatLng? _destination;
-  PassengerType _passengerType = PassengerType.adult;
+  PassengerType _passengerType = PassengerType.regular;
 
   @override
   void initState() {
@@ -70,7 +70,8 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             origin;
       }
 
-    final distance = BudgetRoutingService.calculateDistance(origin, destination);
+      final distance =
+          BudgetRoutingService.calculateDistance(origin, destination);
       if (distance == 0) {
         throw Exception('Destination is too close or location unavailable.');
       }
@@ -79,26 +80,57 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       _destination = destination;
 
       final modes = [
-        _ModeData(TravelMode.jeepney, 'Traditional Jeepney', Icons.directions_bus,
-            (double distance) => FareService.estimateFare(TravelMode.jeepney, distance, type: _passengerType),
+        _ModeData(
+            TravelMode.jeepney,
+            'Traditional Jeepney',
+            Icons.directions_bus,
+            (double distance) => FareService.estimateFare(
+                TravelMode.jeepney, distance,
+                type: _passengerType),
             'driving'),
-        _ModeData(TravelMode.bus, 'Bus (Ordinary/Aircon)', Icons.directions_bus,
-            (double distance) => FareService.estimateFare(TravelMode.bus, distance, type: _passengerType),
+        _ModeData(
+            TravelMode.bus,
+            'Bus (Ordinary/Aircon)',
+            Icons.directions_bus,
+            (double distance) => FareService.estimateFare(
+                TravelMode.bus, distance,
+                type: _passengerType),
             'driving'),
-        _ModeData(TravelMode.train, 'Train (LRT/MRT)', Icons.train,
-            (double distance) => FareService.estimateFare(TravelMode.train, distance, type: _passengerType),
+        _ModeData(
+            TravelMode.train,
+            'Train (LRT/MRT)',
+            Icons.train,
+            (double distance) => FareService.estimateFare(
+                TravelMode.train, distance,
+                type: _passengerType),
             'transit'),
-        _ModeData(TravelMode.fx, 'FX/Van', Icons.airport_shuttle,
-            (double distance) => FareService.estimateFare(TravelMode.fx, distance, type: _passengerType),
+        _ModeData(
+            TravelMode.fx,
+            'FX/Van',
+            Icons.airport_shuttle,
+            (double distance) => FareService.estimateFare(
+                TravelMode.fx, distance,
+                type: _passengerType),
             'driving'),
-        _ModeData(TravelMode.walking, 'Walking', Icons.directions_walk,
-            (double distance) => FareService.estimateFare(TravelMode.walking, distance, type: _passengerType),
+        _ModeData(
+            TravelMode.walking,
+            'Walking',
+            Icons.directions_walk,
+            (double distance) => FareService.estimateFare(
+                TravelMode.walking, distance,
+                type: _passengerType),
             'walking'),
       ];
+      // If there is a meaningful distance, drop walking from the quick options to better reflect discounts
+      if (distance > 0) {
+        modes.removeWhere((m) => m.mode == TravelMode.walking);
+      }
       _fares = [];
       for (final modeData in modes) {
-        final fare = FareService.estimateFare(modeData.mode, distance, type: _passengerType);
-        final duration = BudgetRoutingService.estimateDuration(distance, modeData.mode);
+        final fare = FareService.estimateFare(modeData.mode, distance,
+            type: _passengerType);
+        final duration =
+            BudgetRoutingService.estimateDuration(distance, modeData.mode);
 
         final directions = await GoogleMapsService.getDirections(
           startLat: origin.latitude,
@@ -108,7 +140,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           profile: modeData.profile,
         );
 
-        final steps = (directions?['steps'] as List?)?.cast<Map<String, dynamic>>() ?? <Map<String, dynamic>>[];
+        final steps =
+            (directions?['steps'] as List?)?.cast<Map<String, dynamic>>() ??
+                <Map<String, dynamic>>[];
         final polyline = directions?['polyline'] as String? ?? '';
         _directionSteps[modeData.mode.toString()] = steps;
 
@@ -143,7 +177,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       appBar: AppBar(
         title: Text('Route to ${widget.destinationName}'),
         actions: [
-      PopupMenuButton<PassengerType>(
+          PopupMenuButton<PassengerType>(
             onSelected: (pt) {
               setState(() {
                 _passengerType = pt;
@@ -152,8 +186,12 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
               _loadFares();
             },
             itemBuilder: (context) => <PopupMenuEntry<PassengerType>>[
-              const PopupMenuItem(value: PassengerType.adult, child: Text('Adult')),
-              const PopupMenuItem(value: PassengerType.student, child: Text('Student')),
+              const PopupMenuItem(
+                  value: PassengerType.regular, child: Text('Regular')),
+              const PopupMenuItem(
+                  value: PassengerType.student, child: Text('Student')),
+              const PopupMenuItem(
+                  value: PassengerType.senior, child: Text('Senior')),
               const PopupMenuItem(value: PassengerType.pwd, child: Text('PWD')),
             ],
             icon: Icon(Icons.person),
@@ -288,7 +326,8 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           child: Row(
             children: [
               CircleAvatar(
-                backgroundColor: isCheapest ? Colors.green[100] : Colors.grey[200],
+                backgroundColor:
+                    isCheapest ? Colors.green[100] : Colors.grey[200],
                 child: Icon(
                   fare.icon,
                   color: isCheapest ? Colors.green[700] : Colors.grey[700],
@@ -340,7 +379,21 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    fare.fare > 0 ? '₱${fare.fare.toStringAsFixed(0)}' : 'FREE',
+                    // Compute base fare to determine discount percentage.
+                    (() {
+                      try {
+                        final base =
+                            FareService.fareBreakdown(fare.mode, fare.distance)
+                                .baseFare;
+                        final discountPct =
+                            base > 0 ? ((base - fare.fare) / base) * 100 : 0.0;
+                        return '☑ ${fare.fare > 0 ? '₱${fare.fare.toStringAsFixed(0)}' : 'FREE'}${discountPct > 0 ? ' • ${discountPct.toStringAsFixed(0)}% off' : ''}';
+                      } catch (_) {
+                        return fare.fare > 0
+                            ? '₱${fare.fare.toStringAsFixed(0)}'
+                            : 'FREE';
+                      }
+                    })(),
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -414,7 +467,7 @@ class _TransportFare {
 
 // Dev mode sheet widget (in-app)
 class _DevModeSheetContent extends StatelessWidget {
-  const _DevModeSheetContent({Key? key}) : super(key: key);
+  const _DevModeSheetContent();
 
   @override
   Widget build(BuildContext context) {
@@ -454,7 +507,9 @@ class _DevModeSheetContent extends StatelessWidget {
               if (DevModeService.current.value == DevMode.emulator) {
                 await DatabaseResetService.resetFirestoreEmulatorData();
               }
-              Navigator.pop(context);
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
             },
           ),
         ],
