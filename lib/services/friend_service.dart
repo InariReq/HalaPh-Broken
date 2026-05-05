@@ -557,6 +557,53 @@ class FriendService {
     _friendsSubscription = null;
   }
 
+  @visibleForTesting
+  static String? bestEffortDisplayNameFromValues({
+    String? displayName,
+    String? email,
+    String? publicProfileName,
+  }) {
+    final authName = _usableName(displayName);
+    if (authName != null) return authName;
+
+    final emailName = _emailPrefix(email);
+    if (emailName != null) return emailName;
+
+    return _usableName(publicProfileName);
+  }
+
+  static String? _usableName(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    if (trimmed.toLowerCase() == 'unknown') return null;
+    return trimmed;
+  }
+
+  static String? _emailPrefix(String? email) {
+    final trimmed = email?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    final prefix = trimmed.split('@').first.trim();
+    return prefix.isEmpty ? null : prefix;
+  }
+
+  Future<String?> _currentUserBestEffortName({String? profileCode}) async {
+    final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    String? publicProfileName;
+    if (profileCode != null && profileCode.trim().isNotEmpty) {
+      publicProfileName = (await findPublicProfileByCode(profileCode))?.name;
+    }
+    return bestEffortDisplayNameFromValues(
+      displayName: firebaseUser?.displayName,
+      email: firebaseUser?.email,
+      publicProfileName: publicProfileName,
+    );
+  }
+
+  Future<String?> _publicProfileBestEffortName(String rawCode) async {
+    final profile = await findPublicProfileByCode(rawCode);
+    return _usableName(profile?.name) ?? _emailPrefix(profile?.email);
+  }
+
   Future<String?> _currentUserId() async {
     if (!await FirebaseAppService.initialize()) return null;
     final userId = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
@@ -575,8 +622,10 @@ class FriendService {
       final data = {
         'uid': firebaseUser.uid,
         'code': code,
-        'name': firebaseUser.displayName ??
-            firebaseUser.email?.split('@').first ??
+        'name': bestEffortDisplayNameFromValues(
+              displayName: firebaseUser.displayName,
+              email: firebaseUser.email,
+            ) ??
             'Traveler',
         'email': firebaseUser.email,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -588,7 +637,25 @@ class FriendService {
 
       await FirestoreService.updatePublicProfile(code, data)
           .timeout(const Duration(seconds: 5));
-    } catch (_) {}
+    } catch (_) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('publicProfiles')
+            .doc(code)
+            .set({
+          'uid': firebaseUser.uid,
+          'code': code,
+          'name': bestEffortDisplayNameFromValues(
+                displayName: firebaseUser.displayName,
+                email: firebaseUser.email,
+              ) ??
+              'Traveler',
+          'email': firebaseUser.email,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)).timeout(const Duration(seconds: 5));
+      } catch (_) {}
+    }
   }
 
   /// Returns true if already friends (or reverse accepted was repaired).
@@ -631,10 +698,16 @@ class FriendService {
       if (data != null && data['status'] == 'accepted') {
         debugPrint(
             'friendRepair: accepted mirror found, repairing friend docs');
+        final targetName = _usableName(data['fromName'] as String?) ??
+            await _publicProfileBestEffortName(targetCode);
+        final currentName = _usableName(data['toName'] as String?) ??
+            await _currentUserBestEffortName(profileCode: myCode);
         await FirestoreService.ensureFriendDocs(
           uidA: targetUid,
           uidB: currentUid,
+          nameA: targetName,
           codeA: targetCode,
+          nameB: currentName,
           codeB: myCode,
         );
         debugPrint('friendRepair: ensureFriendDocs success');
@@ -656,10 +729,16 @@ class FriendService {
         if (data != null && data['status'] == 'accepted') {
           debugPrint(
               'friendRepair: reverse accepted request found, repairing friend docs');
+          final targetName = _usableName(data['fromName'] as String?) ??
+              await _publicProfileBestEffortName(targetCode);
+          final currentName = _usableName(data['toName'] as String?) ??
+              await _currentUserBestEffortName(profileCode: myCode);
           await FirestoreService.ensureFriendDocs(
             uidA: targetUid,
             uidB: currentUid,
+            nameA: targetName,
             codeA: targetCode,
+            nameB: currentName,
             codeB: myCode,
           );
           debugPrint('friendRepair: ensureFriendDocs success');
@@ -743,7 +822,9 @@ class FriendService {
         );
       }
 
-      final myProfile = await findPublicProfileByCode(myCode);
+      final fromName = await _currentUserBestEffortName(profileCode: myCode);
+      final toName = _usableName(codeDoc.data()?['name'] as String?) ??
+          await _publicProfileBestEffortName(code);
 
       // Check if already friends or reverse accepted needs repair
       final alreadyFriends = await _ensureNotAlreadyFriendsOrRepairAccepted(
@@ -770,7 +851,8 @@ class FriendService {
         toUid: toUid,
         fromCode: myCode,
         toCode: code,
-        fromName: myProfile?.name,
+        fromName: fromName,
+        toName: toName,
       ).timeout(const Duration(seconds: 8));
 
       debugPrint('Friend request sent successfully');

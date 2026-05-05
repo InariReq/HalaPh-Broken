@@ -75,6 +75,131 @@ class FirestoreService {
     return true;
   }
 
+  static String? _usableName(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    if (trimmed.toLowerCase() == 'unknown') return null;
+    return trimmed;
+  }
+
+  static String? _emailPrefix(String? email) {
+    final trimmed = email?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    final prefix = trimmed.split('@').first.trim();
+    return prefix.isEmpty ? null : prefix;
+  }
+
+  static String? _bestEffortDisplayName({
+    String? displayName,
+    String? email,
+    String? publicProfileName,
+  }) {
+    return _usableName(displayName) ??
+        _emailPrefix(email) ??
+        _usableName(publicProfileName);
+  }
+
+  static Future<String?> _publicProfileNameByCode(String? code) async {
+    final trimmed = code?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+
+    try {
+      final doc = await _db.collection('publicProfiles').doc(trimmed).get();
+      final data = doc.data();
+      return _usableName(data?['name'] as String?) ??
+          _emailPrefix(data?['email'] as String?);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<String?> _currentUserBestEffortName({String? code}) async {
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    final publicProfileName = await _publicProfileNameByCode(code);
+    return _bestEffortDisplayName(
+      displayName: user?.displayName,
+      email: user?.email,
+      publicProfileName: publicProfileName,
+    );
+  }
+
+  static Map<String, dynamic> _friendRequestPayload({
+    required String fromUid,
+    required String toUid,
+    required String fromCode,
+    required String toCode,
+    String? fromName,
+    String? toName,
+  }) {
+    final requestData = <String, dynamic>{
+      'fromUid': fromUid,
+      'toUid': toUid,
+      'fromCode': fromCode,
+      'toCode': toCode,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    final usableFromName = _usableName(fromName);
+    if (usableFromName != null) {
+      requestData['fromName'] = usableFromName;
+    }
+    final usableToName = _usableName(toName);
+    if (usableToName != null) {
+      requestData['toName'] = usableToName;
+    }
+    return requestData;
+  }
+
+  @visibleForTesting
+  static Map<String, dynamic> friendRequestPayloadForTesting({
+    required String fromUid,
+    required String toUid,
+    required String fromCode,
+    required String toCode,
+    String? fromName,
+    String? toName,
+  }) {
+    return _friendRequestPayload(
+      fromUid: fromUid,
+      toUid: toUid,
+      fromCode: fromCode,
+      toCode: toCode,
+      fromName: fromName,
+      toName: toName,
+    );
+  }
+
+  static Map<String, dynamic> _friendDocPayload({
+    required String uid,
+    required String code,
+    required String? name,
+  }) {
+    final data = <String, dynamic>{
+      'uid': uid,
+      'friendUid': uid,
+      'friendId': uid,
+      'code': code,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    final usableName = _usableName(name);
+    if (usableName != null) {
+      data['name'] = usableName;
+    }
+    return data;
+  }
+
+  @visibleForTesting
+  static Map<String, dynamic> friendDocPayloadForTesting({
+    required String uid,
+    required String code,
+    required String? name,
+  }) {
+    return _friendDocPayload(uid: uid, code: code, name: name);
+  }
+
   /// Validate immutable fields are not changed
   static bool validateImmutableFields(
     Map<String, dynamic> newData,
@@ -181,22 +306,14 @@ class FirestoreService {
     }
 
     final requestId = '$fromUid' '_' '$toUid';
-    final requestData = <String, dynamic>{
-      'fromUid': fromUid,
-      'toUid': toUid,
-      'fromCode': fromCode,
-      'toCode': toCode,
-      'status': 'pending',
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    if (fromName != null && fromName.isNotEmpty) {
-      requestData['fromName'] = fromName;
-    }
-    if (toName != null && toName.isNotEmpty) {
-      requestData['toName'] = toName;
-    }
+    final requestData = _friendRequestPayload(
+      fromUid: fromUid,
+      toUid: toUid,
+      fromCode: fromCode,
+      toCode: toCode,
+      fromName: fromName,
+      toName: toName,
+    );
 
     try {
       final batch = _db.batch();
@@ -257,28 +374,28 @@ class FirestoreService {
       // User A's friends collection: add User B
       final docARef =
           _db.collection('users').doc(uidA).collection('friends').doc(uidB);
-      batch.set(docARef, {
-        'uid': uidB,
-        'friendUid': uidB,
-        'friendId': uidB,
-        'name': nameB ?? 'Unknown',
-        'code': codeB ?? '',
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      batch.set(
+        docARef,
+        _friendDocPayload(
+          uid: uidB,
+          code: codeB ?? '',
+          name: nameB,
+        ),
+        SetOptions(merge: true),
+      );
 
       // User B's friends collection: add User A
       final docBRef =
           _db.collection('users').doc(uidB).collection('friends').doc(uidA);
-      batch.set(docBRef, {
-        'uid': uidA,
-        'friendUid': uidA,
-        'friendId': uidA,
-        'name': nameA ?? 'Unknown',
-        'code': codeA ?? '',
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      batch.set(
+        docBRef,
+        _friendDocPayload(
+          uid: uidA,
+          code: codeA ?? '',
+          name: nameA,
+        ),
+        SetOptions(merge: true),
+      );
 
       await batch.commit();
       developer.log(
@@ -326,13 +443,19 @@ class FirestoreService {
         // Read request data to get names/codes
         final requestDoc = await nestedRef.get();
         final data = requestDoc.data();
+        final fromCode = data?['fromCode'] as String?;
+        final toCode = data?['toCode'] as String?;
+        final fromName = _usableName(data?['fromName'] as String?) ??
+            await _publicProfileNameByCode(fromCode);
+        final toName = _usableName(data?['toName'] as String?) ??
+            await _currentUserBestEffortName(code: toCode);
         await ensureFriendDocs(
           uidA: fromUid,
           uidB: toUid,
-          nameA: data?['fromName'] as String?,
-          codeA: data?['fromCode'] as String?,
-          nameB: data?['toName'] as String?,
-          codeB: data?['toCode'] as String?,
+          nameA: fromName,
+          codeA: fromCode,
+          nameB: toName,
+          codeB: toCode,
         );
       }
 
