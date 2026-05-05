@@ -55,17 +55,22 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     final version = ++_searchVersion;
     setState(() => _isLoading = true);
     try {
-        final destinations = await DestinationService.searchDestinations(
-          _selectedCategory?.name,
-        );
+      final destinations = await DestinationService.searchDestinations(
+        _searchController.text,
+      );
+      final filteredDestinations = _selectedCategory == null
+          ? destinations
+          : destinations
+              .where((destination) => destination.category == _selectedCategory)
+              .toList(growable: false);
 
       // For demo purposes, let's mark some as favorites and recently explored
-      final favorites = destinations.take(3).toList();
-      final recent = destinations.skip(3).take(4).toList();
+      final favorites = filteredDestinations.take(3).toList();
+      final recent = filteredDestinations.skip(3).take(4).toList();
 
       if (!mounted || version != _searchVersion) return;
       setState(() {
-        _destinations = destinations;
+        _destinations = filteredDestinations;
         _favoriteDestinations = favorites;
         _recentlyExplored = recent;
         _isLoading = false;
