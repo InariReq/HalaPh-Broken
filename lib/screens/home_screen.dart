@@ -615,34 +615,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              GestureDetector(
-                onTap: () {
-                  GoRouter.of(context).go('/explore');
-                },
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.search, size: 16, color: Colors.blue[600]),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Search More',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.blue[600],
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ],
           ),
         ),
