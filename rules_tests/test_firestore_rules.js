@@ -1,5 +1,5 @@
 const { initializeTestEnvironment, assertFails, assertSucceeds } = require('@firebase/rules-unit-testing');
-const { getFirestore, collection, doc, setDoc, getDoc, query, where, getDocs, updateDoc, serverTimestamp, Timestamp } = require('firebase/firestore');
+const { getFirestore, collection, doc, setDoc, getDoc, query, where, getDocs, updateDoc, deleteDoc, arrayRemove, serverTimestamp, Timestamp } = require('firebase/firestore');
 const { describe, it, before, after, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 
@@ -9,6 +9,7 @@ const PROJECT_ID = 'halaph-test-project';
 const OWNER_UID = 'ownerUid';
 const PARTICIPANT_UID = 'participantUid';
 const STRANGER_UID = 'strangerUid';
+const OTHER_PARTICIPANT_UID = 'otherParticipantUid';
 
 describe('Firestore Security Rules Tests', function() {
   let testEnv;
@@ -371,21 +372,168 @@ describe('Firestore Security Rules Tests', function() {
       title: 'Test Plan',
       startDate: Timestamp.now(),
       endDate: Timestamp.now(),
-      participantUids: [OWNER_UID, PARTICIPANT_UID],
+      participantUids: [OWNER_UID, PARTICIPANT_UID, OTHER_PARTICIPANT_UID],
       createdBy: OWNER_UID,
       ownerUid: OWNER_UID,
+      ownerId: OWNER_UID,
+      collaboratorUids: [PARTICIPANT_UID],
       days: [],
       itinerary: {},
       destinationIds: [],
+      isShared: true,
+      bannerImage: 'https://example.com/banner.jpg',
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now()
     };
+
+    beforeEach(async function() {
+      await testEnv.clearFirestore();
+    });
 
     it('owner can read own shared plan get', async function() {
       const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
       const planRef = doc(ownerDb, 'sharedPlans', planId);
       await setDoc(planRef, ownerPayload);
       await assertSucceeds(getDoc(planRef));
+    });
+
+    it('participant can query sharedPlans with array-contains', async function() {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await setDoc(doc(ownerDb, 'sharedPlans', planId), ownerPayload);
+
+      const participantDb = testEnv.authenticatedContext(PARTICIPANT_UID).firestore();
+      const q = query(
+        collection(participantDb, 'sharedPlans'),
+        where('participantUids', 'array-contains', PARTICIPANT_UID)
+      );
+      await assertSucceeds(getDocs(q));
+    });
+
+    it('owner can query sharedPlans with array-contains', async function() {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await setDoc(doc(ownerDb, 'sharedPlans', planId), ownerPayload);
+
+      const q = query(
+        collection(ownerDb, 'sharedPlans'),
+        where('participantUids', 'array-contains', OWNER_UID)
+      );
+      await assertSucceeds(getDocs(q));
+    });
+
+    it('broad sharedPlans query without participantUids filter is denied', async function() {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await setDoc(doc(ownerDb, 'sharedPlans', planId), ownerPayload);
+
+      await assertFails(getDocs(collection(ownerDb, 'sharedPlans')));
+    });
+
+    it('non-participant cannot get a shared plan', async function() {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await setDoc(doc(ownerDb, 'sharedPlans', planId), ownerPayload);
+
+      const strangerDb = testEnv.authenticatedContext(STRANGER_UID).firestore();
+      const strangerRef = doc(strangerDb, 'sharedPlans', planId);
+      await assertFails(getDoc(strangerRef));
+    });
+
+    it('owner can create a shared plan with observed payload', async function() {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      const planRef = doc(ownerDb, 'sharedPlans', planId);
+      await assertSucceeds(setDoc(planRef, ownerPayload));
+    });
+
+    it('owner can update participantUids while remaining participant', async function() {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      const planRef = doc(ownerDb, 'sharedPlans', planId);
+      await setDoc(planRef, ownerPayload);
+
+      await assertSucceeds(updateDoc(planRef, {
+        participantUids: [OWNER_UID, STRANGER_UID],
+        updatedAt: serverTimestamp()
+      }));
+    });
+
+    it('participant can leave shared plan by removing their own UID', async function() {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await setDoc(doc(ownerDb, 'sharedPlans', planId), ownerPayload);
+
+      const participantDb = testEnv.authenticatedContext(PARTICIPANT_UID).firestore();
+      const planRef = doc(participantDb, 'sharedPlans', planId);
+      await assertSucceeds(updateDoc(planRef, {
+        participantUids: arrayRemove(PARTICIPANT_UID),
+        updatedAt: serverTimestamp()
+      }));
+    });
+
+    it('participant cannot remove another participant', async function() {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await setDoc(doc(ownerDb, 'sharedPlans', planId), ownerPayload);
+
+      const participantDb = testEnv.authenticatedContext(PARTICIPANT_UID).firestore();
+      const planRef = doc(participantDb, 'sharedPlans', planId);
+      await assertFails(updateDoc(planRef, {
+        participantUids: arrayRemove(OTHER_PARTICIPANT_UID),
+        updatedAt: serverTimestamp()
+      }));
+    });
+
+    it('participant cannot remove owner or createdBy', async function() {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await setDoc(doc(ownerDb, 'sharedPlans', planId), ownerPayload);
+
+      const participantDb = testEnv.authenticatedContext(PARTICIPANT_UID).firestore();
+      const planRef = doc(participantDb, 'sharedPlans', planId);
+      await assertFails(updateDoc(planRef, {
+        participantUids: arrayRemove(OWNER_UID),
+        updatedAt: serverTimestamp()
+      }));
+    });
+
+    it('participant leave cannot change createdBy', async function() {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await setDoc(doc(ownerDb, 'sharedPlans', planId), ownerPayload);
+
+      const participantDb = testEnv.authenticatedContext(PARTICIPANT_UID).firestore();
+      const planRef = doc(participantDb, 'sharedPlans', planId);
+      await assertFails(updateDoc(planRef, {
+        participantUids: arrayRemove(PARTICIPANT_UID),
+        createdBy: STRANGER_UID,
+        updatedAt: serverTimestamp()
+      }));
+    });
+
+    it('participant leave cannot change ownerUid or ownerId', async function() {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await setDoc(doc(ownerDb, 'sharedPlans', planId), ownerPayload);
+
+      const participantDb = testEnv.authenticatedContext(PARTICIPANT_UID).firestore();
+      const planRef = doc(participantDb, 'sharedPlans', planId);
+      await assertFails(updateDoc(planRef, {
+        participantUids: arrayRemove(PARTICIPANT_UID),
+        ownerUid: STRANGER_UID,
+        ownerId: STRANGER_UID,
+        updatedAt: serverTimestamp()
+      }));
+    });
+
+    it('non-participant cannot leave or update shared plan', async function() {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      await setDoc(doc(ownerDb, 'sharedPlans', planId), ownerPayload);
+
+      const strangerDb = testEnv.authenticatedContext(STRANGER_UID).firestore();
+      const planRef = doc(strangerDb, 'sharedPlans', planId);
+      await assertFails(updateDoc(planRef, {
+        participantUids: arrayRemove(STRANGER_UID),
+        updatedAt: serverTimestamp()
+      }));
+    });
+
+    it('owner delete still succeeds', async function() {
+      const ownerDb = testEnv.authenticatedContext(OWNER_UID).firestore();
+      const planRef = doc(ownerDb, 'sharedPlans', planId);
+      await setDoc(planRef, ownerPayload);
+
+      await assertSucceeds(deleteDoc(planRef));
     });
   });
 

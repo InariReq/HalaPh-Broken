@@ -50,10 +50,8 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     });
 
     debugPrint('Loaded plans for user: $_myCode');
-    final personalPlans = SimplePlanService.getUserPlans(ownerId: _myCode);
-    final sharedPlans = SimplePlanService.getCollaborativePlans(
-      ownerId: _myCode,
-    );
+    final personalPlans = SimplePlanService.getUserPlans();
+    final sharedPlans = SimplePlanService.getCollaborativePlans();
     debugPrint(
       'Personal plans: ${personalPlans.length}, Shared plans: ${sharedPlans.length}',
     );
@@ -61,10 +59,8 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final personalPlans = SimplePlanService.getUserPlans(ownerId: _myCode);
-    final sharedPlans = SimplePlanService.getCollaborativePlans(
-      ownerId: _myCode,
-    );
+    final personalPlans = SimplePlanService.getUserPlans();
+    final sharedPlans = SimplePlanService.getCollaborativePlans();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -151,13 +147,17 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         plans.isEmpty
             ? _buildEmptyPlansPlaceholder('No collaborative plans yet')
             : Column(
-                children: plans.map((plan) => _buildPlanCard(plan)).toList(),
+                children: plans
+                    .map((plan) => _buildPlanCard(plan, isSharedPlan: true))
+                    .toList(),
               ),
       ],
     );
   }
 
-  Widget _buildPlanCard(TravelPlan plan) {
+  Widget _buildPlanCard(TravelPlan plan, {bool isSharedPlan = false}) {
+    final shouldLeave = isSharedPlan && !SimplePlanService.isPlanOwner(plan.id);
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       decoration: BoxDecoration(
@@ -235,17 +235,21 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Delete button
+                  // Delete personal/owned plans; leave shared plans owned by others.
                   IconButton(
                     onPressed: () {
-                      _showDeleteConfirmation(context, plan);
+                      if (shouldLeave) {
+                        _showLeaveConfirmation(context, plan);
+                      } else {
+                        _showDeleteConfirmation(context, plan);
+                      }
                     },
                     icon: Icon(
-                      Icons.delete_outline,
+                      shouldLeave ? Icons.logout : Icons.delete_outline,
                       color: Colors.grey[600],
                       size: 20,
                     ),
-                    tooltip: 'Delete plan',
+                    tooltip: shouldLeave ? 'Leave plan' : 'Delete plan',
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
                       minWidth: 32,
@@ -350,6 +354,46 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showLeaveConfirmation(BuildContext context, TravelPlan plan) {
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Leave Plan'),
+          content: Text('Are you sure you want to leave "${plan.title}"?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(dialogContext).pop();
+                final success = await SimplePlanService.leavePlan(plan.id);
+                if (!mounted) return;
+                if (success) {
+                  _loadPlans(forceRefresh: true);
+                  messenger.showSnackBar(
+                    SnackBar(content: Text('Left "${plan.title}"')),
+                  );
+                } else {
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('Failed to leave plan')),
+                  );
+                }
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Leave'),
             ),
           ],
         );

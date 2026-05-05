@@ -12,8 +12,7 @@ service cloud.firestore {
 
     function isPlanParticipant(data) {
       return signedIn()
-        && data.participantUids is list
-        && request.auth.uid in data.participantUids;
+        && data.participantUids.hasAny([request.auth.uid]);
     }
 
     function isValidPlanData(data) {
@@ -23,6 +22,48 @@ service cloud.firestore {
         && data.endDate is timestamp
         && data.participantUids is list
         && data.createdBy is string;
+    }
+
+    function ownerUidUnchangedIfPresent() {
+      return !resource.data.keys().hasAny(['ownerUid'])
+        || request.resource.data.ownerUid == resource.data.ownerUid;
+    }
+
+    function ownerIdUnchangedIfPresent() {
+      return !resource.data.keys().hasAny(['ownerId'])
+        || request.resource.data.ownerId == resource.data.ownerId;
+    }
+
+    function ownerUidRemainsParticipantIfPresent() {
+      return !resource.data.keys().hasAny(['ownerUid'])
+        || resource.data.ownerUid in request.resource.data.participantUids;
+    }
+
+    function ownerIdRemainsParticipantIfPresent() {
+      return !resource.data.keys().hasAny(['ownerId'])
+        || resource.data.ownerId in request.resource.data.participantUids;
+    }
+
+    function authIsNotPlanOwner(data) {
+      return data.createdBy != request.auth.uid
+        && (!data.keys().hasAny(['ownerUid']) || data.ownerUid != request.auth.uid)
+        && (!data.keys().hasAny(['ownerId']) || data.ownerId != request.auth.uid);
+    }
+
+    function isParticipantLeavingPlan() {
+      return isPlanParticipant(resource.data)
+        && authIsNotPlanOwner(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantUids', 'updatedAt'])
+        && request.resource.data.createdBy == resource.data.createdBy
+        && ownerUidUnchangedIfPresent()
+        && ownerIdUnchangedIfPresent()
+        && request.resource.data.participantUids is list
+        && !(request.auth.uid in request.resource.data.participantUids)
+        && resource.data.createdBy in request.resource.data.participantUids
+        && ownerUidRemainsParticipantIfPresent()
+        && ownerIdRemainsParticipantIfPresent()
+        && resource.data.participantUids.toSet().difference(request.resource.data.participantUids.toSet()).hasOnly([request.auth.uid])
+        && request.resource.data.participantUids.toSet().difference(resource.data.participantUids.toSet()).size() == 0;
     }
 
     function isValidFriendData(data) {
@@ -191,7 +232,7 @@ service cloud.firestore {
     // Shared plans - ONLY participants can read/write
     match /sharedPlans/{planId} {
       allow get: if signedIn() && isPlanParticipant(resource.data);
-      allow list: if false;
+      allow list: if signedIn() && isPlanParticipant(resource.data);
       allow create: if signedIn()
         && (request.resource.data.createdBy == request.auth.uid || request.resource.data.ownerUid == request.auth.uid)
         && request.resource.data.participantUids is list
@@ -203,6 +244,8 @@ service cloud.firestore {
          request.resource.data.createdBy == resource.data.createdBy &&
          request.resource.data.participantUids is list &&
          request.auth.uid in request.resource.data.participantUids) ||
+        // Participant can leave by removing only their own UID.
+        isParticipantLeavingPlan() ||
         // Participant can update but NOT change ownerId, ownerUid, createdBy, participantUids
         (isPlanParticipant(resource.data) &&
          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'startDate', 'endDate', 'days', 'itinerary', 'itineraries', 'items', 'destinationIds', 'updatedAt', 'version']) &&

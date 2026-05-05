@@ -8,7 +8,7 @@ import 'package:halaph/models/plan.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/firebase_app_service.dart';
 import 'package:halaph/services/friend_service.dart';
-import 'package:halaph/services/remote_sync_service.dart';
+
 typedef _RemotePlanSnapshot = QuerySnapshot<Map<String, dynamic>>;
 
 class SimplePlanService {
@@ -29,7 +29,8 @@ class SimplePlanService {
     if (!forceRefresh && _initialization != null) return _initialization;
 
     // Use a lock to prevent race conditions
-    final initialization = _initialization = _initialize(forceRefresh: forceRefresh);
+    final initialization =
+        _initialization = _initialize(forceRefresh: forceRefresh);
     try {
       await initialization;
     } finally {
@@ -134,10 +135,11 @@ class SimplePlanService {
     required DateTime startDate,
     required DateTime endDate,
     required List<Destination> destinations,
-    String createdBy = 'current_user',
+    String? createdBy,
     String? bannerImage,
   }) {
     final id = _newPlanId();
+    final uid = createdBy ?? _currentUserId() ?? 'demo_user';
 
     final itinerary = _buildItinerary(startDate, endDate, destinations);
 
@@ -146,8 +148,8 @@ class SimplePlanService {
       title: title,
       startDate: startDate,
       endDate: endDate,
-      participantIds: [createdBy],
-      createdBy: createdBy,
+      participantUids: [uid],
+      createdBy: uid,
       itinerary: itinerary,
       isShared: false,
       bannerImage: bannerImage,
@@ -185,7 +187,7 @@ class SimplePlanService {
       title: title ?? existing.title,
       startDate: startDate ?? existing.startDate,
       endDate: endDate ?? existing.endDate,
-      participantIds: existing.participantIds,
+      participantUids: existing.participantUids,
       createdBy: existing.createdBy,
       itinerary: newItinerary,
       isShared: existing.isShared,
@@ -213,7 +215,7 @@ class SimplePlanService {
     debugPrint('Attempting to delete plan $id');
     // Mark as recently deleted to prevent real-time listener from re-adding
     _recentlyDeletedPlanIds.add(id);
-    
+
     final deleted = await _deleteRemotePlan(id);
     if (!deleted) {
       debugPrint('Delete failed: Remote delete failed for plan $id');
@@ -272,20 +274,19 @@ class SimplePlanService {
         'updatedAt': FieldValue.serverTimestamp(),
       };
       if (code.isNotEmpty) {
-        update['participantIds'] = FieldValue.arrayUnion([code]);
-        update['participantCodes'] = FieldValue.arrayUnion([code]);
+        update['participantUids'] = FieldValue.arrayUnion([code]);
       }
 
       await doc.reference.update(update).timeout(const Duration(seconds: 8));
 
-      final participantIds = <String>{...plan.participantIds};
-      if (code.isNotEmpty) participantIds.add(code);
+      final participantUids = <String>{...plan.participantUids};
+      if (code.isNotEmpty) participantUids.add(code);
       final joined = TravelPlan(
         id: plan.id,
         title: plan.title,
         startDate: plan.startDate,
         endDate: plan.endDate,
-        participantIds: participantIds.toList(),
+        participantUids: participantUids.toList(),
         createdBy: plan.createdBy,
         itinerary: plan.itinerary,
         isShared: true,
@@ -318,14 +319,13 @@ class SimplePlanService {
 
   static Future<bool> updatePlanParticipants({
     required String planId,
-    required List<String> participantIds,
+    required List<String> participantUids,
   }) async {
     final existing = _plans[planId];
     if (existing == null) return false;
 
-    final normalized = <String>{existing.createdBy}
-      ..addAll(
-        participantIds
+    final normalized = <String>{existing.createdBy}..addAll(
+        participantUids
             .where((id) => id.trim().isNotEmpty)
             .map((id) => id.trim()),
       );
@@ -335,7 +335,7 @@ class SimplePlanService {
       title: existing.title,
       startDate: existing.startDate,
       endDate: existing.endDate,
-      participantIds: normalized.toList(),
+      participantUids: normalized.toList(),
       createdBy: existing.createdBy,
       itinerary: existing.itinerary,
       isShared: normalized.length > 1,
@@ -361,7 +361,7 @@ class SimplePlanService {
     required Map<int, List<Destination>> itinerary,
     Map<String, String>? destinationTimes,
     String createdBy = 'current_user',
-    List<String> participantIds = const [],
+    List<String> participantUids = const [],
     String? bannerImage,
   }) async {
     final id = _newPlanId();
@@ -396,12 +396,10 @@ class SimplePlanService {
     }
 
     // Normalize participant IDs (include creator + selected collaborators)
-    final creator = createdBy.trim().isNotEmpty
-        ? createdBy.trim()
-        : 'current_user';
-    final participants = <String>{creator}
-      ..addAll(
-        participantIds
+    final creator =
+        createdBy.trim().isNotEmpty ? createdBy.trim() : 'current_user';
+    final participants = <String>{creator}..addAll(
+        participantUids
             .where((id) => id.trim().isNotEmpty)
             .map((id) => id.trim()),
       );
@@ -414,7 +412,7 @@ class SimplePlanService {
       title: title,
       startDate: startDate,
       endDate: endDate,
-      participantIds: participants.toList(),
+      participantUids: participants.toList(),
       createdBy: creator,
       itinerary: dayItineraries,
       isShared: participants.length > 1,
@@ -480,7 +478,7 @@ class SimplePlanService {
       title: existing.title,
       startDate: existing.startDate,
       endDate: existing.endDate,
-      participantIds: existing.participantIds,
+      participantUids: existing.participantUids,
       createdBy: existing.createdBy,
       itinerary: itinerary,
       isShared: existing.isShared,
@@ -571,8 +569,6 @@ class SimplePlanService {
         .timeout(const Duration(seconds: 8));
 
     final plans = _decodeRemotePlanDocs(snapshot.docs, userId);
-    final knownIds = plans.map((plan) => plan.id).toSet();
-    unawaited(_migrateLegacyPlans(knownIds));
     return plans;
   }
 
@@ -586,8 +582,8 @@ class SimplePlanService {
     final plans = <TravelPlan>[];
     for (final doc in docs) {
       try {
+        final plan = TravelPlan.fromFirestore(doc);
         final data = doc.data();
-        final plan = TravelPlan.fromJson(Map<String, dynamic>.from(data));
         plans.add(plan);
         _ownerUids[plan.id] = data['ownerUid'] as String? ?? userId;
         _participantUids[plan.id] = data['participantUids'] is List
@@ -612,53 +608,37 @@ class SimplePlanService {
         .where('participantUids', arrayContains: userId)
         .snapshots()
         .listen(
-          (snapshot) {
-            if (_currentUserId() != userId) return;
-            final remotePlans = _decodeRemotePlanDocs(snapshot.docs, userId)
-                .where((plan) => !_recentlyDeletedPlanIds.contains(plan.id))
-                .toList();
-            _plans
-              ..clear()
-              ..addEntries(remotePlans.map((plan) => MapEntry(plan.id, plan)));
-            _loadedForUserId = userId;
-            _notifyChanged();
-          },
-          onError: (Object error) {
-            debugPrint('Plan live updates failed: $error');
-          },
-        );
+      (snapshot) {
+        if (_currentUserId() != userId) return;
+        final remotePlans = _decodeRemotePlanDocs(snapshot.docs, userId)
+            .where((plan) => !_recentlyDeletedPlanIds.contains(plan.id))
+            .toList();
+        _plans
+          ..clear()
+          ..addEntries(remotePlans.map((plan) => MapEntry(plan.id, plan)));
+        _loadedForUserId = userId;
+        _notifyChanged();
+      },
+      onError: (Object error) {
+        debugPrint('Plan live updates failed: $error');
+      },
+    );
   }
 
-  static Future<void> _migrateLegacyPlans(Set<String> knownIds) async {
-    try {
-      final legacyPlans = await _loadLegacyPlans().timeout(
-        const Duration(seconds: 3),
-      );
-      for (final plan in legacyPlans) {
-        if (knownIds.contains(plan.id)) continue;
-        knownIds.add(plan.id);
-        _saveRemotePlanInBackground(plan);
-      }
-    } catch (error) {
-      debugPrint('Legacy plan migration skipped: $error');
-    }
-  }
+  // Legacy plan migration removed - no longer needed
 
-  static Future<List<TravelPlan>> _loadLegacyPlans() async {
-    final payload = await RemoteSyncService.instance.loadNamespace('plans');
-    final rawPlans = payload?['plans'];
-    if (rawPlans is! List) return const <TravelPlan>[];
-    return rawPlans
-        .whereType<Map>()
-        .map((entry) => TravelPlan.fromJson(Map<String, dynamic>.from(entry)))
-        .toList();
-  }
+  // Legacy plan migration removed - plans now only stored in sharedPlans collection
 
   static Future<void> _saveRemotePlan(TravelPlan plan) async {
+    // Guard: reject empty plan ID
+    if (plan.id.isEmpty) {
+      throw StateError('Cannot save plan: plan ID is empty.');
+    }
+
     if (FirebaseModes.offline) {
       _plans[plan.id] = plan;
       _ownerUids[plan.id] = plan.createdBy;
-      _participantUids[plan.id] = plan.participantIds;
+      _participantUids[plan.id] = plan.participantUids;
       _notifyChanged();
       return;
     }
@@ -666,7 +646,7 @@ class SimplePlanService {
     if (currentUid == null) {
       if (debugAllowMemoryOnlyPlans) {
         _ownerUids[plan.id] ??= plan.createdBy;
-        _participantUids[plan.id] = plan.participantIds;
+        _participantUids[plan.id] = plan.participantUids;
         return;
       }
       throw StateError('Sign in before saving plans to Firebase.');
@@ -689,13 +669,58 @@ class SimplePlanService {
       resolvedParticipantUids = [...resolvedParticipantUids, ownerUid];
     }
 
-    final data = plan.toJson()
-      ..addAll({
-        'ownerUid': ownerUid,
-        'participantUids': resolvedParticipantUids,
-        'participantCodes': plan.participantIds.map(_normalizeCode).toList(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+    // Build clean payload with only fields allowed by planFields() in rules
+    final data = plan.toJson();
+
+    // Debug logging
+    debugPrint('Saving plan to: sharedPlans/${plan.id}');
+    debugPrint('Current UID: $ownerUid');
+    debugPrint('Plan payload keys: ${data.keys.toList()}');
+
+    // Force required fields to match rules
+    data['createdBy'] = ownerUid;
+    data['ownerUid'] = ownerUid;
+    data['ownerId'] = ownerUid;
+    data['participantUids'] =
+        resolvedParticipantUids.map((e) => e.trim()).toSet().toList();
+    data['collaboratorUids'] =
+        plan.collaboratorUids.map((e) => e.trim()).toList();
+
+    // Ensure timestamps
+    data['updatedAt'] = FieldValue.serverTimestamp();
+    if (!data.containsKey('createdAt') || data['createdAt'] == null) {
+      data['createdAt'] = FieldValue.serverTimestamp();
+    }
+
+    // Remove fields NOT in planFields() in firestore.rules
+    // 'id' is NOT in planFields() - remove it
+    const allowedFields = {
+      'title',
+      'description',
+      'createdBy',
+      'ownerId',
+      'ownerUid',
+      'participantUids',
+      'collaboratorUids',
+      'startDate',
+      'endDate',
+      'days',
+      'itinerary',
+      'itineraries',
+      'items',
+      'destinationIds',
+      'bannerImage',
+      'bannerImageUrl',
+      'isShared',
+      'isPublic',
+      'status',
+      'version',
+      'createdAt',
+      'updatedAt'
+    };
+    data.removeWhere((key, value) => !allowedFields.contains(key));
+
+    debugPrint('Final plan payload: $data');
 
     await _plansCollection
         .doc(plan.id)
@@ -725,14 +750,13 @@ class SimplePlanService {
       }.toList();
     }
 
-    final participantCodes = plan.participantIds
+    final participantCodes = plan.participantUids
         .map(_normalizeCode)
         .where((code) => code.isNotEmpty)
         .toSet();
     final creatorCode = _normalizeCode(plan.createdBy);
-    final collaboratorCodes = participantCodes
-        .where((code) => code != creatorCode)
-        .toList();
+    final collaboratorCodes =
+        participantCodes.where((code) => code != creatorCode).toList();
 
     if (collaboratorCodes.isEmpty) {
       return <String>[ownerUid];
@@ -760,6 +784,35 @@ class SimplePlanService {
       return true;
     }
     try {
+      // Debug logging
+      debugPrint('Deleting plan: sharedPlans/$id');
+      debugPrint('Current UID: ${_currentUserId()}');
+      debugPrint('Operation: deletePlan');
+
+      // Check if plan exists and verify ownership
+      final doc = await _plansCollection.doc(id).get();
+      if (!doc.exists) {
+        debugPrint('Plan not found: $id');
+        return false;
+      }
+
+      final data = doc.data();
+      final createdBy = data?['createdBy'] as String? ?? '';
+      final ownerUid = data?['ownerUid'] as String? ?? '';
+      final ownerId = data?['ownerId'] as String? ?? '';
+      final currentUid = _currentUserId();
+
+      debugPrint('Plan createdBy: $createdBy');
+      debugPrint('Plan ownerUid: $ownerUid');
+      debugPrint('Plan ownerId: $ownerId');
+
+      if (currentUid != createdBy &&
+          currentUid != ownerUid &&
+          currentUid != ownerId) {
+        debugPrint('Delete blocked: user is not owner');
+        return false; // Cannot delete plans you don't own
+      }
+
       await _plansCollection
           .doc(id)
           .delete()
@@ -772,15 +825,22 @@ class SimplePlanService {
   }
 
   // Collaboration helpers: add/remove collaborator to a plan
-  static Future<bool> addCollaborator(String planId, String collaboratorUid) async {
+  static Future<bool> addCollaborator(
+      String planId, String collaboratorUid) async {
     final plan = _plans[planId];
     if (plan == null) return false;
     final ownerUid = _ownerUids[planId] ?? (plan.createdBy);
-    if (collaboratorUid == ownerUid) return false; // can't add owner as collaborator
+    if (collaboratorUid == ownerUid) {
+      return false; // can't add owner as collaborator
+    }
     try {
-      await _plansCollection
-          .doc(planId)
-          .update({
+      // Debug logging
+      debugPrint('Updating plan: sharedPlans/$planId');
+      debugPrint('Current UID: ${_currentUserId()}');
+      debugPrint('Operation: addCollaborator');
+      debugPrint('Adding collaborator: $collaboratorUid');
+
+      await _plansCollection.doc(planId).update({
         'participantUids': FieldValue.arrayUnion([collaboratorUid]),
         'updatedAt': FieldValue.serverTimestamp(),
       }).timeout(const Duration(seconds: 8));
@@ -796,15 +856,22 @@ class SimplePlanService {
     }
   }
 
-  static Future<bool> removeCollaborator(String planId, String collaboratorUid) async {
+  static Future<bool> removeCollaborator(
+      String planId, String collaboratorUid) async {
     final plan = _plans[planId];
     if (plan == null) return false;
     final ownerUid = _ownerUids[planId] ?? (plan.createdBy);
-    if (collaboratorUid == ownerUid) return false; // cannot remove owner from plan
+    if (collaboratorUid == ownerUid) {
+      return false; // cannot remove owner from plan
+    }
     try {
-      await _plansCollection
-          .doc(planId)
-          .update({
+      // Debug logging
+      debugPrint('Updating plan: sharedPlans/$planId');
+      debugPrint('Current UID: ${_currentUserId()}');
+      debugPrint('Operation: removeCollaborator');
+      debugPrint('Removing collaborator: $collaboratorUid');
+
+      await _plansCollection.doc(planId).update({
         'participantUids': FieldValue.arrayRemove([collaboratorUid]),
         'updatedAt': FieldValue.serverTimestamp(),
       }).timeout(const Duration(seconds: 8));
@@ -861,7 +928,9 @@ class SimplePlanService {
       if (plan.title.toLowerCase().contains(lowerQuery)) return true;
       for (final day in plan.itinerary) {
         for (final item in day.items) {
-          if (item.destination.name.toLowerCase().contains(lowerQuery)) return true;
+          if (item.destination.name.toLowerCase().contains(lowerQuery)) {
+            return true;
+          }
         }
       }
       return false;
@@ -883,26 +952,27 @@ class SimplePlanService {
       if (data == null) return false;
 
       final ownerUid = data['ownerUid'] as String?;
-      if (ownerUid == currentUid) return false;
+      if (ownerUid == currentUid) {
+        return false;
+      }
 
-      // Remove current user from participant lists using UID and codes
-      final Map<String, Object?> updateMap = {
-        'participantUids': FieldValue.arrayRemove([currentUid]),
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
-      // Also remove the current user's code from participantIds and participantCodes if available
+      final removeValues = <String>[currentUid];
+      // Also remove the current user's code from participantUids if available
       try {
         final friendService = FriendService();
         final myCode = await friendService.getMyCode();
         final normalizedCode = _normalizeCode(myCode);
-        if (normalizedCode.isNotEmpty) {
-          updateMap['participantIds'] = FieldValue.arrayRemove([normalizedCode]);
-          updateMap['participantCodes'] = FieldValue.arrayRemove([normalizedCode]);
+        if (normalizedCode.isNotEmpty && normalizedCode != currentUid) {
+          removeValues.add(normalizedCode);
         }
       } catch (_) {
         // If we fail to fetch the code, proceed without removing codes
       }
-      await doc.reference.update(updateMap).timeout(const Duration(seconds: 5));
+      final updates = <String, Object>{
+        'participantUids': FieldValue.arrayRemove(removeValues),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      await doc.reference.update(updates).timeout(const Duration(seconds: 5));
 
       _plans.remove(planId);
       _ownerUids.remove(planId);
@@ -967,7 +1037,7 @@ class SimplePlanService {
 
   static bool _isPlanParticipant(TravelPlan plan, Set<String> identities) {
     if (_isPlanOwner(plan, identities)) return true;
-    if (plan.participantIds.any((id) => _matchesAnyIdentity(id, identities))) {
+    if (plan.participantUids.any((id) => _matchesAnyIdentity(id, identities))) {
       return true;
     }
 
@@ -976,7 +1046,7 @@ class SimplePlanService {
   }
 
   static bool _isCollaborative(TravelPlan plan) {
-    final participantCodes = plan.participantIds
+    final participantCodes = plan.participantUids
         .map((id) => id.trim())
         .where((id) => id.isNotEmpty)
         .toSet();
@@ -988,7 +1058,8 @@ class SimplePlanService {
     return plan.isShared ||
         participantCodes.length > 1 ||
         remoteParticipants.length > 1 ||
-        (plan.participantIds.isNotEmpty && plan.participantIds.first != plan.createdBy);
+        (plan.participantUids.isNotEmpty &&
+            plan.participantUids.first != plan.createdBy);
   }
 
   static List<TravelPlan> _visibleCurrentOrFuturePlans(Set<String> identities) {
@@ -996,16 +1067,15 @@ class SimplePlanService {
     return _plans.values.where((plan) {
       return _isPlanParticipant(plan, identities) &&
           !_dayOnly(plan.endDate).isBefore(today);
-    }).toList()..sort(_compareCurrentOrUpcomingPlans);
+    }).toList()
+      ..sort(_compareCurrentOrUpcomingPlans);
   }
 
   static int _compareCurrentOrUpcomingPlans(TravelPlan a, TravelPlan b) {
     final today = _today();
-    final aActive =
-        !_dayOnly(a.startDate).isAfter(today) &&
+    final aActive = !_dayOnly(a.startDate).isAfter(today) &&
         !_dayOnly(a.endDate).isBefore(today);
-    final bActive =
-        !_dayOnly(b.startDate).isAfter(today) &&
+    final bActive = !_dayOnly(b.startDate).isAfter(today) &&
         !_dayOnly(b.endDate).isBefore(today);
     if (aActive != bActive) return aActive ? -1 : 1;
     return a.startDate.compareTo(b.startDate);
@@ -1062,15 +1132,16 @@ class SimplePlanService {
   static String _newPlanId() {
     // Use UUID-style ID to avoid collisions across devices
     final timestamp = DateTime.now().microsecondsSinceEpoch;
-    final random = (timestamp.hashCode.abs() % 100000).toString().padLeft(5, '0');
+    final random =
+        (timestamp.hashCode.abs() % 100000).toString().padLeft(5, '0');
     return 'plan_${timestamp}_$random';
   }
 
   static String _normalizeCode(String code) {
     final compact = code.trim().toUpperCase().replaceAll(
-      RegExp(r'[^A-Z0-9]'),
-      '',
-    );
+          RegExp(r'[^A-Z0-9]'),
+          '',
+        );
     if (RegExp(r'^[A-Z]{2}[0-9]{4}$').hasMatch(compact)) {
       return '${compact.substring(0, 2)}-${compact.substring(2)}';
     }
