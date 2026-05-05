@@ -22,9 +22,7 @@ service cloud.firestore {
         && data.startDate is timestamp
         && data.endDate is timestamp
         && data.participantUids is list
-        && data.ownerUid is string
-        && data.createdBy is string
-        && data.updatedAt is timestamp;
+        && data.createdBy is string;
     }
 
     function isValidFriendData(data) {
@@ -33,9 +31,32 @@ service cloud.firestore {
         && data.code is string;
     }
 
+    // User document - profile access
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+
+      allow create: if isOwner(userId)
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'photoUrl', 'avatarUrl', 'updatedAt']);
+
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'photoUrl',
+          'avatarUrl',
+          'updatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
     // User private sync data (profile, friends, plans, etc.)
     match /users/{userId}/sync/{document=**} {
       allow read, write: if isOwner(userId);
+    }
+
+    // Favorites collection
+    match /users/{userId}/favorites/{favoriteId} {
+      allow read, create, update, delete: if isOwner(userId);
     }
 
     // Friends collection - bidirectional
@@ -43,7 +64,7 @@ service cloud.firestore {
       allow read: if isOwner(userId);
       allow create: if signedIn() && (
         isOwner(userId) ||  // User adding someone to their list
-        (request.auth.uid == request.resource.data.friendUid && 
+        (request.auth.uid == request.resource.data.friendUid &&
          request.resource.data.friendId == userId)  // Friend adding user back
       );
       allow update: if isOwner(userId);
@@ -53,16 +74,77 @@ service cloud.firestore {
       );
     }
 
-    // Friend requests - private to recipient
+    // Friend requests - private to recipient (nested path - mirror inbox)
     match /users/{userId}/friend_requests/{requestId} {
       allow read: if isOwner(userId);
-      allow create: if signedIn() 
+
+      allow create: if signedIn()
         && request.auth.uid == request.resource.data.fromUid
         && request.resource.data.toUid == userId
-        && request.resource.data.status == 'pending';
-      allow update: if isOwner(userId)
-        && request.resource.data.status in ['accepted', 'rejected'];
-      allow delete: if isOwner(userId);
+        && request.resource.data.fromUid != request.resource.data.toUid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly(['fromUid', 'toUid', 'fromCode', 'toCode', 'fromName', 'toName', 'status', 'createdAt', 'updatedAt']);
+
+      allow update: if signedIn() && (
+        // Recipient can accept or decline
+        (isOwner(userId) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+         request.resource.data.status in ['accepted', 'declined']) ||
+        // Sender can cancel
+        (request.auth.uid == resource.data.fromUid &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+         request.resource.data.status == 'cancelled')
+      );
+
+      allow delete: if false;
+    }
+
+    // Friend requests - top-level collection
+    match /friendRequests/{requestId} {
+      // No get rule - client should not need to read individual request docs
+      // Writes are controlled by create/update/delete rules below
+      allow list: if false;
+
+      allow create: if signedIn()
+        && request.auth.uid == request.resource.data.fromUid
+        && request.resource.data.fromUid != request.resource.data.toUid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly(['fromUid', 'toUid', 'fromCode', 'toCode', 'fromName', 'toName', 'status', 'createdAt', 'updatedAt']);
+
+      allow update: if signedIn()
+        && resource != null
+        && (resource.data.fromUid == request.auth.uid ||
+            resource.data.toUid == request.auth.uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'createdAt'])
+        && request.resource.data.status in ['accepted', 'declined', 'cancelled', 'pending'];
+
+      // Allow sender to re-send existing request (set() may trigger update)
+      // Identity fields (fromUid, toUid) must not change; only allowed fields can be updated
+      allow update: if signedIn()
+        && resource.data.fromUid == request.auth.uid
+        && request.resource.data.fromUid == resource.data.fromUid
+        && request.resource.data.toUid == resource.data.toUid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly(['fromUid', 'toUid', 'fromCode', 'toCode', 'fromName', 'toName', 'status', 'createdAt', 'updatedAt']);
+
+      allow delete: if signedIn()
+        && resource != null
+        && (resource.data.fromUid == request.auth.uid ||
+            resource.data.toUid == request.auth.uid);
+    }
+
+    // Friend codes mapping
+    match /friendCodes/{code} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.auth.uid == request.resource.data.uid
+        && request.resource.data.code == code
+        && request.resource.data.keys().hasOnly(['uid', 'code', 'createdAt', 'updatedAt']);
+      allow update: if signedIn()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['code', 'updatedAt']);
+      allow delete: if false;
     }
 
     // Public profiles - searchable by code only
@@ -85,31 +167,34 @@ service cloud.firestore {
     // Shared plans - ONLY participants can read/write
     match /sharedPlans/{planId} {
       allow get: if signedIn() && isPlanParticipant(resource.data);
-      allow list: if signedIn() && isPlanParticipant(resource.data);
+      allow list: if false;
       allow create: if signedIn()
-        && request.resource.data.ownerUid == request.auth.uid
+        && (request.resource.data.createdBy == request.auth.uid || request.resource.data.ownerUid == request.auth.uid)
         && request.resource.data.participantUids is list
         && request.auth.uid in request.resource.data.participantUids
         && isValidPlanData(request.resource.data);
       allow update: if signedIn() && (
-        // Participant can update (but not remove other participants except themselves)
-        (isPlanParticipant(resource.data) &&
+        // Owner can update (must remain owner and participant)
+        (resource.data.createdBy == request.auth.uid &&
+         request.resource.data.createdBy == resource.data.createdBy &&
          request.resource.data.participantUids is list &&
-         request.auth.uid in request.resource.data.participantUids &&
-         request.resource.data.ownerUid == resource.data.ownerUid) ||
-        // Participant can remove themselves (leave plan)
-        (request.auth.uid in resource.data.participantUids &&
-         !(request.auth.uid in request.resource.data.participantUids) &&
-         request.resource.data.ownerUid == resource.data.ownerUid)
+         request.auth.uid in request.resource.data.participantUids) ||
+        // Participant can update but NOT change ownerId, ownerUid, createdBy, participantUids
+        (isPlanParticipant(resource.data) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'startDate', 'endDate', 'days', 'itinerary', 'itineraries', 'items', 'destinationIds', 'updatedAt', 'version']) &&
+         request.resource.data.createdBy == resource.data.createdBy &&
+         request.resource.data.participantUids == resource.data.participantUids)
       );
-      // Only owner can delete the entire plan
-      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow delete: if signedIn() && (
+        resource.data.createdBy == request.auth.uid ||
+        resource.data.ownerUid == request.auth.uid
+      );
     }
 
     // Notifications - private to recipient
     match /users/{userId}/notifications/{notificationId} {
       allow read: if isOwner(userId);
-      allow create: if isOwner(userId) || 
+      allow create: if isOwner(userId) ||
         (signedIn() && request.resource.data.toUid == userId);
       allow update: if isOwner(userId);
       allow delete: if isOwner(userId);

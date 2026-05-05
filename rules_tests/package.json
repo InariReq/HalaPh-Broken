@@ -1,0 +1,12 @@
+{
+  "name": "halaph-firestore-rules-tests",
+  "version": "1.0.0",
+  "description": "Firestore security rules tests for Halaph using Firebase Emulator",
+  "scripts": {
+    "test": "node test_firestore_rules.js"
+  },
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "firebase": "^12.0.0"
+  }
+}

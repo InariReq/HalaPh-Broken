@@ -49,3 +49,43 @@ app.*.map.json
 
 # Environment variables
 .env
+
+# Node
+node_modules/
+rules_tests/node_modules/
+
+# Firebase emulator logs
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
+
+# Backups
+*.bak
+*.bak2
+*.corrupted.js
+
+# Local audit/temp files
+AUDIT_REPORT.md
+rules_tests/insert_tests.js
+rules_tests/insert_update_tests.js
+rules_tests/insert_update_tests.py
+
+# Node
+node_modules/
+rules_tests/node_modules/
+
+# Firebase emulator logs
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
+
+# Backups
+*.bak
+*.bak2
+*.corrupted.js
+
+# Local audit/temp files
+AUDIT_REPORT.md
+rules_tests/insert_tests.js
+rules_tests/insert_update_tests.js
+rules_tests/insert_update_tests.py
