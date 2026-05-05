@@ -183,43 +183,30 @@ class DestinationService {
   }
 
   static Future<List<Destination>> searchDestinations(String? query) async {
-    // Start with popular malls
-    final List<Destination> allDestinations = [..._popularMalls];
-
     final trimmed = query?.trim() ?? '';
+    final queryLower = trimmed.toLowerCase();
+    final hasTypedQuery = trimmed.isNotEmpty;
     final location = await _getSearchLocation();
 
-    // Check if query is related to malls
-    final isMallQuery = trimmed.toLowerCase().contains('mall') ||
-        trimmed.toLowerCase().contains('shopping') ||
-        trimmed.toLowerCase().contains('sm ') ||
-        trimmed.toLowerCase().contains('ayala') ||
-        trimmed.toLowerCase().contains('robinsons') ||
-        trimmed.toLowerCase().contains('trinoma') ||
-        trimmed.toLowerCase().contains('megamall') ||
-        trimmed.toLowerCase().contains('glorietta') ||
-        trimmed.toLowerCase().contains('greenbelt') ||
-        trimmed.toLowerCase().contains('aura');
+    // Typed searches should come from Google Places, not hardcoded fallback data.
+    // Keep hardcoded malls only for empty/default discovery.
+    final List<Destination> allDestinations =
+        hasTypedQuery ? <Destination>[] : [..._popularMalls];
 
-    // Filter cached destinations by query
-    allDestinations.removeWhere((dest) {
-      final matchesQuery = dest.name.toLowerCase().contains(trimmed.toLowerCase()) ||
-          dest.location.toLowerCase().contains(trimmed.toLowerCase()) ||
-          dest.description.toLowerCase().contains(trimmed.toLowerCase()) ||
-          dest.tags.any((tag) => tag.toLowerCase().contains(trimmed.toLowerCase()));
+    final isMallQuery = queryLower.contains('mall') ||
+        queryLower.contains('shopping') ||
+        queryLower.contains('sm ') ||
+        queryLower.contains('ayala') ||
+        queryLower.contains('robinsons') ||
+        queryLower.contains('trinoma') ||
+        queryLower.contains('megamall') ||
+        queryLower.contains('glorietta') ||
+        queryLower.contains('greenbelt') ||
+        queryLower.contains('aura');
 
-      // Prioritize malls if query is mall-related
-      if (isMallQuery) {
-        return !matchesQuery && dest.category != DestinationCategory.malls;
-      }
-
-      return !matchesQuery;
-    });
-
-    // Also search via Google Places API
     try {
       final googleResults = await _searchPlaces(
-        query: trimmed.isEmpty ? 'tourist attractions in Manila' : trimmed,
+        query: hasTypedQuery ? trimmed : 'tourist attractions in Manila',
         location: location,
         limit: 24,
       ).timeout(_placesSearchTimeout, onTimeout: () => <Destination>[]);
@@ -229,11 +216,16 @@ class DestinationService {
       debugPrint('Google search error: $e');
     }
 
-    // Prioritize malls if query is mall-related
     if (isMallQuery) {
       allDestinations.sort((a, b) {
-        if (a.category == DestinationCategory.malls && b.category != DestinationCategory.malls) return -1;
-        if (a.category != DestinationCategory.malls && b.category == DestinationCategory.malls) return 1;
+        if (a.category == DestinationCategory.malls &&
+            b.category != DestinationCategory.malls) {
+          return -1;
+        }
+        if (a.category != DestinationCategory.malls &&
+            b.category == DestinationCategory.malls) {
+          return 1;
+        }
         return 0;
       });
     }
