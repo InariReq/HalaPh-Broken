@@ -612,32 +612,25 @@ class FriendService {
       return true;
     }
 
-    // 2. Check target user's reciprocal friend doc
-    debugPrint('friendRepair: checking reciprocal friend doc');
-    final theirFriendDoc = await FirebaseFirestore.instance
+    // 2. Skip reciprocal friend doc read - rules deny other user friend reads
+    debugPrint(
+        'friendRepair: skipping reciprocal friend doc read because rules deny other user friend reads');
+
+    // 3. Check current user mirror accepted request first
+    debugPrint('friendRepair: checking current mirror accepted request');
+    final mirrorRequestDoc = await FirebaseFirestore.instance
         .collection('users')
-        .doc(targetUid)
-        .collection('friends')
         .doc(currentUid)
+        .collection('friend_requests')
+        .doc(targetUid)
         .get();
 
-    if (theirFriendDoc.exists) {
-      debugPrint('friendRepair: already friends true (reciprocal doc exists)');
-      return true;
-    }
-
-    // 3. Check reverse accepted top-level request
-    debugPrint('friendRepair: checking reverse accepted request');
-    final reverseRequestId = '${targetUid}_$currentUid';
-    final reverseRequestDoc = await FirebaseFirestore.instance
-        .collection('friendRequests')
-        .doc(reverseRequestId)
-        .get();
-
-    if (reverseRequestDoc.exists) {
-      final data = reverseRequestDoc.data();
+    if (mirrorRequestDoc.exists) {
+      final data = mirrorRequestDoc.data();
+      debugPrint('friendRepair: current mirror status=${data?['status']}');
       if (data != null && data['status'] == 'accepted') {
-        debugPrint('friendRepair: reverse accepted found');
+        debugPrint(
+            'friendRepair: accepted mirror found, repairing friend docs');
         await FirestoreService.ensureFriendDocs(
           uidA: targetUid,
           uidB: currentUid,
@@ -647,6 +640,35 @@ class FriendService {
         debugPrint('friendRepair: ensureFriendDocs success');
         return true;
       }
+    }
+
+    // 4. Check reverse accepted top-level request (wrap in try/catch)
+    debugPrint('friendRepair: checking reverse accepted request');
+    try {
+      final reverseRequestId = '${targetUid}_$currentUid';
+      final reverseRequestDoc = await FirebaseFirestore.instance
+          .collection('friendRequests')
+          .doc(reverseRequestId)
+          .get();
+
+      if (reverseRequestDoc.exists) {
+        final data = reverseRequestDoc.data();
+        if (data != null && data['status'] == 'accepted') {
+          debugPrint(
+              'friendRepair: reverse accepted request found, repairing friend docs');
+          await FirestoreService.ensureFriendDocs(
+            uidA: targetUid,
+            uidB: currentUid,
+            codeA: targetCode,
+            codeB: myCode,
+          );
+          debugPrint('friendRepair: ensureFriendDocs success');
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint(
+          'friendRepair: reverse accepted request read failed, continuing');
     }
 
     debugPrint('friendRepair: already friends false');

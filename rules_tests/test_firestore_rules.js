@@ -294,6 +294,76 @@ describe('Firestore Security Rules Tests', function() {
     });
   });
 
+  describe('friends collection', function() {
+    beforeEach(async function() {
+      // Isolate tests by clearing Firestore state for this branch
+      await testEnv.clearFirestore();
+    });
+    const ownerUid = OWNER_UID;
+    const friendUid = STRANGER_UID;
+    const friendCode = 'AB-1234';
+
+    const friendPayload = {
+      uid: friendUid,
+      friendUid: friendUid,
+      friendId: friendUid,
+      code: friendCode,
+      name: 'Test Friend',
+      createdAt: serverTimestamp()
+    };
+
+    it('owner can create own friend doc', async function() {
+      const ownerDb = testEnv.authenticatedContext(ownerUid).firestore();
+      const friendRef = doc(ownerDb, 'users', ownerUid, 'friends', friendUid);
+      await assertSucceeds(setDoc(friendRef, friendPayload));
+    });
+
+    it('owner can read own friends', async function() {
+      const ownerDb = testEnv.authenticatedContext(ownerUid).firestore();
+      const friendRef = doc(ownerDb, 'users', ownerUid, 'friends', friendUid);
+      await setDoc(friendRef, friendPayload);
+      await assertSucceeds(getDoc(friendRef));
+    });
+
+    it("user cannot read another user's friends", async function() {
+      const ownerDb = testEnv.authenticatedContext(ownerUid).firestore();
+      const friendRef = doc(ownerDb, 'users', ownerUid, 'friends', friendUid);
+      await setDoc(friendRef, friendPayload);
+      const otherDb = testEnv.authenticatedContext(STRANGER_UID).firestore();
+      const otherRef = doc(otherDb, 'users', ownerUid, 'friends', friendUid);
+      await assertFails(getDoc(otherRef));
+    });
+
+    it('reciprocal create succeeds when auth uid == friendId', async function() {
+      const friendDb = testEnv.authenticatedContext(friendUid).firestore();
+      const reciprRef = doc(friendDb, 'users', ownerUid, 'friends', friendUid);
+      await assertSucceeds(setDoc(reciprRef, friendPayload));
+    });
+
+    it('reciprocal create denied when friendUid does not equal friendId', async function() {
+      const badPayload = { ...friendPayload, friendUid: 'wrongUid' };
+      const friendDb = testEnv.authenticatedContext(friendUid).firestore();
+      const reciprRef = doc(friendDb, 'users', ownerUid, 'friends', friendUid);
+      await assertFails(setDoc(reciprRef, badPayload));
+    });
+
+    it('reciprocal create denied when uid does not equal friendId', async function() {
+      const badPayload = { ...friendPayload, uid: 'wrongId' };
+      const friendDb = testEnv.authenticatedContext(friendUid).firestore();
+      const reciprRef = doc(friendDb, 'users', ownerUid, 'friends', friendUid);
+      await assertFails(setDoc(reciprRef, badPayload));
+    });
+
+    it('forbidden field is denied', async function() {
+      const ownerDb = testEnv.authenticatedContext(ownerUid).firestore();
+      const friendRef = doc(ownerDb, 'users', ownerUid, 'friends', friendUid);
+      await assertFails(setDoc(friendRef, {
+        ...friendPayload,
+        forbiddenField: 'should be denied'
+      }));
+    });
+  });
+
   describe('sharedPlans collection', function() {
     const planId = 'testPlan1';
 

@@ -258,26 +258,26 @@ class FirestoreService {
       final docARef =
           _db.collection('users').doc(uidA).collection('friends').doc(uidB);
       batch.set(docARef, {
-        'ownerUid': uidA,
+        'uid': uidB,
         'friendUid': uidB,
         'friendId': uidB,
         'name': nameB ?? 'Unknown',
         'code': codeB ?? '',
-        'role': 'Viewer',
         'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       // User B's friends collection: add User A
       final docBRef =
           _db.collection('users').doc(uidB).collection('friends').doc(uidA);
       batch.set(docBRef, {
-        'ownerUid': uidB,
+        'uid': uidA,
         'friendUid': uidA,
         'friendId': uidA,
         'name': nameA ?? 'Unknown',
         'code': codeA ?? '',
-        'role': 'Viewer',
         'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       await batch.commit();
@@ -549,6 +549,7 @@ class FirestoreService {
         'email': friend.email,
         'avatarUrl': friend.avatarUrl,
         'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
     }
 

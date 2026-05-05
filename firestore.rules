@@ -62,12 +62,36 @@ service cloud.firestore {
     // Friends collection - bidirectional
     match /users/{userId}/friends/{friendId} {
       allow read: if isOwner(userId);
-      allow create: if signedIn() && (
-        isOwner(userId) ||  // User adding someone to their list
-        (request.auth.uid == request.resource.data.friendUid &&
-         request.resource.data.friendId == userId)  // Friend adding user back
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'friendUid',
+          'friendId',
+          'uid',
+          'code',
+          'friendCode',
+          'name',
+          'avatarUrl',
+          'createdAt',
+          'updatedAt'
+        ])
+        && (
+          // Owner adding someone to their own friends list
+          (isOwner(userId) &&
+           request.resource.data.friendUid == friendId &&
+           request.resource.data.friendId == friendId &&
+           request.resource.data.uid == friendId) ||
+          // Reciprocal write: friend adding user back
+          (request.auth.uid == friendId &&
+           request.resource.data.friendUid == friendId &&
+           request.resource.data.friendId == friendId &&
+           request.resource.data.uid == friendId)
+        );
+
+      allow update: if isOwner(userId) && (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'code', 'friendCode', 'avatarUrl', 'updatedAt'])
       );
-      allow update: if isOwner(userId);
+
       allow delete: if signedIn() && (
         isOwner(userId) ||
         request.auth.uid == resource.data.friendUid
