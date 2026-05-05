@@ -324,27 +324,66 @@ class SimplePlanService {
     final existing = _plans[planId];
     if (existing == null) return false;
 
-    final normalized = <String>{existing.createdBy}..addAll(
-        participantUids
-            .where((id) => id.trim().isNotEmpty)
-            .map((id) => id.trim()),
-      );
+    final ownerUid =
+        _ownerUids[planId] ?? _currentUserId() ?? existing.createdBy;
+    final selectedParticipants = participantUids
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toList();
+    final collaboratorCodes = selectedParticipants
+        .where(_isFriendCode)
+        .map(_normalizeCode)
+        .toSet()
+        .toList();
+
+    final pending = TravelPlan(
+      id: existing.id,
+      title: existing.title,
+      startDate: existing.startDate,
+      endDate: existing.endDate,
+      participantUids: <String>{ownerUid, ...selectedParticipants}.toList(),
+      createdBy: ownerUid,
+      itinerary: existing.itinerary,
+      isShared: selectedParticipants.isNotEmpty,
+      bannerImage: existing.bannerImage,
+      collaboratorUids: collaboratorCodes,
+    );
+
+    final resolvedParticipantUids = await _resolveRemoteParticipants(
+      plan: pending,
+      ownerUid: ownerUid,
+      currentUid: _currentUserId() ?? ownerUid,
+    );
 
     final updated = TravelPlan(
       id: existing.id,
       title: existing.title,
       startDate: existing.startDate,
       endDate: existing.endDate,
-      participantUids: normalized.toList(),
-      createdBy: existing.createdBy,
+      participantUids: resolvedParticipantUids,
+      createdBy: ownerUid,
       itinerary: existing.itinerary,
-      isShared: normalized.length > 1,
+      isShared: resolvedParticipantUids.length > 1,
       bannerImage: existing.bannerImage,
+      collaboratorUids: collaboratorCodes,
     );
 
     try {
       await _saveRemotePlan(updated);
-      _plans[planId] = updated;
+      final remoteParticipantUids =
+          _participantUids[planId] ?? resolvedParticipantUids;
+      _plans[planId] = TravelPlan(
+        id: updated.id,
+        title: updated.title,
+        startDate: updated.startDate,
+        endDate: updated.endDate,
+        participantUids: remoteParticipantUids,
+        createdBy: updated.createdBy,
+        itinerary: updated.itinerary,
+        isShared: remoteParticipantUids.length > 1,
+        bannerImage: updated.bannerImage,
+        collaboratorUids: collaboratorCodes,
+      );
       _notifyChanged();
       return true;
     } catch (error) {
@@ -750,29 +789,58 @@ class SimplePlanService {
       }.toList();
     }
 
-    final participantCodes = plan.participantUids
-        .map(_normalizeCode)
-        .where((code) => code.isNotEmpty)
-        .toSet();
+    final participantCodes =
+        plan.participantUids.map(_normalizeCode).where(_isFriendCode).toSet();
     final creatorCode = _normalizeCode(plan.createdBy);
     final collaboratorCodes =
         participantCodes.where((code) => code != creatorCode).toList();
 
     if (collaboratorCodes.isEmpty) {
-      return <String>[ownerUid];
+      return mergeResolvedParticipantsForTesting(
+        ownerUid: ownerUid,
+        selectedParticipants: plan.participantUids,
+        resolvedCodeUids: const <String>[],
+      );
     }
 
     try {
       final resolved = await FriendService()
           .resolveParticipantUids(participantCodes)
           .timeout(const Duration(seconds: 6));
-      return <String>{...resolved, ownerUid}.toList();
+      return mergeResolvedParticipantsForTesting(
+        ownerUid: ownerUid,
+        selectedParticipants: plan.participantUids,
+        resolvedCodeUids: resolved,
+      );
     } catch (e) {
       debugPrint('Failed to resolve some participants: $e');
       // Fallback: use existing resolved UIDs from Firebase if available
       final existingUids = _participantUids[plan.id] ?? <String>[];
-      return <String>{...existingUids, ownerUid}.toList();
+      return mergeResolvedParticipantsForTesting(
+        ownerUid: ownerUid,
+        selectedParticipants: existingUids,
+        resolvedCodeUids: const <String>[],
+      );
     }
+  }
+
+  @visibleForTesting
+  static List<String> mergeResolvedParticipantsForTesting({
+    required String ownerUid,
+    required Iterable<String> selectedParticipants,
+    required Iterable<String> resolvedCodeUids,
+  }) {
+    final merged = <String>{ownerUid.trim()};
+    for (final participant in selectedParticipants) {
+      final trimmed = participant.trim();
+      if (trimmed.isEmpty || _isFriendCode(trimmed)) continue;
+      merged.add(trimmed);
+    }
+    for (final uid in resolvedCodeUids) {
+      final trimmed = uid.trim();
+      if (trimmed.isNotEmpty) merged.add(trimmed);
+    }
+    return merged.where((uid) => uid.isNotEmpty).toList();
   }
 
   static Future<bool> _deleteRemotePlan(String id) async {
@@ -1146,6 +1214,10 @@ class SimplePlanService {
       return '${compact.substring(0, 2)}-${compact.substring(2)}';
     }
     return code.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '');
+  }
+
+  static bool _isFriendCode(String value) {
+    return RegExp(r'^[A-Z]{2}-\d{4}$').hasMatch(_normalizeCode(value));
   }
 
   static String? _firstDestinationImage(List<DayItinerary> itinerary) {

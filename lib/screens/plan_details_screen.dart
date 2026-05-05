@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:halaph/models/friend.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/friend_service.dart';
@@ -26,6 +27,30 @@ class PlanDetailsScreen extends StatefulWidget {
 
   const PlanDetailsScreen({super.key, this.planId});
 
+  @visibleForTesting
+  static List<String> collaboratorCodesForParticipants({
+    required Iterable<String> participantUids,
+    required String ownerUid,
+    required Iterable<Friend> friends,
+  }) {
+    final participantSet = participantUids
+        .map((uid) => uid.trim())
+        .where((uid) => uid.isNotEmpty && uid != ownerUid)
+        .toSet();
+
+    final codes = <String>[];
+    for (final friend in friends) {
+      final friendUid = friend.uid?.trim();
+      final friendCode = friend.code.trim();
+      if (friendCode.isEmpty) continue;
+      if ((friendUid != null && participantSet.contains(friendUid)) ||
+          participantSet.contains(friendCode)) {
+        codes.add(friendCode);
+      }
+    }
+    return codes.toSet().toList();
+  }
+
   @override
   State<PlanDetailsScreen> createState() => _PlanDetailsScreenState();
 }
@@ -49,38 +74,61 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Future<void> _loadPlan() async {
+    if (widget.planId == null || widget.planId!.trim().isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _plan = null;
+        _isLoading = false;
+      });
+      return;
+    }
+
     try {
       unawaited(_friendService.getMyCode());
       await SimplePlanService.initialize().timeout(const Duration(seconds: 10));
 
-      if (widget.planId != null) {
-        _plan = SimplePlanService.getPlanById(widget.planId!);
+      _plan = SimplePlanService.getPlanById(widget.planId!);
 
-        if (_plan == null) {
+      if (_plan == null) {
+        try {
           final myCode = await _friendService.getMyCode().catchError((_) => '');
           _plan = await SimplePlanService.joinSharedPlan(
             widget.planId!,
             participantCode: myCode,
           ).timeout(const Duration(seconds: 10), onTimeout: () => null);
+        } catch (e) {
+          // Handle permission denied or other Firestore errors
+          debugPrint('Plan access error: $e');
+          if (!mounted) return;
+          setState(() {
+            _plan = null;
+            _isLoading = false;
+          });
+          final errorString = e.toString();
+          if (errorString.contains('permission-denied') ||
+              errorString.contains('permission-denied')) {
+            _showError('You do not have permission to view this plan.');
+          }
+          return;
         }
+      }
 
-        if (_plan != null) {
-          _titleController.text = _plan!.title;
-          _startDate = _plan!.startDate;
-          _endDate = _plan!.endDate;
+      if (_plan != null) {
+        _titleController.text = _plan!.title;
+        _startDate = _plan!.startDate;
+        _endDate = _plan!.endDate;
 
-          _itinerary = {};
-          _destinationTimes = {};
+        _itinerary = {};
+        _destinationTimes = {};
 
-          for (final dayIt in _plan!.itinerary) {
-            final dayNum = dayIt.date.difference(_plan!.startDate).inDays + 1;
-            _itinerary[dayNum] = dayIt.items.map((i) => i.destination).toList();
+        for (final dayIt in _plan!.itinerary) {
+          final dayNum = dayIt.date.difference(_plan!.startDate).inDays + 1;
+          _itinerary[dayNum] = dayIt.items.map((i) => i.destination).toList();
 
-            for (final item in dayIt.items) {
-              _destinationTimes[item.destination.id] = _formatTimeOfDay(
-                item.startTime,
-              );
-            }
+          for (final item in dayIt.items) {
+            _destinationTimes[item.destination.id] = _formatTimeOfDay(
+              item.startTime,
+            );
           }
         }
       }
@@ -96,9 +144,14 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
   Future<void> _manageCollaborators() async {
     if (_plan == null) return;
-    final initiallySelected = _plan!.participantIds
-        .where((id) => id != _plan!.createdBy)
-        .toList();
+    final friends = await _friendService.getFriends();
+    if (!mounted) return;
+    final initiallySelected =
+        PlanDetailsScreen.collaboratorCodesForParticipants(
+      participantUids: _plan!.participantUids,
+      ownerUid: _plan!.createdBy,
+      friends: friends,
+    );
     final selected = await Navigator.push<List<String>>(
       context,
       MaterialPageRoute(
@@ -116,7 +169,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         .toList();
     final success = await SimplePlanService.updatePlanParticipants(
       planId: _plan!.id,
-      participantIds: selectedCodes,
+      participantUids: selectedCodes,
     );
     if (!mounted) return;
     if (!success) {
@@ -162,9 +215,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         title: _titleController.text.trim(),
         startDate: _startDate,
         endDate: _endDate,
-        destinations: _itinerary.values
-            .expand((destinations) => destinations)
-            .toList(),
+        destinations:
+            _itinerary.values.expand((destinations) => destinations).toList(),
         bannerImage: _plan!.bannerImage,
       );
 
@@ -238,17 +290,21 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               onPressed: _plan == null
                   ? null
                   : () => context.push(
-                      '/share-plan?planId=${Uri.encodeComponent(_plan!.id)}',
-                    ),
+                        '/share-plan?planId=${Uri.encodeComponent(_plan!.id)}',
+                      ),
             ),
-          if (!_isEditing && _plan != null && SimplePlanService.isPlanOwner(_plan!.id))
+          if (!_isEditing &&
+              _plan != null &&
+              SimplePlanService.isPlanOwner(_plan!.id))
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.red),
               onPressed: () {
                 _showPlanDeleteConfirmation();
               },
             ),
-          if (!_isEditing && _plan != null && SimplePlanService.isPlanParticipant(_plan!.id))
+          if (!_isEditing &&
+              _plan != null &&
+              SimplePlanService.isPlanParticipant(_plan!.id))
             TextButton(
               onPressed: _leavePlan,
               child: const Text('Leave', style: TextStyle(color: Colors.red)),
@@ -435,7 +491,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withValues(alpha: 0.4)],
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.4)
+                ],
               ),
             ),
             child: Padding(
@@ -536,7 +595,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   Text(
                     _plan == null
                         ? 'Add Friends'
-                        : 'Friends (${(_plan!.participantIds.toSet().length - 1).clamp(0, 99)})',
+                        : 'Friends (${(_plan!.participantUids.toSet().length - 1).clamp(0, 99)})',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                 ],
@@ -667,8 +726,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     return Column(
       children: _itinerary.keys.map((dayNumber) {
         final destinations = _itinerary[dayNumber]!;
-        final dayDate =
-            _plan?.startDate.add(Duration(days: dayNumber - 1)) ??
+        final dayDate = _plan?.startDate.add(Duration(days: dayNumber - 1)) ??
             DateTime.now();
 
         return Padding(
@@ -729,9 +787,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       margin: const EdgeInsets.only(bottom: 16),
                       height: isHovering ? 60 : 40,
                       decoration: BoxDecoration(
-                        color: isHovering
-                            ? Colors.blue[50]
-                            : Colors.transparent,
+                        color:
+                            isHovering ? Colors.blue[50] : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                         border: isHovering
                             ? Border.all(color: Colors.blue[300]!)
@@ -741,9 +798,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                         child: Icon(
                           Icons.add,
                           size: 24,
-                          color: isHovering
-                              ? Colors.blue[600]
-                              : Colors.grey[400],
+                          color:
+                              isHovering ? Colors.blue[600] : Colors.grey[400],
                         ),
                       ),
                     );
@@ -1285,8 +1341,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       hour: isPM && hour < 12
           ? hour + 12
           : (hour == 12 && !isPM)
-          ? 0
-          : hour,
+              ? 0
+              : hour,
       minute: minute,
     );
 
