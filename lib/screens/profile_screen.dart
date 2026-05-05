@@ -76,6 +76,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   StreamSubscription<void>? _favoritesSubscription;
   User? _user;
   String? _myCode;
+  bool _isUploadingProfilePicture = false;
   @override
   void initState() {
     super.initState();
@@ -401,8 +402,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
             TextButton(
-              onPressed:
-                  widget.onViewAllFavoritesTap ??
+              onPressed: widget.onViewAllFavoritesTap ??
                   () {
                     GoRouter.of(context).push('/favorites');
                   },
@@ -452,8 +452,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           height: 82,
                           width: double.infinity,
                           color: Colors.grey[200],
-                          child:
-                              favorite.imageUrl != null &&
+                          child: favorite.imageUrl != null &&
                                   favorite.imageUrl!.startsWith('http')
                               ? Image.network(
                                   favorite.imageUrl!,
@@ -530,8 +529,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed:
-            widget.onTripHistoryTap ??
+        onPressed: widget.onTripHistoryTap ??
             () {
               GoRouter.of(context).go('/my-plans');
             },
@@ -650,29 +648,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _pickAndUploadProfilePicture() async {
+    if (_isUploadingProfilePicture) return;
+
+    setState(() => _isUploadingProfilePicture = true);
+
     try {
       final picker = ImagePicker();
       final XFile? image = await picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 512,
         maxHeight: 512,
-        imageQuality: 85,
       );
 
       if (image == null || !mounted) return;
 
       final user = await _auth.getCurrentUser();
-      if (user == null) return;
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+                  Text('Please log in before updating your profile photo.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
 
       try {
-        final fileName =
-            'profile_${_user?.email ?? 'user'}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final imageBytes = await image.readAsBytes();
+        final contentType = _contentTypeForPickedImage(image);
+        final extension = _extensionForContentType(contentType);
+        final fileName = _profilePictureFileName(user, extension);
+
         final storageRef = FirebaseStorage.instance
             .ref()
             .child('profile_pictures')
             .child(fileName);
 
-        await storageRef.putData(await image.readAsBytes());
+        await storageRef.putData(
+          imageBytes,
+          SettableMetadata(contentType: contentType),
+        );
         final downloadUrl = await storageRef.getDownloadURL();
 
         final updatedUser = await _auth.updateProfile(avatarUrl: downloadUrl);
@@ -681,6 +699,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _user = updatedUser;
           });
           await _friendService.ensurePublicProfilePublished();
+          await _loadUser();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -691,13 +710,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
         }
       } on FirebaseException catch (e) {
-        if (e.code == 'storage/bucket-not-found' ||
-            e.code == 'storage/unauthorized') {
+        final code = e.code.toLowerCase();
+        if (code.contains('bucket-not-found') ||
+            code.contains('unauthorized') ||
+            code.contains('permission-denied')) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text(
-                  'Firebase Storage not set up. Please enable it in Firebase Console.',
+                  'Firebase Storage is not ready or permission was denied.',
                 ),
                 backgroundColor: Colors.orange,
                 duration: Duration(seconds: 4),
@@ -717,7 +738,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingProfilePicture = false);
+      }
     }
+  }
+
+  String _contentTypeForPickedImage(XFile image) {
+    final name = image.name.toLowerCase();
+    final path = image.path.toLowerCase();
+    if (name.endsWith('.png') || path.endsWith('.png')) {
+      return 'image/png';
+    }
+    if (name.endsWith('.heic') ||
+        path.endsWith('.heic') ||
+        name.endsWith('.heif') ||
+        path.endsWith('.heif')) {
+      return 'image/heic';
+    }
+    return 'image/jpeg';
+  }
+
+  String _extensionForContentType(String contentType) {
+    switch (contentType) {
+      case 'image/png':
+        return 'png';
+      case 'image/heic':
+        return 'heic';
+      default:
+        return 'jpg';
+    }
+  }
+
+  String _profilePictureFileName(User user, String extension) {
+    final identity = (user.email.isNotEmpty ? user.email : 'user')
+        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+    final timestamp = DateTime.now().microsecondsSinceEpoch;
+    return 'profile_${identity}_$timestamp.$extension';
   }
 
   @override
