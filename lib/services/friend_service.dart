@@ -278,43 +278,53 @@ class FriendService {
   }
 
   Future<void> removeFriend(String friendId) async {
-    final currentUid = await _currentUserId();
-    if (currentUid == null) return;
+    final userId = await _currentUserId();
+    if (userId == null) return;
 
     final friends = await getFriends();
-    final removedFriend =
-        friends.where((friend) => friend.id == friendId).firstOrNull;
-
-    // Remove from my friends list
-    friends.removeWhere((friend) => friend.id == friendId);
-    await _saveFriends(friends);
-
-    // Bidirectional removal - remove myself from their friends list too
-    final friendUid = removedFriend?.uid ?? friendId;
-    if (friendUid.isNotEmpty) {
-      try {
-        debugPrint('Removing self from $friendUid\'s friends list');
-        await FirestoreService.removeFriend(friendUid, currentUid);
-        debugPrint('Successfully removed self from friend\'s list');
-      } catch (e) {
-        debugPrint('Failed to remove self from friend\'s list: $e');
+    Friend? targetFriend;
+    for (final friend in friends) {
+      if (friend.id == friendId || friend.uid == friendId) {
+        targetFriend = friend;
+        break;
       }
     }
 
-    try {
-      debugPrint('Checking for pending friend requests to clean up');
-      // Remove any request I sent to them
-      await FirestoreService.removeFriendRequest(friendUid, currentUid);
-    } catch (_) {
-      // Ignore if no request exists
-    }
+    final targetUid = targetFriend?.uid?.trim().isNotEmpty == true
+        ? targetFriend!.uid!.trim()
+        : friendId.trim();
+
+    if (targetUid.isEmpty) return;
+
+    final db = FirebaseFirestore.instance;
+
+    await db
+        .collection('users')
+        .doc(userId)
+        .collection('friends')
+        .doc(targetUid)
+        .delete();
 
     try {
-      // Remove any request they sent to me
-      await FirestoreService.removeFriendRequest(currentUid, friendUid);
-    } catch (_) {
-      // Ignore if no request exists
+      await db
+          .collection('users')
+          .doc(targetUid)
+          .collection('friends')
+          .doc(userId)
+          .delete();
+    } catch (error) {
+      debugPrint('Reciprocal friend delete skipped: $error');
     }
+
+    _cachedFriends = friends
+        .where(
+          (friend) =>
+              friend.id != friendId &&
+              friend.uid != friendId &&
+              friend.id != targetUid &&
+              friend.uid != targetUid,
+        )
+        .toList();
   }
 
   Future<List<String>> getPublicFavoriteIds(Friend friend) async {
