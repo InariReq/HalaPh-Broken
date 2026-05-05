@@ -38,8 +38,24 @@ class FriendService {
     final userId = await _currentUserId();
     if (userId == null) return 'HP-0000';
 
+    final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    final seed = firebaseUser?.email ?? firebaseUser?.displayName ?? 'traveler';
+
     if (_cachedUserId == userId && _cachedCode != null) {
-      return _cachedCode!;
+      final claimedCode = await _claimOrGenerateAvailableCode(
+        preferredCode: _cachedCode!,
+        uid: userId,
+        seed: seed,
+      );
+      if (claimedCode == _cachedCode) {
+        return _cachedCode!;
+      }
+      _cachedCode = claimedCode;
+      await RemoteSyncService.instance.saveNamespace('profile', {
+        'code': claimedCode,
+      });
+      await _publishPublicProfile(claimedCode);
+      return claimedCode;
     }
 
     final remoteProfile = await RemoteSyncService.instance.loadNamespace(
@@ -48,22 +64,79 @@ class FriendService {
     final remoteCode = remoteProfile?['code'] as String?;
     if (remoteCode != null && remoteCode.isNotEmpty) {
       final normalizedCode = _normalizeCode(remoteCode);
+      final claimedCode = await _claimOrGenerateAvailableCode(
+        preferredCode: normalizedCode,
+        uid: userId,
+        seed: seed,
+      );
       _cachedUserId = userId;
-      _cachedCode = normalizedCode;
-      await _publishPublicProfile(normalizedCode);
-      return normalizedCode;
+      _cachedCode = claimedCode;
+      if (claimedCode != normalizedCode) {
+        await RemoteSyncService.instance.saveNamespace('profile', {
+          'code': claimedCode,
+        });
+      }
+      await _publishPublicProfile(claimedCode);
+      return claimedCode;
     }
 
-    final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
-    final seed = firebaseUser?.email ?? firebaseUser?.displayName ?? 'traveler';
     final generated = _generateCode(seed, firebaseUser?.uid);
+    final claimedCode = await _claimOrGenerateAvailableCode(
+      preferredCode: generated,
+      uid: userId,
+      seed: seed,
+    );
     _cachedUserId = userId;
-    _cachedCode = generated;
+    _cachedCode = claimedCode;
     await RemoteSyncService.instance.saveNamespace('profile', {
-      'code': generated,
+      'code': claimedCode,
     });
-    await _publishPublicProfile(generated);
-    return generated;
+    await _publishPublicProfile(claimedCode);
+    return claimedCode;
+  }
+
+  Future<String> _claimOrGenerateAvailableCode({
+    required String preferredCode,
+    required String uid,
+    required String seed,
+  }) async {
+    var candidate = _normalizeCode(preferredCode);
+
+    for (var attempt = 0; attempt < 50; attempt++) {
+      if (candidate.isEmpty || candidate == 'HP-0000') {
+        candidate = _generateCode('$seed-$attempt', uid);
+      }
+
+      final docRef =
+          FirebaseFirestore.instance.collection('friendCodes').doc(candidate);
+      final doc = await docRef.get();
+
+      if (!doc.exists) {
+        await docRef.set({
+          'uid': uid,
+          'code': candidate,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        return candidate;
+      }
+
+      final existingUid = doc.data()?['uid'] as String?;
+      if (existingUid == uid) {
+        final existingCode = doc.data()?['code'] as String?;
+        if (existingCode != candidate) {
+          await docRef.update({
+            'code': candidate,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+        return candidate;
+      }
+
+      candidate = _generateCode('$seed-$uid-$attempt', uid);
+    }
+
+    throw Exception('Could not generate an available friend code.');
   }
 
   /// Ensure friend code exists in friendCodes collection

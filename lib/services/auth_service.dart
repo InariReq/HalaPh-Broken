@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:halaph/models/user.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/firebase_app_service.dart';
+import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 
 class AuthService {
@@ -33,6 +34,7 @@ class AuthService {
 
     final firebaseUser = await _signInWithFirebase(email, password);
     if (firebaseUser != null) {
+      await _ensureFriendIdentity();
       return _toAppUser(firebaseUser);
     }
     return null;
@@ -47,9 +49,18 @@ class AuthService {
 
     final firebaseUser = await _registerWithFirebase(email, password, name);
     if (firebaseUser != null) {
+      await _ensureFriendIdentity();
       return _toAppUser(firebaseUser, fallbackName: name);
     }
     return null;
+  }
+
+  Future<void> _ensureFriendIdentity() async {
+    try {
+      await FriendService().ensureFriendCodeExists();
+    } catch (error) {
+      debugPrint('Friend identity setup failed: $error');
+    }
   }
 
   Future<String> getCurrentUserIdentifier() async {
