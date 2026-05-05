@@ -926,6 +926,8 @@ class FriendService {
         toCode: code,
         fromName: fromName,
         toName: toName,
+        fromAvatarUrl:
+            firebase_auth.FirebaseAuth.instance.currentUser?.photoURL,
       ).timeout(const Duration(seconds: 8));
 
       debugPrint('Friend request sent successfully');

@@ -136,6 +136,8 @@ class FirestoreService {
     required String toCode,
     String? fromName,
     String? toName,
+    String? fromAvatarUrl,
+    String? toAvatarUrl,
   }) {
     final requestData = <String, dynamic>{
       'fromUid': fromUid,
@@ -155,6 +157,17 @@ class FirestoreService {
     if (usableToName != null) {
       requestData['toName'] = usableToName;
     }
+
+    final usableFromAvatarUrl = fromAvatarUrl?.trim();
+    if (usableFromAvatarUrl != null && usableFromAvatarUrl.isNotEmpty) {
+      requestData['fromAvatarUrl'] = usableFromAvatarUrl;
+    }
+
+    final usableToAvatarUrl = toAvatarUrl?.trim();
+    if (usableToAvatarUrl != null && usableToAvatarUrl.isNotEmpty) {
+      requestData['toAvatarUrl'] = usableToAvatarUrl;
+    }
+
     return requestData;
   }
 
@@ -166,6 +179,8 @@ class FirestoreService {
     required String toCode,
     String? fromName,
     String? toName,
+    String? fromAvatarUrl,
+    String? toAvatarUrl,
   }) {
     return _friendRequestPayload(
       fromUid: fromUid,
@@ -174,6 +189,8 @@ class FirestoreService {
       toCode: toCode,
       fromName: fromName,
       toName: toName,
+      fromAvatarUrl: fromAvatarUrl,
+      toAvatarUrl: toAvatarUrl,
     );
   }
 
@@ -181,6 +198,7 @@ class FirestoreService {
     required String uid,
     required String code,
     required String? name,
+    String? avatarUrl,
   }) {
     final data = <String, dynamic>{
       'uid': uid,
@@ -194,6 +212,12 @@ class FirestoreService {
     if (usableName != null) {
       data['name'] = usableName;
     }
+
+    final usableAvatarUrl = avatarUrl?.trim();
+    if (usableAvatarUrl != null && usableAvatarUrl.isNotEmpty) {
+      data['avatarUrl'] = usableAvatarUrl;
+    }
+
     return data;
   }
 
@@ -202,8 +226,14 @@ class FirestoreService {
     required String uid,
     required String code,
     required String? name,
+    String? avatarUrl,
   }) {
-    return _friendDocPayload(uid: uid, code: code, name: name);
+    return _friendDocPayload(
+      uid: uid,
+      code: code,
+      name: name,
+      avatarUrl: avatarUrl,
+    );
   }
 
   /// Validate immutable fields are not changed
@@ -303,6 +333,8 @@ class FirestoreService {
     required String toCode,
     String? fromName,
     String? toName,
+    String? fromAvatarUrl,
+    String? toAvatarUrl,
   }) async {
     debugPrint(
         '### ENTERED FirestoreService.sendFriendRequest ACTIVE METHOD ###');
@@ -319,6 +351,8 @@ class FirestoreService {
       toCode: toCode,
       fromName: fromName,
       toName: toName,
+      fromAvatarUrl: fromAvatarUrl,
+      toAvatarUrl: toAvatarUrl,
     );
 
     try {
@@ -373,6 +407,8 @@ class FirestoreService {
     String? codeA,
     String? nameB,
     String? codeB,
+    String? avatarA,
+    String? avatarB,
   }) async {
     try {
       final batch = _db.batch();
@@ -386,6 +422,7 @@ class FirestoreService {
           uid: uidB,
           code: codeB ?? '',
           name: nameB,
+          avatarUrl: avatarB,
         ),
         SetOptions(merge: true),
       );
@@ -399,6 +436,7 @@ class FirestoreService {
           uid: uidA,
           code: codeA ?? '',
           name: nameA,
+          avatarUrl: avatarA,
         ),
         SetOptions(merge: true),
       );
@@ -453,13 +491,18 @@ class FirestoreService {
             await _publicProfileNameByCode(fromCode);
         final toName = _usableName(data?['toName'] as String?) ??
             await _currentUserBestEffortName(code: toCode);
+        final fromAvatarUrl = data?['fromAvatarUrl'] as String?;
+        final toAvatarUrl =
+            firebase_auth.FirebaseAuth.instance.currentUser?.photoURL;
         await ensureFriendDocs(
           uidA: fromUid,
           uidB: toUid,
           nameA: fromName,
           codeA: fromCode,
+          avatarA: fromAvatarUrl,
           nameB: toName,
           codeB: toCode,
+          avatarB: toAvatarUrl,
         );
       }
 
