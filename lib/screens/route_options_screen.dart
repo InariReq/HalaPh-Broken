@@ -417,6 +417,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
               modeName: fare.modeName,
               origin: _origin!,
               destination: _destination!,
+              destinationName: widget.destinationName,
               polyline: fare.polyline,
               steps: fare.steps,
               fare: fare.fare,

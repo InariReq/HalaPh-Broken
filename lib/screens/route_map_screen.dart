@@ -9,6 +9,7 @@ class RouteMapScreen extends StatefulWidget {
   final String modeName;
   final LatLng origin;
   final LatLng destination;
+  final String destinationName;
   final String polyline;
   final List<Map<String, dynamic>> steps;
   final double fare;
@@ -20,6 +21,7 @@ class RouteMapScreen extends StatefulWidget {
     required this.modeName,
     required this.origin,
     required this.destination,
+    required this.destinationName,
     required this.polyline,
     required this.steps,
     required this.fare,
@@ -202,7 +204,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
             maxChildSize: 0.72,
             builder: (context, scrollController) {
               final hasSteps = widget.steps.isNotEmpty;
-              final itemCount = hasSteps ? widget.steps.length + 2 : 3;
+              final itemCount = hasSteps ? widget.steps.length + 3 : 4;
 
               return Container(
                 decoration: BoxDecoration(
@@ -368,6 +370,10 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                       );
                     }
 
+                    if (index == 2) {
+                      return _buildRouteGuidanceCard();
+                    }
+
                     if (!hasSteps) {
                       return Padding(
                         padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
@@ -397,7 +403,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                       );
                     }
 
-                    final stepIndex = index - 2;
+                    final stepIndex = index - 3;
                     final step = widget.steps[stepIndex];
                     final instruction =
                         step['html_instructions'] as String? ?? '';
@@ -564,6 +570,170 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  String get _destinationLabel {
+    final value = widget.destinationName.trim();
+    return value.isEmpty ? 'your destination' : value;
+  }
+
+  String _firstTransitLineName() {
+    for (final step in widget.steps) {
+      final transitDetails = step['transit_details'] as Map<String, dynamic>?;
+      final line = transitDetails?['line'] as Map<String, dynamic>?;
+      final lineName = (line?['short_name'] ?? line?['name'] ?? '').toString();
+      if (lineName.trim().isNotEmpty) return lineName.trim();
+    }
+    return '';
+  }
+
+  String _routeDirectionInstruction(String lineName) {
+    final destination = _destinationLabel;
+
+    switch (widget.mode) {
+      case TravelMode.jeepney:
+        if (lineName.isNotEmpty) {
+          return 'Ride the $lineName route heading toward $destination.';
+        }
+        return 'Look for a jeepney signboard heading toward $destination. Confirm with the driver that it passes your drop-off before boarding.';
+      case TravelMode.bus:
+        if (lineName.isNotEmpty) {
+          return 'Ride the $lineName bus route heading toward $destination.';
+        }
+        return 'Look for a bus route heading toward $destination or the nearest terminal. Confirm the drop-off point with the conductor before boarding.';
+      case TravelMode.train:
+        if (lineName.isNotEmpty) {
+          return 'Take $lineName toward the station serving $destination.';
+        }
+        return 'Take the MRT/LRT line toward the station nearest $destination, then use the last-mile ride shown in the fare breakdown.';
+      case TravelMode.fx:
+        if (lineName.isNotEmpty) {
+          return 'Ride the $lineName FX/UV route heading toward $destination.';
+        }
+        return 'Look for an FX/UV terminal route heading toward $destination. Confirm the terminal and drop-off point before boarding.';
+      case TravelMode.walking:
+        return 'Walk toward $destination using the map preview and available step list.';
+    }
+  }
+
+  List<String> _routeDirectionNotes(String lineName) {
+    if (lineName.isNotEmpty) {
+      return [
+        'Use this route or line name when checking the vehicle signboard.',
+        'Follow the listed boarding and alighting stops when the step list provides them.',
+      ];
+    }
+
+    switch (widget.mode) {
+      case TravelMode.jeepney:
+        return [
+          'Use the destination area as your signboard guide.',
+          'Ask if the jeepney passes your exact drop-off before paying.',
+        ];
+      case TravelMode.bus:
+        return [
+          'Use the destination area or nearest terminal as your route direction.',
+          'Ask the conductor where to alight for the closest transfer or destination point.',
+        ];
+      case TravelMode.train:
+        return [
+          'Use the rail line and station direction available in the station signboards.',
+          'After alighting, follow the last-mile ride estimate in the fare breakdown.',
+        ];
+      case TravelMode.fx:
+        return [
+          'Use the terminal or destination area written on the FX/UV signboard.',
+          'Confirm the exact drop-off point before boarding.',
+        ];
+      case TravelMode.walking:
+        return [
+          'Follow safe pedestrian paths where available.',
+          'Use the map preview for orientation.',
+        ];
+    }
+  }
+
+  Widget _buildRouteGuidanceCard() {
+    final lineName = _firstTransitLineName();
+    final instruction = _routeDirectionInstruction(lineName);
+    final notes = _routeDirectionNotes(lineName);
+    final hasExactLine = lineName.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: _getModeColor().withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _getModeColor().withValues(alpha: 0.22),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.signpost_rounded, color: _getModeColor()),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    hasExactLine
+                        ? 'Specific route to look for'
+                        : 'Route direction to look for',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              instruction,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ...notes.map(
+              (note) => Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.check_circle_rounded,
+                      size: 14,
+                      color: _getModeColor(),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        note,
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.3,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
