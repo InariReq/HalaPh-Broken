@@ -17,7 +17,7 @@ class FavoritesScreen extends StatefulWidget {
 
 class _FavoritesScreenState extends State<FavoritesScreen>
     with WidgetsBindingObserver {
-  static const Color _background = Color(0xFFF8F9FA);
+  static const Color _background = Color(0xFF0B1120);
   static const Color _primary = Color(0xFF2196F3);
   static const Color _primaryDark = Color(0xFF1976D2);
   static const Color _textPrimary = Color(0xFF1F2933);
@@ -84,9 +84,9 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: _background,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         surfaceTintColor: _background,
         elevation: 0,
         title: Text(
@@ -98,13 +98,13 @@ class _FavoritesScreenState extends State<FavoritesScreen>
         ),
         leading: Navigator.of(context).canPop()
             ? IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: _textPrimary),
+                icon: Icon(Icons.arrow_back_rounded, color: _textPrimary),
                 onPressed: () => safeNavigateBack(context),
               )
             : null,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: _textPrimary),
+            icon: Icon(Icons.refresh_rounded, color: _textPrimary),
             tooltip: 'Refresh favorites',
             onPressed: _loadFavorites,
           ),
@@ -300,7 +300,7 @@ class _FavoriteCard extends StatelessWidget {
           color: _FavoritesScreenState._danger,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: const Icon(Icons.delete_rounded, color: Colors.white),
+        child: Icon(Icons.delete_rounded, color: Colors.white),
       ),
       onDismissed: (_) => onRemove(),
       child: Material(
@@ -352,13 +352,13 @@ class _FavoriteCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.directions_rounded),
+                      icon: Icon(Icons.directions_rounded),
                       color: _FavoritesScreenState._primaryDark,
                       tooltip: 'View routes',
                       onPressed: onRoutes,
                     ),
                     IconButton(
-                      icon: const Icon(Icons.favorite_rounded),
+                      icon: Icon(Icons.favorite_rounded),
                       color: _FavoritesScreenState._danger,
                       tooltip: 'Remove favorite',
                       onPressed: onRemove,
@@ -397,7 +397,7 @@ class _FavoriteCard extends StatelessWidget {
       width: 82,
       height: 92,
       color: const Color(0xFF172033),
-      child: const Icon(
+      child: Icon(
         Icons.place_rounded,
         color: _FavoritesScreenState._primary,
         size: 32,

@@ -167,7 +167,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         centerTitle: true,
         leading: Navigator.of(context).canPop()
             ? IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                icon: Icon(Icons.arrow_back,
+                    color: Theme.of(context).colorScheme.onSurface),
                 onPressed: () => safeNavigateBack(context),
               )
             : null,
@@ -181,7 +182,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings, color: Colors.black54, size: 24),
+            icon: Icon(Icons.settings,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                size: 24),
             onPressed: widget.onSettingsTap ??
                 () {
                   GoRouter.of(context).push('/settings');
@@ -252,10 +255,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       border: Border.all(
                           color: Theme.of(context).cardColor, width: 3),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.edit,
                       size: 16,
-                      color: Colors.white,
+                      color: Theme.of(context).cardColor,
                     ),
                   ),
                 ),
@@ -481,7 +484,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             router.go('/accounts');
           }
         },
-        icon: const Icon(Icons.logout, size: 18),
+        icon: Icon(Icons.logout, size: 18),
         label: Text(
           'Logout Account',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -506,7 +509,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onPressed: () {
           GoRouter.of(context).push('/accounts');
         },
-        icon: const Icon(Icons.account_circle),
+        icon: Icon(Icons.account_circle),
         label: Text('Accounts'),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.blue,
