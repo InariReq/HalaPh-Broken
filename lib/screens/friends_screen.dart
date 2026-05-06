@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:halaph/models/destination.dart';
 import 'package:halaph/models/friend.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/utils/navigation_utils.dart';
@@ -728,6 +729,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                _buildFriendFavoritePlacesSection(friend),
+                const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -741,6 +744,114 @@ class _FriendsScreenState extends State<FriendsScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildFriendFavoritePlacesSection(Friend friend) {
+    return FutureBuilder<List<Destination>>(
+      future: _friendService.getPublicFavoritePlaces(friend),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: CircularProgressIndicator(),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return _buildFavoritePlacesBox(
+            title: 'Favorite Places',
+            child: Text(
+              'Favorites unavailable',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          );
+        }
+
+        final places = snapshot.data ?? const <Destination>[];
+
+        if (places.isEmpty) {
+          return _buildFavoritePlacesBox(
+            title: 'Favorite Places',
+            child: Text(
+              'No public favorites yet',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          );
+        }
+
+        return _buildFavoritePlacesBox(
+          title: 'Favorite Places',
+          child: Column(
+            children: places.take(5).map((place) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.place_outlined, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            place.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          if (place.location.trim().isNotEmpty)
+                            Text(
+                              place.location,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFavoritePlacesBox({
+    required String title,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
     );
   }
 
