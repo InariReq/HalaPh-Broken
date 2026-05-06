@@ -325,8 +325,87 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
     );
   }
 
+  void _showImagePreview(String imageUrl) {
+    if (imageUrl.trim().isEmpty) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) {
+          return Scaffold(
+            backgroundColor: Colors.black,
+            appBar: AppBar(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              title: const Text('Preview Image'),
+            ),
+            body: Center(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 5,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                  errorWidget: (context, url, error) => const Text(
+                    'Image unavailable',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildRatingChip(Destination destination) {
+    final rating = destination.rating;
+    if (rating <= 0) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFFECB3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 17),
+          const SizedBox(width: 5),
+          Text(
+            rating.toStringAsFixed(1),
+            style: const TextStyle(
+              color: Color(0xFF7A5200),
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 5),
+          const Text(
+            'Google rating',
+            style: TextStyle(
+              color: Color(0xFF7A5200),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeroImageWithOverlay() {
     final imageUrl = _destination?.imageUrl ?? '';
+    final hasPreviewableImage =
+        imageUrl.trim().isNotEmpty && imageUrl.trim().startsWith('http');
+
     return Container(
       height: 200,
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -344,28 +423,62 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: double.infinity,
-              height: double.infinity,
-              child: imageUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        color: Colors.grey[100],
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.blue[600],
+            child: GestureDetector(
+              onTap: hasPreviewableImage
+                  ? () => _showImagePreview(imageUrl.trim())
+                  : null,
+              child: SizedBox(
+                width: double.infinity,
+                height: double.infinity,
+                child: hasPreviewableImage
+                    ? CachedNetworkImage(
+                        imageUrl: imageUrl.trim(),
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: Colors.grey[100],
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.blue[600],
+                            ),
                           ),
                         ),
-                      ),
-                      errorWidget: (context, url, error) =>
-                          _buildFallbackImage(),
-                    )
-                  : _buildFallbackImage(),
+                        errorWidget: (context, url, error) =>
+                            _buildFallbackImage(),
+                      )
+                    : _buildFallbackImage(),
+              ),
             ),
           ),
-          // Heart icon in top right
+          if (hasPreviewableImage)
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.zoom_out_map, color: Colors.white, size: 14),
+                    SizedBox(width: 5),
+                    Text(
+                      'Tap to preview',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Positioned(
             top: 12,
             right: 12,
@@ -386,7 +499,6 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
               ),
             ),
           ),
-          // Text overlay at bottom (shown only when destination is loaded)
           if (_destination != null)
             Positioned(
               bottom: 0,
@@ -466,10 +578,14 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   }
 
   Widget _buildCategorySection() {
-    if (_destination == null) return SizedBox.shrink();
+    final destination = _destination;
+    if (destination == null) return const SizedBox.shrink();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -481,13 +597,13 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  _getCategoryIcon(_destination!.category),
+                  _getCategoryIcon(destination.category),
                   color: Colors.white,
                   size: 16,
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  DestinationService.getCategoryName(_destination!.category),
+                  DestinationService.getCategoryName(destination.category),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -497,6 +613,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
               ],
             ),
           ),
+          _buildRatingChip(destination),
         ],
       ),
     );
