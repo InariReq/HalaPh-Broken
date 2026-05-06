@@ -171,18 +171,28 @@ class SimplePlanService {
     DateTime? startDate,
     DateTime? endDate,
     List<Destination>? destinations,
+    Map<int, List<Destination>>? itinerary,
+    Map<String, String>? destinationTimes,
+    Map<String, String>? destinationEndTimes,
     String? bannerImage,
   }) async {
     final existing = _plans[planId];
     if (existing == null) return false;
 
-    final newItinerary = destinations != null
-        ? _buildItinerary(
-            startDate ?? existing.startDate,
-            endDate ?? existing.endDate,
-            destinations,
+    final effectiveStartDate = startDate ?? existing.startDate;
+    final effectiveEndDate = endDate ?? existing.endDate;
+    final newItinerary = itinerary != null
+        ? _buildItineraryFromDayMap(
+            effectiveStartDate,
+            effectiveEndDate,
+            itinerary,
+            destinationTimes: destinationTimes,
+            destinationEndTimes: destinationEndTimes,
           )
-        : existing.itinerary;
+        : destinations != null
+            ? _buildItinerary(
+                effectiveStartDate, effectiveEndDate, destinations)
+            : existing.itinerary;
 
     final updated = TravelPlan(
       id: existing.id,
@@ -418,6 +428,7 @@ class SimplePlanService {
     required DateTime endDate,
     required Map<int, List<Destination>> itinerary,
     Map<String, String>? destinationTimes,
+    Map<String, String>? destinationEndTimes,
     String createdBy = 'current_user',
     List<String> participantUids = const [],
     List<String> collaboratorUids = const [],
@@ -438,13 +449,17 @@ class SimplePlanService {
         final dest = dests[i];
         final timeStr = destinationTimes?[dest.id] ?? '10:00 AM';
         final (hour, minute) = _parseTime(timeStr);
+        final endTimeStr = destinationEndTimes?[dest.id];
+        final (endHour, endMinute) = endTimeStr == null
+            ? (((hour + 1) % 24), minute)
+            : _parseTime(endTimeStr);
 
         items.add(
           ItineraryItem(
             id: '${id}_item_${day}_$i',
             destination: dest,
             startTime: TimeOfDay(hour: hour, minute: minute),
-            endTime: TimeOfDay(hour: (hour + 1) % 24, minute: minute),
+            endTime: TimeOfDay(hour: endHour, minute: endMinute),
             dayNumber: day + 1,
             notes: 'Visit ${dest.name}',
           ),
@@ -564,6 +579,50 @@ class SimplePlanService {
       debugPrint('Failed to add destination to plan: $error');
       return false;
     }
+  }
+
+  static List<DayItinerary> _buildItineraryFromDayMap(
+    DateTime startDate,
+    DateTime endDate,
+    Map<int, List<Destination>> itinerary, {
+    Map<String, String>? destinationTimes,
+    Map<String, String>? destinationEndTimes,
+  }) {
+    final dayItineraries = <DayItinerary>[];
+    final totalDays = endDate.difference(startDate).inDays + 1;
+
+    for (int day = 0; day < totalDays; day++) {
+      final date = startDate.add(Duration(days: day));
+      final destinations = itinerary[day + 1] ?? [];
+      if (destinations.isEmpty) continue;
+
+      final items = <ItineraryItem>[];
+      for (int index = 0; index < destinations.length; index++) {
+        final destination = destinations[index];
+        final startText = destinationTimes?[destination.id] ?? '10:00 AM';
+        final (startHour, startMinute) = _parseTime(startText);
+
+        final endText = destinationEndTimes?[destination.id];
+        final (endHour, endMinute) = endText == null
+            ? (((startHour + 1) % 24), startMinute)
+            : _parseTime(endText);
+
+        items.add(
+          ItineraryItem(
+            id: '${destination.id}_${day}_$index',
+            destination: destination,
+            startTime: TimeOfDay(hour: startHour, minute: startMinute),
+            endTime: TimeOfDay(hour: endHour, minute: endMinute),
+            dayNumber: day + 1,
+            notes: 'Visit ${destination.name}',
+          ),
+        );
+      }
+
+      dayItineraries.add(DayItinerary(date: date, items: items));
+    }
+
+    return dayItineraries;
   }
 
   static List<DayItinerary> _buildItinerary(

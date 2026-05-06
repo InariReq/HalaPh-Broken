@@ -65,7 +65,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
   Map<int, List<Destination>> _itinerary = {};
-  Map<String, String> _destinationTimes = {};
+  Map<String, String> _destinationStartTimes = {};
+  Map<String, String> _destinationEndTimes = {};
 
   bool get _canEditPlan =>
       _plan != null && SimplePlanService.canEditPlan(_plan!.id);
@@ -125,15 +126,19 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         _endDate = _plan!.endDate;
 
         _itinerary = {};
-        _destinationTimes = {};
+        _destinationStartTimes = {};
+        _destinationEndTimes = {};
 
         for (final dayIt in _plan!.itinerary) {
           final dayNum = dayIt.date.difference(_plan!.startDate).inDays + 1;
           _itinerary[dayNum] = dayIt.items.map((i) => i.destination).toList();
 
           for (final item in dayIt.items) {
-            _destinationTimes[item.destination.id] = _formatTimeOfDay(
+            _destinationStartTimes[item.destination.id] = _formatTimeOfDay(
               item.startTime,
+            );
+            _destinationEndTimes[item.destination.id] = _formatTimeOfDay(
+              item.endTime,
             );
           }
         }
@@ -229,8 +234,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         title: _titleController.text.trim(),
         startDate: _startDate,
         endDate: _endDate,
-        destinations:
-            _itinerary.values.expand((destinations) => destinations).toList(),
+        itinerary: _itinerary,
+        destinationTimes: _destinationStartTimes,
+        destinationEndTimes: _destinationEndTimes,
         bannerImage: _plan!.bannerImage,
       );
 
@@ -644,7 +650,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       setState(() {
         _itinerary[dayNumber] ??= [];
         _itinerary[dayNumber]!.add(result);
-        _destinationTimes[result.id] = '10:30 AM';
+        _destinationStartTimes[result.id] = '10:30 AM';
+        _destinationEndTimes[result.id] = '11:30 AM';
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -661,7 +668,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       if (_itinerary[dayNumber]?.isEmpty == true) {
         _itinerary.remove(dayNumber);
       }
-      _destinationTimes.remove(destination.id);
+      _destinationStartTimes.remove(destination.id);
+      _destinationEndTimes.remove(destination.id);
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -835,7 +843,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Widget _buildDestinationCard(Destination destination, int day, int index) {
-    final time = _destinationTimes[destination.id] ?? '10:30 AM';
+    final time = _formatTimeRangeForDestination(destination);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -862,7 +870,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     int index,
     String time,
   ) {
-    final actualTime = _destinationTimes[destination.id] ?? '10:30 AM';
+    final actualTime = _formatTimeRangeForDestination(destination);
 
     return LongPressDraggable<DestinationData>(
       data: DestinationData(
@@ -1025,21 +1033,24 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       Positioned(
                         top: 12,
                         left: 12,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.orange,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            actualTime,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                        child: GestureDetector(
+                          onTap: () => _selectTimeForDestination(destination),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              actualTime,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
@@ -1154,7 +1165,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     int day,
     int index,
   ) {
-    final actualTime = _destinationTimes[destination.id] ?? '10:30 AM';
+    final actualTime = _formatTimeRangeForDestination(destination);
 
     return Container(
       decoration: BoxDecoration(
@@ -1341,7 +1352,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         // Insert the new destination after the specified index
         _itinerary[day]!.insert(index + 1, result);
         // Set a default time for the new destination
-        _destinationTimes[result.id] = '11:30 AM';
+        _destinationStartTimes[result.id] = '11:30 AM';
+        _destinationEndTimes[result.id] = '12:30 PM';
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1352,21 +1364,83 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     }
   }
 
-  Future<void> _selectTimeForDestination(Destination destination) async {
-    final currentTime = _destinationTimes[destination.id] ?? '10:30 AM';
-    final parts = currentTime.split(RegExp(r'[:\s+]'));
-    var hour = int.tryParse(parts[0]) ?? 10;
-    final minute = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
-    final isPM = currentTime.toUpperCase().contains('PM');
+  String _formatTimeRangeForDestination(Destination destination) {
+    final start = _destinationStartTimes[destination.id] ?? '10:30 AM';
+    final end =
+        _destinationEndTimes[destination.id] ?? _defaultEndTimeFor(start);
+    return '$start - $end';
+  }
 
-    final initialTime = TimeOfDay(
-      hour: isPM && hour < 12
-          ? hour + 12
-          : (hour == 12 && !isPM)
-              ? 0
-              : hour,
-      minute: minute,
+  String _defaultEndTimeFor(String startTime) {
+    final (hour, minute) = _parseDisplayTime(startTime);
+    return _formatDisplayTime(TimeOfDay(hour: (hour + 1) % 24, minute: minute));
+  }
+
+  (int, int) _parseDisplayTime(String value) {
+    final parts = value.trim().split(RegExp(r'[:\s]+'));
+    var hour = int.tryParse(parts.isNotEmpty ? parts[0] : '') ?? 10;
+    final minute = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+    final upper = value.toUpperCase();
+    final isPM = upper.contains('PM');
+    final isAM = upper.contains('AM');
+
+    if (isPM && hour < 12) {
+      hour += 12;
+    } else if (isAM && hour == 12) {
+      hour = 0;
+    }
+
+    return (hour.clamp(0, 23), minute.clamp(0, 59));
+  }
+
+  String _formatDisplayTime(TimeOfDay time) {
+    final displayHour = time.hour % 12 == 0 ? 12 : time.hour % 12;
+    final hourStr = displayHour.toString().padLeft(2, '0');
+    final minuteStr = time.minute.toString().padLeft(2, '0');
+    final period = time.hour >= 12 ? 'PM' : 'AM';
+    return '$hourStr:$minuteStr $period';
+  }
+
+  Future<void> _selectTimeForDestination(Destination destination) async {
+    final selectedType = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) {
+        final start = _destinationStartTimes[destination.id] ?? '10:30 AM';
+        final end =
+            _destinationEndTimes[destination.id] ?? _defaultEndTimeFor(start);
+
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.play_arrow),
+                title: const Text('Start Time'),
+                subtitle: Text(start),
+                onTap: () => Navigator.of(context).pop('start'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.stop),
+                title: const Text('End Time'),
+                subtitle: Text(end),
+                onTap: () => Navigator.of(context).pop('end'),
+              ),
+            ],
+          ),
+        );
+      },
     );
+
+    if (selectedType == null || !mounted) return;
+
+    final isStart = selectedType == 'start';
+    final start = _destinationStartTimes[destination.id] ?? '10:30 AM';
+    final currentTime = isStart
+        ? start
+        : (_destinationEndTimes[destination.id] ?? _defaultEndTimeFor(start));
+
+    final (hour, minute) = _parseDisplayTime(currentTime);
+    final initialTime = TimeOfDay(hour: hour, minute: minute);
 
     final picked = await showTimePicker(
       context: context,
@@ -1375,18 +1449,21 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
     if (picked != null) {
       if (!mounted) return;
-      final hourStr = picked.hourOfPeriod.toString().padLeft(2, '0');
-      final minuteStr = picked.minute.toString().padLeft(2, '0');
-      final period = picked.period == DayPeriod.am ? 'AM' : 'PM';
-      final newTime = '$hourStr:$minuteStr $period';
+      final newTime = _formatDisplayTime(picked);
 
       setState(() {
-        _destinationTimes[destination.id] = newTime;
+        if (isStart) {
+          _destinationStartTimes[destination.id] = newTime;
+          _destinationEndTimes[destination.id] ??= _defaultEndTimeFor(newTime);
+        } else {
+          _destinationEndTimes[destination.id] = newTime;
+        }
       });
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Time updated to $newTime')));
+      final label = isStart ? 'Start time' : 'End time';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$label updated to $newTime')),
+      );
     }
   }
 
