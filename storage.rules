@@ -10,24 +10,42 @@ service firebase.storage {
       return signedIn() && request.auth.uid == userId;
     }
 
-    // Profile pictures - users can read all, but only write their own
+    function isImageUnder(maxSize) {
+      return request.resource.size < maxSize
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Profile pictures - signed-in users can read profile pictures.
+    // The app currently uploads to:
+    // profile_pictures/profile_...
     match /profile_pictures/{imageId} {
       allow read: if signedIn();
-      allow write: if isOwner(request.auth.uid)
-        && imageId.matches('profile_.*\\.jpg')
-        && request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+
+      allow write: if signedIn()
+        && imageId.matches('profile_.*\\.(jpg|jpeg|png|heic|heif)')
+        && isImageUnder(5 * 1024 * 1024);
     }
 
-    // Plan images - participants can read/write
+    // Plan banners - app uploads to:
+    // plan_banners/{authUid}/plan_banner_...
+    match /plan_banners/{ownerId}/{imageId} {
+      allow read: if signedIn();
+
+      allow write: if isOwner(ownerId)
+        && imageId.matches('plan_banner_.*\\.(jpg|jpeg|png|webp|heic|heif)')
+        && isImageUnder(10 * 1024 * 1024);
+    }
+
+    // Plan images - participants can read/write.
+    // Kept for existing app compatibility.
     match /plan_images/{planId}/{imageId} {
       allow read: if signedIn();
+
       allow write: if signedIn()
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && isImageUnder(10 * 1024 * 1024);
     }
 
-    // User uploads - users can only access their own folder
+    // User uploads - users can only access their own folder.
     match /users/{userId}/{allPaths=**} {
       allow read, write: if isOwner(userId);
     }
