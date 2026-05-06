@@ -6,15 +6,11 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:halaph/services/auth_service.dart';
-import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/friend_service.dart';
-import 'package:halaph/services/favorites_service.dart';
-import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/commuter_type_service.dart';
 import 'package:halaph/services/fare_service.dart';
 import 'package:halaph/models/user.dart';
 import 'package:halaph/models/destination.dart';
-import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/utils/navigation_utils.dart';
 
 // Data models for easier implementation
@@ -76,7 +72,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _auth = AuthService();
   final FriendService _friendService = FriendService();
   final CommuterTypeService _commuterTypeService = CommuterTypeService();
-  StreamSubscription<void>? _favoritesSubscription;
   StreamSubscription<firebase_auth.User?>? _authSubscription;
   User? _user;
   String? _myCode;
@@ -88,7 +83,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     _loadUser();
     _loadCommuterType();
-    _loadFavoritesFromService();
     _authSubscription =
         firebase_auth.FirebaseAuth.instance.userChanges().listen((_) {
       if (!mounted) return;
@@ -100,10 +94,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
       _loadUser();
       _loadCommuterType();
-      _loadFavoritesFromService();
-    });
-    _favoritesSubscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
-      _loadFavoritesFromService();
     });
   }
 
@@ -167,14 +157,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         avatarUrl: _user?.avatarUrl,
       );
 
-  final List<FavoritePlace> _favoritePlaces = [];
-
-  List<FavoritePlace> get _favorites {
-    if (widget.favorites != null) return widget.favorites!;
-    if (_favoritePlaces.isNotEmpty) return _favoritePlaces;
-    return const [];
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -217,8 +199,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildProfileHeader(),
               const SizedBox(height: 20),
               _buildCommuterTypeSection(),
-              const SizedBox(height: 20),
-              _buildFavoritesSection(),
               const SizedBox(height: 20),
               _buildTripHistoryButton(),
               const SizedBox(height: 20),
@@ -298,52 +278,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _loadFavoritesFromService() async {
-    try {
-      final service = FavoritesService();
-      final destinations = await service.getFavoriteDestinations(
-        forceRefresh: true,
-      );
-      final ids = await service.getFavorites();
-      final loaded = <FavoritePlace>[];
-      final byId = {
-        for (final destination in destinations) destination.id: destination,
-      };
-      for (final id in ids) {
-        final destination = byId[id];
-        if (destination == null) {
-          loaded.add(
-            FavoritePlace(
-              id: id,
-              name: 'Saved place',
-              location: 'Details unavailable',
-              type: 'Place',
-            ),
-          );
-          continue;
-        }
-        loaded.add(
-          FavoritePlace(
-            id: id,
-            name: destination.name,
-            location: destination.location,
-            type: DestinationService.getCategoryName(destination.category),
-            imageUrl: destination.imageUrl,
-            destination: destination,
-          ),
-        );
-      }
-      if (mounted) {
-        setState(() {
-          _favoritePlaces.clear();
-          _favoritePlaces.addAll(loaded);
-        });
-      }
-    } catch (_) {
-      // ignore and keep defaults
-    }
   }
 
   Widget _buildCommuterTypeSection() {
@@ -460,155 +394,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildFavoritesSection() {
-    if (_favorites.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.favorite_border, color: Colors.red, size: 20),
-                const SizedBox(width: 8),
-                const Text(
-                  'Your Favorites',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-            TextButton(
-              onPressed: widget.onViewAllFavoritesTap ??
-                  () {
-                    GoRouter.of(context).push('/favorites');
-                  },
-              child: const Text(
-                'View All',
-                style: TextStyle(
-                  color: Color(0xFF2196F3),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 174,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _favorites.length,
-            itemBuilder: (context, index) {
-              final favorite = _favorites[index];
-              return InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () => ExploreDetailsScreen.showAsBottomSheet(
-                  context,
-                  destinationId: favorite.id,
-                  source: 'profile',
-                  destination: favorite.destination,
-                ),
-                child: Container(
-                  width: 148,
-                  margin: const EdgeInsets.only(right: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F9FA),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE0E0E0)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(12),
-                        ),
-                        child: Container(
-                          height: 82,
-                          width: double.infinity,
-                          color: Colors.grey[200],
-                          child: favorite.imageUrl != null &&
-                                  favorite.imageUrl!.startsWith('http')
-                              ? Image.network(
-                                  favorite.imageUrl!,
-                                  width: double.infinity,
-                                  height: 82,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Icon(
-                                      Icons.place,
-                                      size: 30,
-                                      color: Colors.grey[600],
-                                    );
-                                  },
-                                )
-                              : Icon(
-                                  Icons.place,
-                                  size: 30,
-                                  color: Colors.grey[600],
-                                ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              favorite.name,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.black87,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              favorite.location,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey,
-                                height: 1.2,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              favorite.type,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Color(0xFF2196F3),
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
     );
   }
 
@@ -866,7 +651,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void dispose() {
     _authSubscription?.cancel();
-    _favoritesSubscription?.cancel();
     super.dispose();
   }
 }
