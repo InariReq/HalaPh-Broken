@@ -136,6 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadTrendingDestinations() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _trendingDestinations = []; // Clear cache first
@@ -158,12 +159,14 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       }
 
+      if (!mounted) return;
       setState(() {
         _trendingDestinations = destinations;
         _isLoading = false;
       });
     } catch (e) {
       debugPrint('Error loading trending destinations: $e');
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
