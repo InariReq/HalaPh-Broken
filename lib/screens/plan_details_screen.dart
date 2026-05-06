@@ -287,7 +287,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -358,7 +358,31 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Widget _buildLoadingState() {
-    return const Center(child: CircularProgressIndicator());
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE5EAF3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: SizedBox(
+          height: 36,
+          width: 36,
+          child: CircularProgressIndicator(
+            strokeWidth: 3,
+            color: Colors.blue[700],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildContent() {
@@ -487,38 +511,64 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       width: double.infinity,
       height: double.infinity,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.grey[400]!, Colors.grey[600]!],
+          colors: [
+            Color(0xFF1976D2),
+            Color(0xFF03A9F4),
+          ],
         ),
       ),
-      child: const Center(
-        child: Icon(Icons.landscape, size: 50, color: Colors.white70),
+      child: Center(
+        child: Icon(
+          Icons.landscape_rounded,
+          size: 54,
+          color: Colors.white.withValues(alpha: 0.72),
+        ),
       ),
     );
   }
 
   Widget _buildHeroSection() {
-    return SizedBox(
-      height: 200,
-      child: Stack(
-        children: [
-          _buildBannerImage(),
-          Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withValues(alpha: 0.4),
-                ],
+    return Container(
+      height: 224,
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withValues(alpha: 0.12),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _buildBannerImage(),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.04),
+                    Colors.black.withValues(alpha: 0.78),
+                  ],
+                ),
               ),
             ),
-            child: Padding(
+            Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -528,39 +578,72 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     TextFormField(
                       controller: _titleController,
                       style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
                         color: Colors.white,
+                        letterSpacing: -0.5,
                       ),
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         hintText: 'Plan Title',
                         hintStyle: TextStyle(
                           color: Colors.white70,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     )
                   else
                     Text(
                       _plan?.title ?? 'Untitled Plan',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
                         color: Colors.white,
+                        letterSpacing: -0.5,
+                        height: 1.05,
                       ),
                     ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _plan?.formattedDateRange ?? 'No dates set',
-                    style: const TextStyle(fontSize: 16, color: Colors.white),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.20),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.22),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.calendar_today_rounded,
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _plan?.formattedDateRange ?? 'No dates set',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -755,21 +838,36 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       return Padding(
         padding: const EdgeInsets.all(20),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[200]!),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE5EAF3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Center(
             child: Column(
               children: [
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: 48,
-                  color: Colors.grey[400],
+                Container(
+                  height: 58,
+                  width: 58,
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    Icons.calendar_month_rounded,
+                    size: 30,
+                    color: Colors.blue[700],
+                  ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Text(
                   'No itinerary items yet',
                   style: TextStyle(fontSize: 14, color: Colors.grey[600]),
@@ -808,8 +906,16 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE5EAF3)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
@@ -887,12 +993,12 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         _defaultDestinationTimeLabel();
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           onTap: () => _openDestinationDetails(destination),
           child: _buildDestinationCardContent(destination, day, index, time),
         ),
@@ -1040,14 +1146,19 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
                     color: isHovering
-                        ? Colors.blue.withValues(alpha: 0.2)
-                        : Colors.black.withValues(alpha: 0.08),
-                    blurRadius: isHovering ? 16 : 12,
-                    offset: Offset(0, isHovering ? 6 : 4),
+                        ? Colors.blue.withValues(alpha: 0.22)
+                        : Colors.blue.withValues(alpha: 0.10),
+                    blurRadius: isHovering ? 24 : 22,
+                    offset: Offset(0, isHovering ? 10 : 12),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
                   ),
                 ],
                 border: isHovering
@@ -1090,8 +1201,15 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.orange,
-                              borderRadius: BorderRadius.circular(20),
+                              color: Colors.blue[700],
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.blue.withValues(alpha: 0.20),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
                             ),
                             child: Text(
                               actualTime,
@@ -1115,9 +1233,19 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.red, width: 2),
+                              color: Colors.white.withValues(alpha: 0.94),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Colors.red.withValues(alpha: 0.35),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
                             child: const Icon(
                               Icons.delete,
@@ -1219,12 +1347,17 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.blue.withValues(alpha: 0.10),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -1264,8 +1397,15 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.orange,
-                      borderRadius: BorderRadius.circular(20),
+                      color: Colors.blue[700],
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withValues(alpha: 0.20),
+                          blurRadius: 12,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
