@@ -615,7 +615,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
           return 'Ride the $lineName route heading toward $destination.';
         }
         if (historicalRouteName.isNotEmpty) {
-          return 'Historical route reference found: $historicalRouteName. Use it as a signboard clue, then confirm with the driver before boarding.';
+          return 'Historical GTFS clue: $historicalRouteName. Use it as a signboard clue only, then confirm with the driver before boarding.';
         }
         return 'Look for a jeepney signboard heading toward $destination. Confirm with the driver that it passes your drop-off before boarding.';
       case TravelMode.bus:
@@ -623,7 +623,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
           return 'Ride the $lineName bus route heading toward $destination.';
         }
         if (historicalRouteName.isNotEmpty) {
-          return 'Historical route reference found: $historicalRouteName. Use it as a direction clue, then confirm the active route with the conductor.';
+          return 'Historical GTFS clue: $historicalRouteName. Use it as a direction clue only, then confirm the active route with the conductor.';
         }
         return 'Look for a bus route heading toward $destination or the nearest terminal. Confirm the drop-off point with the conductor before boarding.';
       case TravelMode.train:
@@ -631,7 +631,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
           return 'Take $lineName toward the station serving $destination.';
         }
         if (historicalRouteName.isNotEmpty) {
-          return 'Historical rail reference found: $historicalRouteName. Confirm the current station direction before boarding.';
+          return 'Historical GTFS rail clue: $historicalRouteName. Confirm the current station direction before boarding.';
         }
         return 'Take the MRT/LRT line toward the station nearest $destination, then use the last-mile ride shown in the fare breakdown.';
       case TravelMode.fx:
@@ -639,7 +639,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
           return 'Ride the $lineName FX/UV route heading toward $destination.';
         }
         if (historicalRouteName.isNotEmpty) {
-          return 'Historical road route reference found: $historicalRouteName. Confirm the active FX/UV terminal route before boarding.';
+          return 'Historical GTFS road-route clue: $historicalRouteName. Confirm the active FX/UV terminal route before boarding.';
         }
         return 'Look for an FX/UV terminal route heading toward $destination. Confirm the terminal and drop-off point before boarding.';
       case TravelMode.walking:
@@ -662,7 +662,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
       return [
         historicalReference.sourceLabel,
         historicalReference.sourceDetail,
-        'This route reference is historical. Confirm that the route still operates before riding.',
+        'Confirm the route still operates before riding.',
       ];
     }
 
@@ -726,7 +726,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                     hasExactLine
                         ? 'Specific route to look for'
                         : hasHistoricalReference
-                            ? 'Historical route reference'
+                            ? 'Historical GTFS clue'
                             : 'Route direction to look for',
                     style: const TextStyle(
                       fontSize: 14,
@@ -747,6 +747,40 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                 color: Colors.black87,
               ),
             ),
+            if (hasHistoricalReference && !hasExactLine) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7E6),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFFD699)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 18,
+                      color: Color(0xFFB45309),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Historical reference only. Confirm route status before riding.',
+                        style: TextStyle(
+                          color: Color(0xFF92400E),
+                          fontSize: 12,
+                          height: 1.3,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             ...notes.map(
               (note) => Padding(

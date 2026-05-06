@@ -51,10 +51,10 @@ class VerifiedRouteService {
             routeName: routeName,
             routeDescription: routeDesc,
             mode: mode,
-            sourceLabel: 'Historical GTFS reference',
+            sourceLabel: 'Historical GTFS reference, confirm before riding',
             sourceType: VerifiedRouteSourceType.historicalGtfs,
             sourceDetail:
-                'Sakay.ph GTFS route reference. Agency: $agencyId. Route ID: $routeId. Calendar data ends 2020-06-30, so confirm before riding.',
+                'Sakay.ph GTFS entry. Agency: $agencyId. Route ID: $routeId. Calendar data ends 2020-06-30. Use only as a route clue, not current operating proof.',
             lastVerifiedAt: DateTime(2020, 6, 30),
           ),
         );
