@@ -199,20 +199,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 20),
-              _buildProfileHeader(),
+              _buildProfileEntrance(order: 0, child: _buildProfileHeader()),
               const SizedBox(height: 20),
-              _buildCommuterTypeSection(),
+              _buildProfileEntrance(
+                order: 1,
+                child: _buildCommuterTypeSection(),
+              ),
               const SizedBox(height: 20),
-              _buildTripHistoryButton(),
+              _buildProfileEntrance(order: 2, child: _buildTripHistoryButton()),
               const SizedBox(height: 20),
-              _buildLogoutButton(),
+              _buildProfileEntrance(order: 3, child: _buildLogoutButton()),
               const SizedBox(height: 20),
-              _buildAccountsButton(),
+              _buildProfileEntrance(order: 4, child: _buildAccountsButton()),
               const SizedBox(height: 30),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildProfileEntrance({
+    required int order,
+    required Widget child,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 280 + (order * 45)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 12 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 

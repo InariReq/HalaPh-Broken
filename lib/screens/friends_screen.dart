@@ -148,9 +148,30 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: _selectedTab == 0
-                          ? _buildMembersSection()
-                          : _buildRequestsSection(),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          final offset = Tween<Offset>(
+                            begin: const Offset(0.04, 0),
+                            end: Offset.zero,
+                          ).animate(animation);
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: offset,
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: KeyedSubtree(
+                          key: ValueKey(_selectedTab),
+                          child: _selectedTab == 0
+                              ? _buildMembersSection()
+                              : _buildRequestsSection(),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -305,9 +326,12 @@ class _FriendsScreenState extends State<FriendsScreen> {
               ],
             ),
             child: Column(
-              children: _pendingRequests
-                  .map((request) => _buildRequestTile(request))
-                  .toList(),
+              children: _pendingRequests.asMap().entries.map((entry) {
+                return _buildFriendsEntrance(
+                  order: entry.key,
+                  child: _buildRequestTile(entry.value),
+                );
+              }).toList(),
             ),
           ),
       ],
@@ -676,11 +700,36 @@ class _FriendsScreenState extends State<FriendsScreen> {
               ],
             ),
             child: Column(
-              children:
-                  _members.map((friend) => _buildMemberTile(friend)).toList(),
+              children: _members.asMap().entries.map((entry) {
+                return _buildFriendsEntrance(
+                  order: entry.key,
+                  child: _buildMemberTile(entry.value),
+                );
+              }).toList(),
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildFriendsEntrance({
+    required int order,
+    required Widget child,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 240 + (order.clamp(0, 5) * 35)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(10 * (1 - value), 0),
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 

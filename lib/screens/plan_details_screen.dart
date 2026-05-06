@@ -855,64 +855,67 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
   Widget _buildItinerarySection() {
     if (_itinerary.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(20),
-        child: Container(
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: Theme.of(context)
-                  .colorScheme
-                  .outlineVariant
-                  .withValues(alpha: 0.28),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.18),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+      return _buildItineraryEntrance(
+        order: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withValues(alpha: 0.28),
               ),
-            ],
-          ),
-          child: Center(
-            child: Column(
-              children: [
-                Container(
-                  height: 58,
-                  width: 58,
-                  decoration: BoxDecoration(
-                    color: Colors.blue[50],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Icon(
-                    Icons.calendar_month_rounded,
-                    size: 30,
-                    color: Colors.blue[700],
-                  ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'No itinerary items yet',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                if (_isEditing)
-                  Padding(
-                    padding: EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Tap "Add Locations" to get started',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                        fontStyle: FontStyle.italic,
-                      ),
+              ],
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  Container(
+                    height: 58,
+                    width: 58,
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Icon(
+                      Icons.calendar_month_rounded,
+                      size: 30,
+                      color: Colors.blue[700],
                     ),
                   ),
-              ],
+                  const SizedBox(height: 12),
+                  Text(
+                    'No itinerary items yet',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (_isEditing)
+                    Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Tap "Add Locations" to get started',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -920,105 +923,133 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     }
 
     return Column(
-      children: _itinerary.keys.map((dayNumber) {
+      children: _itinerary.keys.toList().asMap().entries.map((dayEntry) {
+        final dayNumber = dayEntry.value;
         final destinations = _itinerary[dayNumber]!;
         final dayDate = _plan?.startDate.add(Duration(days: dayNumber - 1)) ??
             DateTime.now();
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Day header
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainer,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .outlineVariant
-                        .withValues(alpha: 0.28),
+        return _buildItineraryEntrance(
+          order: dayEntry.key,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Day header
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outlineVariant
+                          .withValues(alpha: 0.28),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      'Day $dayNumber',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[700],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      _formatDate(dayDate),
-                      style: TextStyle(fontSize: 16, color: Colors.blue[600]),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Destinations for this day
-              ...destinations.asMap().entries.map((entry) {
-                final destinationIndex = entry.key;
-                final destination = entry.value;
-
-                return _buildDestinationCard(
-                  destination,
-                  dayNumber,
-                  destinationIndex,
-                );
-              }),
-
-              // Add drop target at the end of the day for inserting destinations
-              if (_isEditing)
-                DragTarget<DestinationData>(
-                  onWillAcceptWithDetails: (details) => true,
-                  onAcceptWithDetails: (details) {
-                    _handleDrop(details.data, dayNumber, destinations.length);
-                  },
-                  builder: (context, candidateData, rejectedData) {
-                    final isHovering = candidateData.isNotEmpty;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.only(bottom: 16),
-                      height: isHovering ? 60 : 40,
-                      decoration: BoxDecoration(
-                        color: isHovering
-                            ? Theme.of(context).colorScheme.surfaceContainerHigh
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                        border: isHovering
-                            ? Border.all(color: Colors.blue[300]!)
-                            : null,
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.add,
-                          size: 24,
-                          color:
-                              isHovering ? Colors.blue[600] : Colors.grey[400],
+                  child: Row(
+                    children: [
+                      Text(
+                        'Day $dayNumber',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[700],
                         ),
                       ),
-                    );
-                  },
+                      const SizedBox(width: 12),
+                      Text(
+                        _formatDate(dayDate),
+                        style: TextStyle(fontSize: 16, color: Colors.blue[600]),
+                      ),
+                    ],
+                  ),
                 ),
-            ],
+                const SizedBox(height: 16),
+
+                // Destinations for this day
+                ...destinations.asMap().entries.map((entry) {
+                  final destinationIndex = entry.key;
+                  final destination = entry.value;
+
+                  return _buildDestinationCard(
+                    destination,
+                    dayNumber,
+                    destinationIndex,
+                  );
+                }),
+
+                // Add drop target at the end of the day for inserting destinations
+                if (_isEditing)
+                  DragTarget<DestinationData>(
+                    onWillAcceptWithDetails: (details) => true,
+                    onAcceptWithDetails: (details) {
+                      _handleDrop(details.data, dayNumber, destinations.length);
+                    },
+                    builder: (context, candidateData, rejectedData) {
+                      final isHovering = candidateData.isNotEmpty;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        height: isHovering ? 60 : 40,
+                        decoration: BoxDecoration(
+                          color: isHovering
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHigh
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          border: isHovering
+                              ? Border.all(color: Colors.blue[300]!)
+                              : null,
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.add,
+                            size: 24,
+                            color: isHovering
+                                ? Colors.blue[600]
+                                : Colors.grey[400],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
           ),
         );
       }).toList(),
+    );
+  }
+
+  Widget _buildItineraryEntrance({
+    required int order,
+    required Widget child,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 300 + (order.clamp(0, 4) * 45)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 16 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 

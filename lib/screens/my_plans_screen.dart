@@ -120,9 +120,17 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         ),
         const SizedBox(height: 14),
         plans.isEmpty
-            ? _buildEmptyPlansPlaceholder('No personal plans yet')
+            ? _buildPlanEntrance(
+                order: 0,
+                child: _buildEmptyPlansPlaceholder('No personal plans yet'),
+              )
             : Column(
-                children: plans.map((plan) => _buildPlanCard(plan)).toList(),
+                children: plans.asMap().entries.map((entry) {
+                  return _buildPlanEntrance(
+                    order: entry.key,
+                    child: _buildPlanCard(entry.value),
+                  );
+                }).toList(),
               ),
       ],
     );
@@ -142,11 +150,22 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         ),
         const SizedBox(height: 14),
         plans.isEmpty
-            ? _buildEmptyPlansPlaceholder('No collaborative plans yet')
+            ? _buildPlanEntrance(
+                order: 0,
+                child: _buildEmptyPlansPlaceholder(
+                  'No collaborative plans yet',
+                ),
+              )
             : Column(
-                children: plans
-                    .map((plan) => _buildPlanCard(plan, isSharedPlan: true))
-                    .toList(),
+                children: plans.asMap().entries.map((entry) {
+                  return _buildPlanEntrance(
+                    order: entry.key,
+                    child: _buildPlanCard(
+                      entry.value,
+                      isSharedPlan: true,
+                    ),
+                  );
+                }).toList(),
               ),
       ],
     );
@@ -219,6 +238,27 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPlanEntrance({
+    required int order,
+    required Widget child,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 300 + (order.clamp(0, 4) * 45)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 14 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 

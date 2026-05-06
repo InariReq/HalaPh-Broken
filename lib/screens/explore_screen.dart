@@ -348,7 +348,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: Theme.of(context).brightness == Brightness.dark
@@ -372,8 +374,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.blue.withValues(alpha: 0.08),
-              blurRadius: 22,
+              color: Colors.blue.withValues(
+                alpha: _searchController.text.isEmpty ? 0.08 : 0.16,
+              ),
+              blurRadius: _searchController.text.isEmpty ? 22 : 28,
               offset: const Offset(0, 8),
             ),
           ],
@@ -403,12 +407,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
               child: Icon(Icons.search_rounded, color: Colors.blue[700]),
             ),
             suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: Icon(Icons.close_rounded),
-                    onPressed: () {
-                      _searchController.clear();
-                      _queueSearchDestinations();
-                    },
+                ? AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 160),
+                    child: IconButton(
+                      key: const ValueKey('clear-search'),
+                      icon: Icon(Icons.close_rounded),
+                      onPressed: () {
+                        _searchController.clear();
+                        _queueSearchDestinations();
+                      },
+                    ),
                   )
                 : null,
             border: OutlineInputBorder(

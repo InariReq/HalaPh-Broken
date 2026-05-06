@@ -982,7 +982,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ..._trendingDestinations.map(_buildTrendingCard),
+                      ..._trendingDestinations.asMap().entries.map((entry) {
+                        return _buildHomeEntrance(
+                          order: entry.key,
+                          child: _buildTrendingCard(entry.value),
+                        );
+                      }),
                       if (hasFewResults) _buildSearchPrompt(),
                     ],
                   ),
