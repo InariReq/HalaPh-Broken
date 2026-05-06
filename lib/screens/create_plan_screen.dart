@@ -653,7 +653,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -679,12 +679,29 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text(
-                    'Create',
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                : Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[700],
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withValues(alpha: 0.18),
+                          blurRadius: 12,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: const Text(
+                      'Create',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
           ),
@@ -712,16 +729,28 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     return Container(
       height: 200,
       width: double.infinity,
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(22),
         color: Colors.grey[300],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withValues(alpha: 0.12),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Stack(
         children: [
           // Banner Image
           ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(22),
             child: _bannerImage != null
                 ? Image.file(
                     _bannerImage!,
@@ -738,13 +767,13 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
           // Overlay with Title and Date
           Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(22),
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.transparent,
-                  Colors.black.withValues(alpha: 0.6)
+                  Colors.black.withValues(alpha: 0.05),
+                  Colors.black.withValues(alpha: 0.72),
                 ],
               ),
             ),
@@ -783,16 +812,30 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        _getDateRangeText(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.26),
                         ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_rounded,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _getDateRangeText(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -810,8 +853,15 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.5),
+                  color: Colors.black.withValues(alpha: 0.45),
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
                 child: const Icon(
                   Icons.camera_alt,
@@ -829,15 +879,22 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   Widget _buildDefaultBanner() {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: LinearGradient(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Colors.grey[400]!, Colors.grey[600]!],
+          colors: [
+            Color(0xFF1976D2),
+            Color(0xFF03A9F4),
+          ],
         ),
       ),
-      child: const Center(
-        child: Icon(Icons.image, size: 50, color: Colors.white70),
+      child: Center(
+        child: Icon(
+          Icons.image_rounded,
+          size: 54,
+          color: Colors.white.withValues(alpha: 0.72),
+        ),
       ),
     );
   }
@@ -853,18 +910,30 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                 child: ElevatedButton(
                   onPressed: _hasPlanDateRangeSelected
                       ? () => _addPlace(1)
-                      : _showDateRequiredMessage, // Default to Day 1
+                      : _showDateRequiredMessage,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
+                    backgroundColor: Colors.blue[700],
                     foregroundColor: Colors.white,
+                    elevation: 0,
+                    shadowColor: Colors.transparent,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(18),
                     ),
                   ),
-                  child: const Text(
-                    'Add Place',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_location_alt_rounded, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Add Place',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -873,21 +942,29 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                 child: OutlinedButton(
                   onPressed: _addFriends,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.blue,
-                    side: const BorderSide(color: Colors.blue),
+                    foregroundColor: Colors.blue[700],
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFFBBDEFB)),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(18),
                     ),
                   ),
-                  child: Text(
-                    _selectedCollaboratorCodes.isEmpty
-                        ? 'Add Friends'
-                        : 'Friends (${_selectedCollaboratorCodes.length})',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.group_add_rounded, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        _selectedCollaboratorCodes.isEmpty
+                            ? 'Add Friends'
+                            : 'Friends (${_selectedCollaboratorCodes.length})',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -900,10 +977,51 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
 
   Widget _buildAlignedItinerarySection() {
     if (_startDate == null || _endDate == null) {
-      return const Center(
-        child: Text(
-          'Please select a date range to start planning',
-          style: TextStyle(color: Colors.grey, fontSize: 16),
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE5EAF3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                height: 58,
+                width: 58,
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.calendar_month_rounded,
+                  color: Colors.blue[700],
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Please select a date range to start planning',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFF6B7280),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -943,8 +1061,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                       'Itinerary Day $dayNumber',
                       style: const TextStyle(
                         color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 19,
                       ),
                     ),
                     if (_startDate != null) ...[
@@ -966,8 +1084,15 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
               // Add place button for this day
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.blue,
-                  borderRadius: BorderRadius.circular(20),
+                  color: Colors.blue[700],
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withValues(alpha: 0.20),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
                 child: IconButton(
                   onPressed: _hasPlanDateRangeSelected
@@ -1007,9 +1132,16 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey[200]!),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE5EAF3)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
                   child: Center(
                     child: Column(
@@ -1261,14 +1393,19 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(18),
                         boxShadow: [
                           BoxShadow(
                             color: isHovering
-                                ? Colors.blue.withValues(alpha: 0.2)
-                                : Colors.black.withValues(alpha: 0.08),
-                            blurRadius: isHovering ? 16 : 12,
-                            offset: Offset(0, isHovering ? 6 : 4),
+                                ? Colors.blue.withValues(alpha: 0.22)
+                                : Colors.blue.withValues(alpha: 0.10),
+                            blurRadius: isHovering ? 24 : 22,
+                            offset: Offset(0, isHovering ? 10 : 12),
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
                           ),
                         ],
                         border: isHovering
@@ -1351,8 +1488,17 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.blue,
-                                      borderRadius: BorderRadius.circular(20),
+                                      color: Colors.blue[700],
+                                      borderRadius: BorderRadius.circular(18),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.blue.withValues(
+                                            alpha: 0.20,
+                                          ),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 5),
+                                        ),
+                                      ],
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
