@@ -196,18 +196,29 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFF3A2D12)
+                      ? const Color(0xFF332711)
                       : Colors.amber[100],
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline),
+                    Icon(
+                      Icons.info_outline,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFFF6D58A)
+                          : Colors.amber[900],
+                    ),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Live directions are unavailable. Using estimated route data.',
-                        style: TextStyle(fontSize: 12),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFFFFF0C2)
+                              : Colors.amber[900],
+                          fontWeight: FontWeight.w700,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -225,7 +236,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
               return Container(
                 decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
+                  color: Theme.of(context).colorScheme.surfaceContainer,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(22),
                   ),
@@ -329,7 +340,10 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                 .surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: const Color(0xFFE8E8E8),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .outlineVariant
+                                  .withValues(alpha: 0.28),
                             ),
                           ),
                           child: Column(
@@ -337,8 +351,13 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                             children: [
                               Row(
                                 children: [
-                                  Icon(Icons.payments,
-                                      color: Colors.green[700]),
+                                  Icon(
+                                    Icons.payments,
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? Colors.green[300]
+                                        : Colors.green[700],
+                                  ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
@@ -348,6 +367,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                       style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w700,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
                                       ),
                                     ),
                                   ),
@@ -412,21 +434,42 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFF8E1),
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFF332711)
+                                    : const Color(0xFFFFF8E1),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: const Color(0xFFFFECB3),
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? const Color(0xFF8A641B)
+                                  : const Color(0xFFFFECB3),
                             ),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.info_outline, color: Colors.orange),
+                              Icon(
+                                Icons.info_outline,
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? const Color(0xFFF6D58A)
+                                    : Colors.orange,
+                              ),
                               SizedBox(width: 12),
                               Expanded(
                                 child: Text(
                                   'Detailed step-by-step directions are unavailable. Use the map preview and estimated route data.',
-                                  style: TextStyle(height: 1.35),
+                                  style: TextStyle(
+                                    height: 1.35,
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? const Color(0xFFFFF0C2)
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ],
@@ -513,12 +556,17 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                           decoration: BoxDecoration(
                             color: isCurrentStep
                                 ? _getModeColor().withValues(alpha: 0.08)
-                                : Colors.white,
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHigh,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: isCurrentStep
                                   ? _getModeColor()
-                                  : const Color(0xFFE8E8E8),
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .outlineVariant
+                                      .withValues(alpha: 0.28),
                               width: isCurrentStep ? 1.5 : 1,
                             ),
                           ),
@@ -532,7 +580,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                   shape: BoxShape.circle,
                                   color: isCurrentStep
                                       ? _getModeColor()
-                                      : Colors.grey[300],
+                                      : Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerHighest,
                                 ),
                                 child: Center(
                                   child: Text(
@@ -541,7 +591,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                       fontSize: 12,
                                       color: isCurrentStep
                                           ? Colors.white
-                                          : Colors.grey[700],
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -777,12 +829,12 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFF3A2D12)
+                      ? const Color(0xFF332711)
                       : const Color(0xFFFFF7E6),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFF9A6B14)
+                        ? const Color(0xFF8A641B)
                         : const Color(0xFFFFD699),
                   ),
                 ),
@@ -792,14 +844,18 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                     Icon(
                       Icons.warning_amber_rounded,
                       size: 18,
-                      color: Color(0xFFB45309),
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFFF6D58A)
+                          : Color(0xFFB45309),
                     ),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Historical reference only. Confirm route status before riding.',
                         style: TextStyle(
-                          color: Color(0xFF92400E),
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFFFFF0C2)
+                              : Color(0xFF92400E),
                           fontSize: 12,
                           height: 1.3,
                           fontWeight: FontWeight.w800,

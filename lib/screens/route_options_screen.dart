@@ -210,12 +210,18 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(height: 16),
               Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[600]),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
@@ -240,18 +246,27 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           Container(
             width: double.infinity,
             color: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF3A2D12)
+                ? const Color(0xFF332711)
                 : Colors.amber[100],
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                Icon(Icons.info_outline),
+                Icon(
+                  Icons.info_outline,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFF6D58A)
+                      : Colors.amber[900],
+                ),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Google Maps Directions API key not configured. Route estimates are based on distance. Enable MAPS_API_KEY for live directions.',
                     style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface),
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFFFFF0C2)
+                          : Colors.amber[900],
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -272,8 +287,10 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                   'Fare type: ${CommuterTypeService.labelFor(_passengerType)} • '
                   'Cheapest: ₱${_fares.first.fare.toStringAsFixed(0)}',
                   style: TextStyle(
-                    color: Colors.blue[800],
-                    fontWeight: FontWeight.w500,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFBFDBFE)
+                        : Colors.blue[800],
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -317,7 +334,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFEAF5FF),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Theme.of(context).colorScheme.surfaceContainerHigh
+              : const Color(0xFFEAF5FF),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: Theme.of(context).brightness == Brightness.dark
@@ -373,7 +392,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                   Text(
                     'Route options ready',
                     style: TextStyle(
-                      color: Colors.blue[900],
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Theme.of(context).colorScheme.onSurface
+                          : Colors.blue[900],
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                     ),
@@ -384,7 +405,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.blue[700],
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Theme.of(context).colorScheme.onSurfaceVariant
+                          : Colors.blue[700],
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -517,6 +540,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 15,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ),
@@ -538,7 +562,10 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                                 vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.green[100],
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? const Color(0xFF16351F)
+                                    : Colors.green[100],
                                 borderRadius: BorderRadius.circular(999),
                                 border: Border.all(
                                   color: Colors.green.withValues(alpha: 0.20),
@@ -548,7 +575,10 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                                 'CHEAPEST',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: Colors.green[700],
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.green[200]
+                                      : Colors.green[700],
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.2,
                                 ),
@@ -573,7 +603,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                         '${fare.steps.length} route steps available',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.blue[600],
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF93C5FD)
+                              : Colors.blue[600],
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -724,12 +756,15 @@ class _RouteOptionPressableCardState extends State<_RouteOptionPressableCard> {
         curve: Curves.easeOutCubic,
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: widget.isCheapest
                 ? Colors.green.withValues(alpha: 0.28)
-                : const Color(0xFFE8E8E8),
+                : Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withValues(alpha: 0.28),
           ),
           boxShadow: [
             BoxShadow(
