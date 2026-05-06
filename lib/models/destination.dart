@@ -21,7 +21,7 @@ class Destination {
     this.coordinates,
     required this.imageUrl,
     required this.category,
-    this.rating = 4.5,
+    this.rating = 0.0,
     this.tags = const [],
   });
 
@@ -45,7 +45,9 @@ class Destination {
         (e) => e.name == json['category'],
         orElse: () => DestinationCategory.landmark,
       ),
-      rating: json['rating']?.toDouble() ?? 4.5,
+      rating: json['rating'] is num && json['rating'] > 0 && json['rating'] <= 5
+          ? (json['rating'] as num).toDouble()
+          : 0.0,
       tags: List<String>.from(json['tags'] ?? []),
     );
   }

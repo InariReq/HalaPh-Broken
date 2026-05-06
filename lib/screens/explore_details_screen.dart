@@ -389,7 +389,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
           ),
           const SizedBox(width: 5),
           const Text(
-            'Google rating',
+            'Rating',
             style: TextStyle(
               color: Color(0xFF7A5200),
               fontSize: 13,
