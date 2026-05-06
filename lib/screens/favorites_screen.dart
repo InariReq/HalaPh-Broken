@@ -20,9 +20,6 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   static const Color _background = Color(0xFF0B1120);
   static const Color _primary = Color(0xFF2196F3);
   static const Color _primaryDark = Color(0xFF1976D2);
-  static const Color _textPrimary = Color(0xFF1F2933);
-  static const Color _textSecondary = Color(0xFF6B7280);
-  static const Color _border = Color(0xFFE8E8E8);
   static const Color _danger = Color(0xFFE53935);
 
   final _favoritesService = FavoritesService();
@@ -92,19 +89,25 @@ class _FavoritesScreenState extends State<FavoritesScreen>
         title: Text(
           'Favorites',
           style: TextStyle(
-            color: _textPrimary,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),
         leading: Navigator.of(context).canPop()
             ? IconButton(
-                icon: Icon(Icons.arrow_back_rounded, color: _textPrimary),
+                icon: Icon(
+                  Icons.arrow_back_rounded,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
                 onPressed: () => safeNavigateBack(context),
               )
             : null,
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh_rounded, color: _textPrimary),
+            icon: Icon(
+              Icons.refresh_rounded,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
             tooltip: 'Refresh favorites',
             onPressed: _loadFavorites,
           ),
@@ -199,7 +202,7 @@ class _SectionHeader extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
-                  color: _FavoritesScreenState._textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               SizedBox(height: 4),
@@ -207,7 +210,7 @@ class _SectionHeader extends StatelessWidget {
                 'Your favorite destinations are saved here.',
                 style: TextStyle(
                   fontSize: 13,
-                  color: _FavoritesScreenState._textSecondary,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -218,7 +221,12 @@ class _SectionHeader extends StatelessWidget {
           decoration: BoxDecoration(
             color: const Color(0xFF172033),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0xFFBBDEFB)),
+            border: Border.all(
+              color: Theme.of(context)
+                  .colorScheme
+                  .outlineVariant
+                  .withValues(alpha: 0.28),
+            ),
           ),
           child: Text(
             '$count',
@@ -240,14 +248,14 @@ class _EmptyFavoritesCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(22),
-      decoration: _cardDecoration(shadow: false),
+      decoration: _cardDecoration(context, shadow: false),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             Icons.favorite_border_rounded,
             size: 58,
-            color: _FavoritesScreenState._textSecondary,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
           SizedBox(height: 14),
           Text(
@@ -256,7 +264,7 @@ class _EmptyFavoritesCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: _FavoritesScreenState._textPrimary,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           SizedBox(height: 8),
@@ -265,7 +273,7 @@ class _EmptyFavoritesCard extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: _FavoritesScreenState._textSecondary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               height: 1.35,
             ),
           ),
@@ -309,10 +317,10 @@ class _FavoriteCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           onTap: onOpen,
           child: Container(
-            decoration: _cardDecoration(),
+            decoration: _cardDecoration(context),
             child: Row(
               children: [
-                _buildImage(),
+                _buildImage(context),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Padding(
@@ -327,7 +335,7 @@ class _FavoriteCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: _FavoritesScreenState._textPrimary,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 5),
@@ -339,7 +347,8 @@ class _FavoriteCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 13,
-                            color: _FavoritesScreenState._textSecondary,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                             height: 1.3,
                           ),
                         ),
@@ -374,7 +383,7 @@ class _FavoriteCard extends StatelessWidget {
     );
   }
 
-  Widget _buildImage() {
+  Widget _buildImage(BuildContext context) {
     final imageUrl = destination.imageUrl.trim();
     final hasNetworkImage = imageUrl.isNotEmpty && imageUrl.startsWith('http');
 
@@ -386,17 +395,18 @@ class _FavoriteCard extends StatelessWidget {
               width: 82,
               height: 92,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => _imageFallback(),
+              errorBuilder: (context, error, stackTrace) =>
+                  _imageFallback(context),
             )
-          : _imageFallback(),
+          : _imageFallback(context),
     );
   }
 
-  Widget _imageFallback() {
+  Widget _imageFallback(BuildContext context) {
     return Container(
       width: 82,
       height: 92,
-      color: const Color(0xFF172033),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Icon(
         Icons.place_rounded,
         color: _FavoritesScreenState._primary,
@@ -406,11 +416,14 @@ class _FavoriteCard extends StatelessWidget {
   }
 }
 
-BoxDecoration _cardDecoration({bool shadow = true}) {
+BoxDecoration _cardDecoration(BuildContext context, {bool shadow = true}) {
   return BoxDecoration(
-    color: const Color(0xFF111827),
+    color: Theme.of(context).colorScheme.surfaceContainer,
     borderRadius: BorderRadius.circular(18),
-    border: Border.all(color: _FavoritesScreenState._border),
+    border: Border.all(
+      color:
+          Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.28),
+    ),
     boxShadow: shadow
         ? [
             BoxShadow(

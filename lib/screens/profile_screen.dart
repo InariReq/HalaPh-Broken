@@ -160,7 +160,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
@@ -232,12 +232,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: _pickAndUploadProfilePicture,
                 child: CircleAvatar(
                   radius: 52,
-                  backgroundColor: Colors.grey[200],
+                  backgroundColor:
+                      Theme.of(context).colorScheme.surfaceContainerHighest,
                   backgroundImage: _userProfile.avatarUrl != null
                       ? NetworkImage(_userProfile.avatarUrl!)
                       : null,
                   child: _userProfile.avatarUrl == null
-                      ? Icon(Icons.person, size: 52, color: Colors.grey[600])
+                      ? Icon(
+                          Icons.person,
+                          size: 52,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        )
                       : null,
                 ),
               ),
@@ -253,12 +258,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       color: const Color(0xFF2196F3),
                       shape: BoxShape.circle,
                       border: Border.all(
-                          color: Theme.of(context).cardColor, width: 3),
+                        color: Theme.of(context).colorScheme.surfaceContainer,
+                        width: 3,
+                      ),
                     ),
                     child: Icon(
                       Icons.edit,
                       size: 16,
-                      color: Theme.of(context).cardColor,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -277,7 +284,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 6),
           Text(
             _userProfile.email,
-            style: TextStyle(fontSize: 14, color: Colors.grey),
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -296,12 +306,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.28),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: 0.18),
             blurRadius: 12,
             offset: const Offset(0, 3),
           ),
@@ -380,15 +395,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   color: selected ? Colors.white : const Color(0xFF1976D2),
                 ),
                 labelStyle: TextStyle(
-                  color: selected ? Colors.white : Colors.grey[800],
+                  color: selected
+                      ? Colors.white
+                      : Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
                 ),
                 selectedColor: const Color(0xFF1976D2),
-                backgroundColor: const Color(0xFFF5F9FF),
+                backgroundColor:
+                    Theme.of(context).colorScheme.surfaceContainerHigh,
                 side: BorderSide(
                   color: selected
                       ? const Color(0xFF1976D2)
-                      : const Color(0xFFBBDEFB),
+                      : Theme.of(context)
+                          .colorScheme
+                          .outlineVariant
+                          .withValues(alpha: 0.32),
                 ),
                 onSelected: _isSavingCommuterType
                     ? null
@@ -415,7 +436,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFE0E0E0)),
+            side: BorderSide(
+              color: Theme.of(context)
+                  .colorScheme
+                  .outlineVariant
+                  .withValues(alpha: 0.28),
+            ),
           ),
           elevation: 0,
         ),
@@ -440,7 +466,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ],
             ),
-            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[600]),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ],
         ),
       ),

@@ -70,7 +70,10 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           onPressed: () => safeNavigateBack(context),
         ),
         title: Text(
@@ -160,12 +163,17 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE7EDF7)),
+          border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.28),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withValues(alpha: 0.18),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),
@@ -192,7 +200,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
-                      color: Color(0xFF111827),
+                      color: Theme.of(context).colorScheme.onSurface,
                       letterSpacing: 1.0,
                     ),
                   ),
@@ -236,7 +244,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Material(
-        color: const Color(0xFFE3F2FD),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(999),
         child: InkWell(
           borderRadius: BorderRadius.circular(999),
@@ -246,7 +254,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.place_rounded,
                   size: 14,
                   color: Color(0xFF1565C0),
@@ -265,7 +273,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                   ),
                 ),
                 const SizedBox(width: 5),
-                const Icon(
+                Icon(
                   Icons.open_in_new_rounded,
                   size: 13,
                   color: Color(0xFF1565C0),
@@ -288,9 +296,14 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE8EEF8)),
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.28),
+        ),
         boxShadow: [
           BoxShadow(
             color: accentColor.withValues(alpha: 0.10),
@@ -298,7 +311,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
             offset: const Offset(0, 12),
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: 0.16),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -349,8 +362,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w900,
-                              color: Color(0xFF111827),
-                              letterSpacing: -0.2,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         ),
@@ -388,7 +400,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                             plan.startDate,
                             plan.endDate,
                           ),
-                          color: const Color(0xFF475569),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                         _buildPlanMetaChip(
                           icon: Icons.place_rounded,
@@ -444,7 +456,11 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                       minHeight: 32,
                     ),
                   ),
-                  Icon(Icons.chevron_right, color: Colors.grey[500], size: 20),
+                  Icon(
+                    Icons.chevron_right,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    size: 20,
+                  ),
                 ],
               ),
             ],
@@ -560,12 +576,17 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE5EAF3)),
+          border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.28),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withValues(alpha: 0.18),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),
@@ -592,7 +613,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: Color(0xFF6B7280),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -727,7 +748,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                   color: Colors.white.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.add_rounded,
                   color: Colors.white,
                   size: 26,
@@ -758,7 +779,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.arrow_forward_rounded,
                 color: Colors.white,
                 size: 20,
