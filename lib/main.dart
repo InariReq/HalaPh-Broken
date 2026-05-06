@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:go_router/go_router.dart';
 
@@ -65,11 +66,29 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoggedIn = false;
   bool _loading = true;
+  String? _sessionUid;
+  StreamSubscription<firebase_auth.User?>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
+    _startAuthListener();
     _checkLogin();
+  }
+
+  Future<void> _startAuthListener() async {
+    if (!await FirebaseAppService.initialize()) return;
+    if (!mounted) return;
+
+    _authSubscription =
+        firebase_auth.FirebaseAuth.instance.userChanges().listen((user) {
+      if (!mounted) return;
+      setState(() {
+        _isLoggedIn = user != null;
+        _sessionUid = user?.uid;
+        _loading = false;
+      });
+    });
   }
 
   Future<void> _checkLogin() async {
@@ -81,6 +100,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (mounted) {
       setState(() {
         _isLoggedIn = user != null;
+        _sessionUid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
         _loading = false;
       });
     }
@@ -88,7 +108,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   void _onLoginSuccess() {
     unawaited(SimplePlanService.initialize());
-    setState(() => _isLoggedIn = true);
+    setState(() {
+      _isLoggedIn = true;
+      _sessionUid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   @override
@@ -99,7 +128,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (!_isLoggedIn) {
       return AccountsScreen(onLoginSuccess: _onLoginSuccess);
     }
-    return const MainNavigation();
+    return MainNavigation(key: ValueKey(_sessionUid ?? 'signed-in'));
   }
 }
 
@@ -151,7 +180,8 @@ final GoRouter _router = GoRouter(
     ),
     GoRoute(
       path: '/accounts',
-      builder: (context, state) => const AccountsScreen(),
+      builder: (context, state) =>
+          AccountsScreen(onLoginSuccess: () => context.go('/')),
     ),
     GoRoute(
       path: '/login',

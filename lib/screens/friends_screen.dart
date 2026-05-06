@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:halaph/models/destination.dart';
+import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/models/friend.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/utils/navigation_utils.dart';
@@ -259,6 +260,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
               children: [
+                _buildFriendProfileDragHandle(),
+                const SizedBox(height: 8),
                 CircleAvatar(
                   radius: 24,
                   backgroundColor: Colors.grey[200],
@@ -662,99 +665,178 @@ class _FriendsScreenState extends State<FriendsScreen> {
   }
 
   void _showFriendProfileSheet(Friend friend) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        final hasAvatar =
-            friend.avatarUrl != null && friend.avatarUrl!.trim().isNotEmpty;
+    final commuterTypeFuture =
+        _friendService.getPublicCommuterTypeLabel(friend);
+    final favoritePlacesFuture = _friendService.getPublicFavoritePlaces(friend);
 
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                  radius: 44,
-                  backgroundColor: Colors.grey[200],
-                  backgroundImage:
-                      hasAvatar ? NetworkImage(friend.avatarUrl!) : null,
-                  child: hasAvatar
-                      ? null
-                      : Icon(Icons.person, size: 48, color: Colors.grey[600]),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.72,
+          minChildSize: 0.35,
+          maxChildSize: 0.94,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(24),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  friend.name,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  friend.code.isNotEmpty ? friend.code : 'No friend code',
-                  style: TextStyle(fontSize: 15, color: Colors.grey[700]),
-                ),
-                if (friend.email?.trim().isNotEmpty == true) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    friend.email!,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE3F2FD),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    'Plan role: ${friend.role}',
-                    style: TextStyle(
-                      color: Colors.blue[700],
-                      fontWeight: FontWeight.w600,
+              ),
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                children: [
+                  _buildFriendProfileDragHandle(),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: CircleAvatar(
+                      radius: 44,
+                      backgroundColor: const Color(0xFFE3F2FD),
+                      backgroundImage:
+                          friend.avatarUrl?.trim().isNotEmpty == true
+                              ? NetworkImage(friend.avatarUrl!)
+                              : null,
+                      child: friend.avatarUrl?.trim().isNotEmpty == true
+                          ? null
+                          : const Icon(
+                              Icons.person,
+                              size: 44,
+                              color: Color(0xFF1976D2),
+                            ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                _buildFriendFavoritePlacesSection(friend),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.close),
-                    label: const Text('Close'),
-                    onPressed: () => Navigator.of(context).pop(),
+                  const SizedBox(height: 14),
+                  Text(
+                    friend.name,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black87,
+                    ),
                   ),
+                  const SizedBox(height: 6),
+                  Text(
+                    friend.code.isNotEmpty ? friend.code : 'No friend code',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 15, color: Colors.grey[700]),
+                  ),
+                  if (friend.email?.trim().isNotEmpty == true) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      friend.email!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE3F2FD),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'Plan role: ${friend.role}',
+                        style: TextStyle(
+                          color: Colors.blue[700],
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildFriendCommuterTypeSection(commuterTypeFuture),
+                  const SizedBox(height: 20),
+                  _buildFriendFavoritePlacesSection(favoritePlacesFuture),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.close),
+                      label: const Text('Close'),
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildFriendCommuterTypeSection(
+    Future<String> commuterTypeFuture,
+  ) {
+    return FutureBuilder<String>(
+      future: commuterTypeFuture,
+      builder: (context, snapshot) {
+        final label = snapshot.data ?? 'Regular';
+        return _buildFavoritePlacesBox(
+          title: 'Commuter Type',
+          child: Row(
+            children: [
+              const Icon(
+                Icons.confirmation_number_outlined,
+                size: 18,
+                color: Color(0xFF1976D2),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                snapshot.connectionState == ConnectionState.waiting
+                    ? 'Loading...'
+                    : label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _buildFriendFavoritePlacesSection(Friend friend) {
+  Widget _buildFriendProfileDragHandle() {
+    return Center(
+      child: Container(
+        width: 44,
+        height: 5,
+        margin: const EdgeInsets.only(top: 4, bottom: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFD0D7DE),
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFriendFavoritePlacesSection(
+    Future<List<Destination>> favoritePlacesFuture,
+  ) {
     return FutureBuilder<List<Destination>>(
-      future: _friendService.getPublicFavoritePlaces(friend),
+      future: favoritePlacesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: CircularProgressIndicator(),
+          return _buildFavoritePlacesBox(
+            title: 'Favorite Places',
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: LinearProgressIndicator(),
+            ),
           );
         }
 
@@ -783,45 +865,74 @@ class _FriendsScreenState extends State<FriendsScreen> {
         return _buildFavoritePlacesBox(
           title: 'Favorite Places',
           child: Column(
-            children: places.take(5).map((place) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.place_outlined, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            place.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          if (place.location.trim().isNotEmpty)
-                            Text(
-                              place.location,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
+            children:
+                places.take(5).map(_buildFriendFavoritePlaceTile).toList(),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildFriendFavoritePlaceTile(Destination place) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Material(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            ExploreDetailsScreen.showAsBottomSheet(
+              context,
+              destinationId: place.id,
+              source: 'friend_profile',
+              destination: place,
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.place_outlined, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        place.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      if (place.location.trim().isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          place.location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: Colors.grey[500],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

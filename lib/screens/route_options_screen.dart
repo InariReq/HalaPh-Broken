@@ -4,6 +4,7 @@ import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/budget_routing_service.dart';
 import 'package:halaph/services/google_maps_service.dart';
 import 'package:halaph/services/fare_service.dart';
+import 'package:halaph/services/commuter_type_service.dart';
 import 'package:halaph/screens/route_map_screen.dart';
 
 class RouteOptionsScreen extends StatefulWidget {
@@ -36,7 +37,16 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadFares();
+    _loadSavedPassengerTypeAndFares();
+  }
+
+  Future<void> _loadSavedPassengerTypeAndFares() async {
+    final savedType = await CommuterTypeService().loadCommuterType();
+    if (!mounted) return;
+    setState(() {
+      _passengerType = savedType;
+    });
+    await _loadFares();
   }
 
   Future<void> _loadFares() async {
@@ -167,27 +177,6 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Route to ${widget.destinationName}'),
-        actions: [
-          PopupMenuButton<PassengerType>(
-            onSelected: (pt) {
-              setState(() {
-                _passengerType = pt;
-              });
-              // Recalculate fares for the new passenger type
-              _loadFares();
-            },
-            itemBuilder: (context) => <PopupMenuEntry<PassengerType>>[
-              const PopupMenuItem(
-                  value: PassengerType.regular, child: Text('Regular')),
-              const PopupMenuItem(
-                  value: PassengerType.student, child: Text('Student')),
-              const PopupMenuItem(
-                  value: PassengerType.senior, child: Text('Senior')),
-              const PopupMenuItem(value: PassengerType.pwd, child: Text('PWD')),
-            ],
-            icon: Icon(Icons.person),
-          ),
-        ],
         elevation: 0,
       ),
       body: _buildBody(),
@@ -260,6 +249,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
               Expanded(
                 child: Text(
                   'Distance: ${_formatDistance(_fares.first.distance)} • '
+                  'Fare type: ${CommuterTypeService.labelFor(_passengerType)} • '
                   'Cheapest: ₱${_fares.first.fare.toStringAsFixed(0)}',
                   style: TextStyle(
                     color: Colors.blue[800],

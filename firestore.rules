@@ -235,8 +235,8 @@ service cloud.firestore {
         && request.auth.uid == resource.data.uid
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.code == resource.data.code
-        && request.resource.data.keys().hasOnly(['uid', 'code', 'name', 'email', 'avatarUrl', 'favoritePlaceIds', 'favoritePlaces', 'createdAt', 'updatedAt'])
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'avatarUrl', 'favoritePlaceIds', 'favoritePlaces', 'updatedAt']);
+        && request.resource.data.keys().hasOnly(['uid', 'code', 'name', 'email', 'avatarUrl', 'commuterType', 'favoritePlaceIds', 'favoritePlaces', 'createdAt', 'updatedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'avatarUrl', 'commuterType', 'favoritePlaceIds', 'favoritePlaces', 'updatedAt']);
       allow delete: if signedIn() && request.auth.uid == resource.data.uid;
     }
 

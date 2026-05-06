@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -10,6 +11,8 @@ import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
+import 'package:halaph/services/commuter_type_service.dart';
+import 'package:halaph/services/fare_service.dart';
 import 'package:halaph/models/user.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
@@ -73,18 +76,70 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final AuthService _auth = AuthService();
   final FriendService _friendService = FriendService();
+  final CommuterTypeService _commuterTypeService = CommuterTypeService();
   StreamSubscription<void>? _favoritesSubscription;
+  StreamSubscription<firebase_auth.User?>? _authSubscription;
   User? _user;
   String? _myCode;
   bool _isUploadingProfilePicture = false;
+  PassengerType _commuterType = PassengerType.regular;
+  bool _isSavingCommuterType = false;
   @override
   void initState() {
     super.initState();
     _loadUser();
+    _loadCommuterType();
     _loadFavoritesFromService();
+    _authSubscription =
+        firebase_auth.FirebaseAuth.instance.userChanges().listen((_) {
+      if (!mounted) return;
+      CommuterTypeService().clearCache();
+      setState(() {
+        _user = null;
+        _myCode = null;
+        _commuterType = PassengerType.regular;
+      });
+      _loadUser();
+      _loadCommuterType();
+      _loadFavoritesFromService();
+    });
     _favoritesSubscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
       _loadFavoritesFromService();
     });
+  }
+
+  Future<void> _loadCommuterType() async {
+    final commuterType =
+        await _commuterTypeService.loadCommuterType(forceRefresh: true);
+    if (!mounted) return;
+    setState(() {
+      _commuterType = commuterType;
+    });
+  }
+
+  Future<void> _updateCommuterType(PassengerType type) async {
+    final normalized = CommuterTypeService.normalize(type);
+    setState(() {
+      _commuterType = normalized;
+      _isSavingCommuterType = true;
+    });
+
+    await _commuterTypeService.saveCommuterType(normalized);
+
+    if (!mounted) return;
+    setState(() {
+      _isSavingCommuterType = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Commuter type set to ${CommuterTypeService.labelFor(normalized)}.',
+        ),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _loadUser() async {
@@ -163,6 +218,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildProfileHeader(),
               const SizedBox(height: 20),
               _buildUserCodeSection(),
+              const SizedBox(height: 20),
+              _buildCommuterTypeSection(),
               const SizedBox(height: 20),
               _buildFavoritesSection(),
               const SizedBox(height: 20),
@@ -371,6 +428,123 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommuterTypeSection() {
+    final options = <PassengerType>[
+      PassengerType.regular,
+      PassengerType.student,
+      PassengerType.senior,
+      PassengerType.pwd,
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                CommuterTypeService.iconFor(_commuterType),
+                color: const Color(0xFF1976D2),
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Commuter Type',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              if (_isSavingCommuterType)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE3F2FD),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    CommuterTypeService.labelFor(_commuterType),
+                    style: const TextStyle(
+                      color: Color(0xFF1565C0),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'This is used as your default fare type in route estimates.',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[600],
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: options.map((type) {
+              final selected =
+                  CommuterTypeService.normalize(type) == _commuterType;
+              return ChoiceChip(
+                selected: selected,
+                label: Text(CommuterTypeService.labelFor(type)),
+                avatar: Icon(
+                  CommuterTypeService.iconFor(type),
+                  size: 16,
+                  color: selected ? Colors.white : const Color(0xFF1976D2),
+                ),
+                labelStyle: TextStyle(
+                  color: selected ? Colors.white : Colors.grey[800],
+                  fontWeight: FontWeight.w700,
+                ),
+                selectedColor: const Color(0xFF1976D2),
+                backgroundColor: const Color(0xFFF5F9FF),
+                side: BorderSide(
+                  color: selected
+                      ? const Color(0xFF1976D2)
+                      : const Color(0xFFBBDEFB),
+                ),
+                onSelected: _isSavingCommuterType
+                    ? null
+                    : (_) => _updateCommuterType(type),
+              );
+            }).toList(),
           ),
         ],
       ),
@@ -779,6 +953,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _favoritesSubscription?.cancel();
     super.dispose();
   }

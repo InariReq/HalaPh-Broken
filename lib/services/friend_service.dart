@@ -331,6 +331,27 @@ class FriendService {
         .toList();
   }
 
+  Future<String> getPublicCommuterTypeLabel(Friend friend) async {
+    final code = _normalizeCode(friend.code);
+    if (code.isEmpty || !await FirebaseAppService.initialize()) {
+      return 'Regular';
+    }
+
+    try {
+      final profile = await FirestoreService.getPublicProfile(code);
+      final rawType =
+          (profile?['commuterType'] as String?)?.trim().toLowerCase();
+      return switch (rawType) {
+        'student' => 'Student',
+        'senior' => 'Senior',
+        'pwd' => 'PWD',
+        _ => 'Regular',
+      };
+    } catch (_) {
+      return 'Regular';
+    }
+  }
+
   Future<List<String>> getPublicFavoriteIds(Friend friend) async {
     final code = _normalizeCode(friend.code);
     if (code.isEmpty || !await FirebaseAppService.initialize()) {

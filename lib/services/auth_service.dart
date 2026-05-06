@@ -4,6 +4,7 @@ import 'package:halaph/models/user.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/firebase_app_service.dart';
 import 'package:halaph/services/friend_service.dart';
+import 'package:halaph/services/commuter_type_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/services/saved_accounts_service.dart';
 
@@ -35,6 +36,7 @@ class AuthService {
 
     final firebaseUser = await _signInWithFirebase(email, password);
     if (firebaseUser != null) {
+      CommuterTypeService().clearCache();
       SimplePlanService.resetCache();
       FavoritesService().clearCache();
       await _ensureFriendIdentity();
@@ -53,6 +55,7 @@ class AuthService {
 
     final firebaseUser = await _registerWithFirebase(email, password, name);
     if (firebaseUser != null) {
+      CommuterTypeService().clearCache();
       SimplePlanService.resetCache();
       FavoritesService().clearCache();
       await _ensureFriendIdentity();
@@ -87,6 +90,7 @@ class AuthService {
     }
     SimplePlanService.resetCache();
     FavoritesService().clearCache();
+    CommuterTypeService().clearCache();
   }
 
   Future<firebase_auth.User?> _getFirebaseUser() async {
