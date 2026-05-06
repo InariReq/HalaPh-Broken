@@ -113,6 +113,7 @@ service cloud.firestore {
           'friendCode',
           'name',
           'avatarUrl',
+          'role',
           'createdAt',
           'updatedAt'
         ])
@@ -130,7 +131,7 @@ service cloud.firestore {
         );
 
       allow update: if isOwner(userId) && (
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'code', 'friendCode', 'avatarUrl', 'updatedAt'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'code', 'friendCode', 'avatarUrl', 'role', 'updatedAt'])
       );
 
       allow delete: if signedIn() && (

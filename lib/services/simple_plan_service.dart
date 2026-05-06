@@ -29,8 +29,9 @@ class SimplePlanService {
     if (!forceRefresh && _initialization != null) return _initialization;
 
     // Use a lock to prevent race conditions
-    final initialization =
-        _initialization = _initialize(forceRefresh: forceRefresh);
+    final initialization = _initialization = _initialize(
+      forceRefresh: forceRefresh,
+    );
     try {
       await initialization;
     } finally {
@@ -320,6 +321,7 @@ class SimplePlanService {
   static Future<bool> updatePlanParticipants({
     required String planId,
     required List<String> participantUids,
+    List<String> collaboratorUids = const [],
   }) async {
     final existing = _plans[planId];
     if (existing == null) return false;
@@ -330,11 +332,13 @@ class SimplePlanService {
         .map((id) => id.trim())
         .where((id) => id.isNotEmpty)
         .toList();
-    final collaboratorCodes = selectedParticipants
-        .where(_isFriendCode)
-        .map(_normalizeCode)
-        .toSet()
-        .toList();
+    final collaboratorIds = collaboratorUids.isNotEmpty
+        ? collaboratorUids
+            .map((id) => id.trim())
+            .where((id) => id.isNotEmpty)
+            .toSet()
+            .toList()
+        : await _editorCollaboratorIdsForSelected(selectedParticipants);
 
     final pending = TravelPlan(
       id: existing.id,
@@ -346,7 +350,7 @@ class SimplePlanService {
       itinerary: existing.itinerary,
       isShared: selectedParticipants.isNotEmpty,
       bannerImage: existing.bannerImage,
-      collaboratorUids: collaboratorCodes,
+      collaboratorUids: collaboratorIds,
     );
 
     final resolvedParticipantUids = await _resolveRemoteParticipants(
@@ -365,7 +369,7 @@ class SimplePlanService {
       itinerary: existing.itinerary,
       isShared: resolvedParticipantUids.length > 1,
       bannerImage: existing.bannerImage,
-      collaboratorUids: collaboratorCodes,
+      collaboratorUids: collaboratorIds,
     );
 
     try {
@@ -382,7 +386,7 @@ class SimplePlanService {
         itinerary: updated.itinerary,
         isShared: remoteParticipantUids.length > 1,
         bannerImage: updated.bannerImage,
-        collaboratorUids: collaboratorCodes,
+        collaboratorUids: collaboratorIds,
       );
       _notifyChanged();
       return true;
@@ -401,6 +405,7 @@ class SimplePlanService {
     Map<String, String>? destinationTimes,
     String createdBy = 'current_user',
     List<String> participantUids = const [],
+    List<String> collaboratorUids = const [],
     String? bannerImage,
   }) async {
     final id = _newPlanId();
@@ -446,6 +451,16 @@ class SimplePlanService {
     final banner =
         _cleanImageUrl(bannerImage) ?? _firstDestinationImage(dayItineraries);
 
+    final editorCollaboratorIds = collaboratorUids.isNotEmpty
+        ? collaboratorUids
+            .map((id) => id.trim())
+            .where((id) => id.isNotEmpty)
+            .toSet()
+            .toList()
+        : await _editorCollaboratorIdsForSelected(
+            participants.where((id) => id != creator),
+          );
+
     final plan = TravelPlan(
       id: id,
       title: title,
@@ -456,6 +471,7 @@ class SimplePlanService {
       itinerary: dayItineraries,
       isShared: participants.length > 1,
       bannerImage: banner,
+      collaboratorUids: editorCollaboratorIds,
     );
 
     await _saveRemotePlan(plan);
@@ -755,7 +771,7 @@ class SimplePlanService {
       'status',
       'version',
       'createdAt',
-      'updatedAt'
+      'updatedAt',
     };
     data.removeWhere((key, value) => !allowedFields.contains(key));
 
@@ -894,7 +910,9 @@ class SimplePlanService {
 
   // Collaboration helpers: add/remove collaborator to a plan
   static Future<bool> addCollaborator(
-      String planId, String collaboratorUid) async {
+    String planId,
+    String collaboratorUid,
+  ) async {
     final plan = _plans[planId];
     if (plan == null) return false;
     final ownerUid = _ownerUids[planId] ?? (plan.createdBy);
@@ -925,7 +943,9 @@ class SimplePlanService {
   }
 
   static Future<bool> removeCollaborator(
-      String planId, String collaboratorUid) async {
+    String planId,
+    String collaboratorUid,
+  ) async {
     final plan = _plans[planId];
     if (plan == null) return false;
     final ownerUid = _ownerUids[planId] ?? (plan.createdBy);
@@ -1086,6 +1106,55 @@ class SimplePlanService {
     }
   }
 
+  static Future<List<String>> _editorCollaboratorIdsForSelected(
+    Iterable<String> selectedParticipants,
+  ) async {
+    final selected = selectedParticipants
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    if (selected.isEmpty) return const <String>[];
+
+    try {
+      final friends = await FriendService().getFriends();
+      final editors = <String>{};
+
+      for (final friend in friends) {
+        if (friend.role != 'Editor') continue;
+
+        final code = _normalizeCode(friend.code);
+        final uid = friend.uid?.trim();
+
+        final matchesCode = code.isNotEmpty && selected.contains(code);
+        final matchesUid =
+            uid != null && uid.isNotEmpty && selected.contains(uid);
+
+        if (!matchesCode && !matchesUid) continue;
+
+        if (code.isNotEmpty) editors.add(code);
+        if (uid != null && uid.isNotEmpty) editors.add(uid);
+      }
+
+      return editors.toList();
+    } catch (error) {
+      debugPrint('Failed to resolve editor collaborators: $error');
+      return const <String>[];
+    }
+  }
+
+  static bool canEditPlan(String planId, {String? userId}) {
+    final plan = _plans[planId];
+    if (plan == null) return false;
+
+    final identities = _identityCandidates(userId ?? 'current_user');
+    if (_isPlanOwner(plan, identities)) return true;
+
+    return plan.collaboratorUids.any(
+      (id) => _matchesAnyIdentity(id, identities),
+    );
+  }
+
   static Set<String> _identityCandidates(String? primaryId) {
     final identities = <String>{};
     void add(String? value) {
@@ -1200,8 +1269,10 @@ class SimplePlanService {
   static String _newPlanId() {
     // Use UUID-style ID to avoid collisions across devices
     final timestamp = DateTime.now().microsecondsSinceEpoch;
-    final random =
-        (timestamp.hashCode.abs() % 100000).toString().padLeft(5, '0');
+    final random = (timestamp.hashCode.abs() % 100000).toString().padLeft(
+          5,
+          '0',
+        );
     return 'plan_${timestamp}_$random';
   }
 

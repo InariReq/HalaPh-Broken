@@ -67,6 +67,12 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   Map<int, List<Destination>> _itinerary = {};
   Map<String, String> _destinationTimes = {};
 
+  bool get _canEditPlan =>
+      _plan != null && SimplePlanService.canEditPlan(_plan!.id);
+
+  bool get _canManageCollaborators =>
+      _plan != null && SimplePlanService.isPlanOwner(_plan!.id);
+
   @override
   void initState() {
     super.initState();
@@ -144,6 +150,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
   Future<void> _manageCollaborators() async {
     if (_plan == null) return;
+    if (!_canManageCollaborators) {
+      _showError('Only the plan owner can manage collaborators.');
+      return;
+    }
     final friends = await _friendService.getFriends();
     if (!mounted) return;
     final initiallySelected =
@@ -191,6 +201,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
   Future<void> _savePlanChanges() async {
     if (_plan == null) return;
+    if (!_canEditPlan) {
+      _showError('You only have viewer access to this plan.');
+      return;
+    }
 
     setState(() {
       _isSaving = true;
@@ -275,7 +289,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           onPressed: () => context.go('/'),
         ),
         actions: [
-          if (!_isEditing)
+          if (!_isEditing && _canEditPlan)
             IconButton(
               icon: const Icon(Icons.edit, color: Colors.black),
               onPressed: () {
@@ -493,7 +507,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.transparent,
-                  Colors.black.withValues(alpha: 0.4)
+                  Colors.black.withValues(alpha: 0.4),
                 ],
               ),
             ),
@@ -545,6 +559,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Widget _buildActionButtons() {
+    final canManageCollaborators = _canManageCollaborators;
+
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -576,11 +592,17 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: OutlinedButton(
-              onPressed: _isEditing ? _manageCollaborators : null,
+              onPressed: _isEditing && canManageCollaborators
+                  ? _manageCollaborators
+                  : null,
               style: OutlinedButton.styleFrom(
-                foregroundColor: _isEditing ? Colors.blue[700] : Colors.grey,
+                foregroundColor: _isEditing && canManageCollaborators
+                    ? Colors.blue[700]
+                    : Colors.grey,
                 side: BorderSide(
-                  color: _isEditing ? Colors.blue.shade300 : Colors.grey,
+                  color: _isEditing && canManageCollaborators
+                      ? Colors.blue.shade300
+                      : Colors.grey,
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -608,7 +630,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Future<void> _addLocations() async {
-    if (_plan == null) return;
+    if (_plan == null || !_canEditPlan) return;
     final dayNumber = 1;
     final result = await Navigator.push<Destination>(
       context,
@@ -632,7 +654,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   void _removeDestinationFromPlan(Destination destination, int dayNumber) {
-    if (!_isEditing) return;
+    if (!_isEditing || !_canEditPlan) return;
 
     setState(() {
       _itinerary[dayNumber]?.remove(destination);
@@ -650,7 +672,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   void _handleDrop(DestinationData data, int toDay, int toIndex) {
-    if (!_isEditing) return;
+    if (!_isEditing || !_canEditPlan) return;
 
     setState(() {
       // Remove from original position

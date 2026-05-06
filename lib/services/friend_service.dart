@@ -185,7 +185,8 @@ class FriendService {
       final doc = await docRef.get();
 
       debugPrint(
-          'selfHealFriendCodeMapping: friendCodes/$normalizedCode exists ${doc.exists}');
+        'selfHealFriendCodeMapping: friendCodes/$normalizedCode exists ${doc.exists}',
+      );
 
       if (!doc.exists) {
         // Create missing document
@@ -205,7 +206,8 @@ class FriendService {
       final existingUid = data['uid'] as String?;
 
       debugPrint(
-          'selfHealFriendCodeMapping: missing code field ${existingCode == null}');
+        'selfHealFriendCodeMapping: missing code field ${existingCode == null}',
+      );
       debugPrint('selfHealFriendCodeMapping: existing uid=$existingUid');
 
       // Check if uid matches
@@ -217,16 +219,19 @@ class FriendService {
       // Fix missing or incorrect code field
       if (existingCode == null || existingCode != normalizedCode) {
         debugPrint(
-            'selfHealFriendCodeMapping: fixing code field to $normalizedCode');
+          'selfHealFriendCodeMapping: fixing code field to $normalizedCode',
+        );
         await docRef.update({
           'code': normalizedCode,
           'updatedAt': FieldValue.serverTimestamp(),
         });
         debugPrint(
-            'selfHealFriendCodeMapping: write performed true (updated code)');
+          'selfHealFriendCodeMapping: write performed true (updated code)',
+        );
       } else {
         debugPrint(
-            'selfHealFriendCodeMapping: write performed false (no changes needed)');
+          'selfHealFriendCodeMapping: write performed false (no changes needed)',
+        );
       }
     } catch (e) {
       debugPrint('selfHealFriendCodeMapping: error $e');
@@ -253,28 +258,27 @@ class FriendService {
 
   void _startFriendsListener(String userId) {
     _friendsSubscription?.cancel();
-    _friendsSubscription = FirestoreService.getFriendsStream(userId).listen(
-      (snapshot) {
-        final friends = snapshot.docs.map((doc) {
-          final data = doc.data();
-          return Friend(
-            id: data['friendId'] as String? ?? doc.id,
-            uid: data['friendUid'] as String?,
-            name: data['name'] as String? ?? 'Unknown',
-            role: data['role'] as String? ?? 'Viewer',
-            code: data['code'] as String? ?? '',
-            email: data['email'] as String?,
-            avatarUrl: data['avatarUrl'] as String?,
-          );
-        }).toList();
-        friends.sort(
-          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    _friendsSubscription = FirestoreService.getFriendsStream(userId).listen((
+      snapshot,
+    ) {
+      final friends = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return Friend(
+          id: data['friendId'] as String? ?? doc.id,
+          uid: data['friendUid'] as String?,
+          name: data['name'] as String? ?? 'Unknown',
+          role: data['role'] as String? ?? 'Viewer',
+          code: data['code'] as String? ?? '',
+          email: data['email'] as String?,
+          avatarUrl: data['avatarUrl'] as String?,
         );
-        _cachedFriends = List<Friend>.from(friends);
-        _friendsController.add(friends);
-      },
-      onError: (error) => debugPrint('Friends live updates failed: $error'),
-    );
+      }).toList();
+      friends.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+      _cachedFriends = List<Friend>.from(friends);
+      _friendsController.add(friends);
+    }, onError: (error) => debugPrint('Friends live updates failed: $error'));
   }
 
   Future<void> removeFriend(String friendId) async {
@@ -413,20 +417,48 @@ class FriendService {
   }
 
   Future<void> updateFriendRole(String friendId, String role) async {
+    final userId = await _currentUserId();
+    if (userId == null) return;
+
+    final normalizedRole = role == 'Editor' ? 'Editor' : 'Viewer';
     final friends = await getFriends();
-    final updated = friends.map((friend) {
-      if (friend.id != friendId) return friend;
+
+    Friend? targetFriend;
+    for (final friend in friends) {
+      if (friend.id == friendId || friend.uid == friendId) {
+        targetFriend = friend;
+        break;
+      }
+    }
+
+    final targetUid = targetFriend?.uid?.trim().isNotEmpty == true
+        ? targetFriend!.uid!.trim()
+        : friendId.trim();
+
+    if (targetUid.isEmpty) return;
+
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('friends')
+        .doc(targetUid)
+        .set({
+      'role': normalizedRole,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    _cachedFriends = friends.map((friend) {
+      if (friend.id != friendId && friend.uid != friendId) return friend;
       return Friend(
         id: friend.id,
         uid: friend.uid,
         name: friend.name,
-        role: role,
+        role: normalizedRole,
         code: friend.code,
         email: friend.email,
         avatarUrl: friend.avatarUrl,
       );
     }).toList();
-    await _saveFriends(updated);
   }
 
   Future<List<Friend>> _loadRemoteFriends() async {
@@ -449,30 +481,6 @@ class FriendService {
     }
 
     return friends;
-  }
-
-  Future<void> _saveFriends(List<Friend> friends) async {
-    final userId = await _currentUserId();
-    if (userId == null) return;
-
-    _cachedUserId = userId;
-    _cachedFriends = List<Friend>.from(friends);
-    await RemoteSyncService.instance.saveNamespace('friends', {
-      'friends': friends.map((friend) => friend.toJson()).toList(),
-    });
-    await _saveFriendsToFirestore(userId, friends);
-  }
-
-  Future<void> _saveFriendsToFirestore(
-      String userId, List<Friend> friends) async {
-    if (!await FirebaseAppService.initialize()) return;
-
-    try {
-      await FirestoreService.saveFriends(userId, friends);
-    } catch (e) {
-      debugPrint('Failed to save friends: $e');
-      rethrow;
-    }
   }
 
   Future<List<Friend>> _loadFriendsFromFirestore(String userId) async {
@@ -569,7 +577,7 @@ class FriendService {
               'email': profile.email ?? '',
               'code': profile.code,
               'avatarUrl': profile.avatarUrl ?? '',
-            }
+            },
           ];
         }
       }
@@ -718,8 +726,10 @@ class FriendService {
         data['avatarUrl'] = firebaseUser.photoURL!;
       }
 
-      await FirestoreService.updatePublicProfile(code, data)
-          .timeout(const Duration(seconds: 5));
+      await FirestoreService.updatePublicProfile(
+        code,
+        data,
+      ).timeout(const Duration(seconds: 5));
     } catch (_) {
       try {
         await FirebaseFirestore.instance
@@ -764,7 +774,8 @@ class FriendService {
 
     // 2. Skip reciprocal friend doc read - rules deny other user friend reads
     debugPrint(
-        'friendRepair: skipping reciprocal friend doc read because rules deny other user friend reads');
+      'friendRepair: skipping reciprocal friend doc read because rules deny other user friend reads',
+    );
 
     // 3. Check current user mirror accepted request first
     debugPrint('friendRepair: checking current mirror accepted request');
@@ -780,7 +791,8 @@ class FriendService {
       debugPrint('friendRepair: current mirror status=${data?['status']}');
       if (data != null && data['status'] == 'accepted') {
         debugPrint(
-            'friendRepair: accepted mirror found, repairing friend docs');
+          'friendRepair: accepted mirror found, repairing friend docs',
+        );
         final targetName = _usableName(data['fromName'] as String?) ??
             await _publicProfileBestEffortName(targetCode);
         final currentName = _usableName(data['toName'] as String?) ??
@@ -811,7 +823,8 @@ class FriendService {
         final data = reverseRequestDoc.data();
         if (data != null && data['status'] == 'accepted') {
           debugPrint(
-              'friendRepair: reverse accepted request found, repairing friend docs');
+            'friendRepair: reverse accepted request found, repairing friend docs',
+          );
           final targetName = _usableName(data['fromName'] as String?) ??
               await _publicProfileBestEffortName(targetCode);
           final currentName = _usableName(data['toName'] as String?) ??
@@ -830,7 +843,8 @@ class FriendService {
       }
     } catch (e) {
       debugPrint(
-          'friendRepair: reverse accepted request read failed, continuing');
+        'friendRepair: reverse accepted request read failed, continuing',
+      );
     }
 
     debugPrint('friendRepair: already friends false');
@@ -884,7 +898,8 @@ class FriendService {
 
       if (!codeDoc.exists || codeDoc.data()?['uid'] == null) {
         debugPrint(
-            'addFriendByCode: friendCodes/$code missing or no uid, returning not found');
+          'addFriendByCode: friendCodes/$code missing or no uid, returning not found',
+        );
         return const FriendAddResult(
           success: false,
           message:
@@ -942,10 +957,7 @@ class FriendService {
 
       debugPrint('Friend request sent successfully');
 
-      return FriendAddResult(
-        success: true,
-        message: 'Friend request sent!',
-      );
+      return FriendAddResult(success: true, message: 'Friend request sent!');
     } catch (e) {
       debugPrint('Failed to send friend request: $e');
       return FriendAddResult(
@@ -969,7 +981,8 @@ class FriendService {
       final snapshot = await FirestoreService.getPendingFriendRequests();
 
       debugPrint(
-          'getPendingFriendRequests: Found ${snapshot.docs.length} total requests');
+        'getPendingFriendRequests: Found ${snapshot.docs.length} total requests',
+      );
 
       final requests = snapshot.docs.where((doc) {
         final data = doc.data();
@@ -991,7 +1004,8 @@ class FriendService {
       }).toList();
 
       debugPrint(
-          'getPendingFriendRequests: Returning ${requests.length} pending requests');
+        'getPendingFriendRequests: Returning ${requests.length} pending requests',
+      );
       return requests;
     } catch (e) {
       debugPrint('Failed to load friend requests: $e');
@@ -1000,7 +1014,8 @@ class FriendService {
   }
 
   Future<FriendAddResult> acceptFriendRequest(
-      Map<String, dynamic> request) async {
+    Map<String, dynamic> request,
+  ) async {
     final currentUid = await _currentUserId();
     if (currentUid == null) {
       return const FriendAddResult(
@@ -1069,8 +1084,10 @@ class FriendService {
     if (fromUid == null || fromUid.isEmpty) return false;
 
     try {
-      await FirestoreService.respondToFriendRequest(fromUid, false)
-          .timeout(const Duration(seconds: 5));
+      await FirestoreService.respondToFriendRequest(
+        fromUid,
+        false,
+      ).timeout(const Duration(seconds: 5));
       return true;
     } catch (e) {
       debugPrint('Failed to decline friend request: $e');
