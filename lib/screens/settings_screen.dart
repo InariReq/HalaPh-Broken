@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:halaph/services/auth_service.dart';
 import 'package:halaph/services/plan_notification_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
+import 'package:halaph/services/theme_mode_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,11 +16,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _auth = AuthService();
   bool _notificationsEnabled = false;
   bool _deletingAccount = false;
+  ThemeMode _themeMode = ThemeMode.system;
 
   @override
   void initState() {
     super.initState();
     _loadPlanReminderSetting();
+    _loadThemeModeSetting();
   }
 
   Future<void> _loadPlanReminderSetting() async {
@@ -28,6 +31,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _notificationsEnabled = enabled;
     });
+  }
+
+  Future<void> _loadThemeModeSetting() async {
+    setState(() {
+      _themeMode = ThemeModeService.themeMode.value;
+    });
+  }
+
+  Future<void> _setThemeMode(ThemeMode mode) async {
+    await ThemeModeService.setThemeMode(mode);
+    if (!mounted) return;
+    setState(() {
+      _themeMode = mode;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${ThemeModeService.labelFor(mode)} selected')),
+    );
   }
 
   Future<void> _toggleNotifications(bool value) async {
@@ -137,10 +157,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
     context.go('/accounts');
   }
 
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
+  Color get _cardColor => _isDark ? const Color(0xFF111827) : Colors.white;
+
+  Color get _softCardColor =>
+      _isDark ? const Color(0xFF172033) : const Color(0xFFF3F8FF);
+
+  Color get _borderColor =>
+      _isDark ? const Color(0xFF263244) : const Color(0xFFE5EAF3);
+
+  Color get _softBorderColor =>
+      _isDark ? const Color(0xFF2B3A55) : const Color(0xFFD9E8FF);
+
+  Color get _titleColor => _isDark ? Colors.white : const Color(0xFF111827);
+
+  Color get _subtitleColor =>
+      _isDark ? const Color(0xFFCBD5E1) : const Color(0xFF6B7280);
+
   @override
   Widget build(BuildContext context) {
+    final scaffoldColor = Theme.of(context).scaffoldBackgroundColor;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: scaffoldColor,
       appBar: AppBar(
         title: const Text(
           'Settings',
@@ -150,8 +190,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             letterSpacing: -0.2,
           ),
         ),
-        backgroundColor: const Color(0xFFF8F9FA),
-        foregroundColor: Colors.black87,
+        backgroundColor: scaffoldColor,
+        foregroundColor: _titleColor,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
@@ -161,6 +201,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             _buildHeroCard(),
             const SizedBox(height: 18),
+            _section(
+              title: 'Appearance',
+              icon: Icons.dark_mode_outlined,
+              iconColor: const Color(0xFF1976D2),
+              children: [
+                _themeOption(ThemeMode.system, Icons.phone_iphone_rounded),
+                const SizedBox(height: 10),
+                _themeOption(ThemeMode.light, Icons.light_mode_rounded),
+                const SizedBox(height: 10),
+                _themeOption(ThemeMode.dark, Icons.dark_mode_rounded),
+              ],
+            ),
+            const SizedBox(height: 16),
             _section(
               title: 'Permissions',
               icon: Icons.privacy_tip_outlined,
@@ -173,7 +226,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'Used to show nearby places and improve route planning. You can change this in iOS Settings.',
                 ),
                 const SizedBox(height: 12),
-                const Divider(height: 1),
+                Divider(height: 1, color: _borderColor),
                 const SizedBox(height: 12),
                 _infoRow(
                   icon: Icons.notifications_outlined,
@@ -240,7 +293,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.20),
+            color: Colors.blue.withValues(alpha: _isDark ? 0.12 : 0.20),
             blurRadius: 28,
             offset: const Offset(0, 14),
           ),
@@ -277,7 +330,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 SizedBox(height: 5),
                 Text(
-                  'Manage reminders, permissions, and account controls.',
+                  'Manage reminders, appearance, permissions, and account controls.',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 13,
@@ -302,12 +355,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardColor,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE5EAF3)),
+        border: Border.all(color: _borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: _isDark ? 0.18 : 0.04),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -322,7 +375,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 height: 38,
                 width: 38,
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.10),
+                  color: iconColor.withValues(alpha: _isDark ? 0.16 : 0.10),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(icon, color: iconColor, size: 20),
@@ -331,10 +384,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF111827),
+                    color: _titleColor,
                     letterSpacing: -0.2,
                   ),
                 ),
@@ -344,6 +397,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 16),
           ...children,
         ],
+      ),
+    );
+  }
+
+  Widget _themeOption(ThemeMode mode, IconData icon) {
+    final selected = _themeMode == mode;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => _setThemeMode(mode),
+      child: Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color:
+              selected ? Colors.blue.withValues(alpha: 0.12) : _softCardColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? const Color(0xFF1976D2) : _softBorderColor,
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: selected ? Colors.blue[700] : _subtitleColor,
+              size: 22,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ThemeModeService.labelFor(mode),
+                    style: TextStyle(
+                      color: _titleColor,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    ThemeModeService.descriptionFor(mode),
+                    style: TextStyle(
+                      color: _subtitleColor,
+                      fontSize: 12,
+                      height: 1.25,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? Colors.blue[700] : Colors.transparent,
+                border: Border.all(
+                  color: selected ? Colors.blue[700]! : _softBorderColor,
+                  width: 2,
+                ),
+              ),
+              child: selected
+                  ? const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    )
+                  : null,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -360,7 +488,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           height: 36,
           width: 36,
           decoration: BoxDecoration(
-            color: Colors.blue.withValues(alpha: 0.08),
+            color: Colors.blue.withValues(alpha: _isDark ? 0.14 : 0.08),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: Colors.blue[700], size: 19),
@@ -372,16 +500,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF111827),
+                  color: _titleColor,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 subtitle,
                 style: TextStyle(
-                  color: Colors.grey[700],
+                  color: _subtitleColor,
                   height: 1.35,
                   fontWeight: FontWeight.w500,
                 ),
@@ -397,9 +525,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F8FF),
+        color: _softCardColor,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFD9E8FF)),
+        border: Border.all(color: _softBorderColor),
       ),
       child: Row(
         children: [
@@ -407,7 +535,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             height: 42,
             width: 42,
             decoration: BoxDecoration(
-              color: Colors.blue[50],
+              color: Colors.blue.withValues(alpha: _isDark ? 0.14 : 0.08),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
@@ -417,22 +545,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Plan Reminder',
                   style: TextStyle(
-                    color: Color(0xFF111827),
+                    color: _titleColor,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   'Notify 1 hour before the first stop and 30 minutes before each next stop.',
                   style: TextStyle(
-                    color: Color(0xFF6B7280),
+                    color: _subtitleColor,
                     fontSize: 12,
                     height: 1.3,
                     fontWeight: FontWeight.w600,
@@ -468,7 +596,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.red,
           side: BorderSide(color: Colors.red.withValues(alpha: 0.45)),
-          backgroundColor: Colors.red.withValues(alpha: 0.04),
+          backgroundColor: Colors.red.withValues(alpha: _isDark ? 0.10 : 0.04),
           padding: const EdgeInsets.symmetric(vertical: 15),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),

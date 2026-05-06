@@ -11,6 +11,7 @@ import 'services/simple_plan_service.dart';
 import 'services/auth_service.dart';
 import 'services/firebase_app_service.dart';
 import 'services/plan_notification_service.dart';
+import 'services/theme_mode_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/favorites_screen.dart';
 
@@ -43,6 +44,7 @@ void main() async {
   await Future.delayed(const Duration(milliseconds: 100));
   await FirebaseAppService.initialize();
   await PlanNotificationService.initialize();
+  await ThemeModeService.initialize();
 
   runApp(const HalaPhApp());
 }
@@ -257,6 +259,13 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final navBackground =
+        isDark ? const Color(0xFF111827) : Colors.white.withValues(alpha: 0.96);
+    final navBorder =
+        isDark ? const Color(0xFF263244) : const Color(0xFFE3ECF8);
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
@@ -272,9 +281,9 @@ class _MainNavigationState extends State<MainNavigation> {
       bottomNavigationBar: Container(
         margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.96),
+          color: navBackground,
           borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: const Color(0xFFE3ECF8)),
+          border: Border.all(color: navBorder),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.10),
@@ -306,8 +315,12 @@ class _MainNavigationState extends State<MainNavigation> {
 
   Widget _buildNavItem(IconData icon, String label, int index) {
     final isActive = _currentIndex == index;
-    final activeColor = Colors.blue[700]!;
-    final inactiveColor = Colors.grey[500]!;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final activeColor = Colors.blue[isDark ? 300 : 700]!;
+    final inactiveColor = isDark ? Colors.grey[400]! : Colors.grey[500]!;
+    final activeBackground =
+        isDark ? const Color(0xFF1E3A5F) : const Color(0xFFEAF3FF);
 
     return Expanded(
       child: GestureDetector(
@@ -319,7 +332,7 @@ class _MainNavigationState extends State<MainNavigation> {
           margin: const EdgeInsets.symmetric(horizontal: 2),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFFEAF3FF) : Colors.transparent,
+            color: isActive ? activeBackground : Colors.transparent,
             borderRadius: BorderRadius.circular(18),
           ),
           child: Column(
@@ -358,67 +371,86 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-ThemeData _buildHalaTheme() {
+ThemeData _buildHalaTheme(Brightness brightness) {
   const seedBlue = Color(0xFF1976D2);
+  final isDark = brightness == Brightness.dark;
+
+  final colorScheme = ColorScheme.fromSeed(
+    seedColor: seedBlue,
+    brightness: brightness,
+  );
+
+  final scaffoldBackground =
+      isDark ? const Color(0xFF0B1120) : const Color(0xFFF6F8FC);
+  final surfaceColor = isDark ? const Color(0xFF111827) : Colors.white;
+  final textColor = isDark ? Colors.white : Colors.black87;
 
   return ThemeData(
     useMaterial3: true,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: seedBlue,
-      brightness: Brightness.light,
-    ),
-    scaffoldBackgroundColor: const Color(0xFFF6F8FC),
+    brightness: brightness,
+    colorScheme: colorScheme,
+    scaffoldBackgroundColor: scaffoldBackground,
     fontFamily: 'Roboto',
-    textTheme: const TextTheme(
+    textTheme: TextTheme(
       headlineLarge: TextStyle(
+        color: textColor,
         fontWeight: FontWeight.w900,
         letterSpacing: -0.8,
       ),
       headlineMedium: TextStyle(
+        color: textColor,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.6,
       ),
       titleLarge: TextStyle(
+        color: textColor,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.3,
       ),
       titleMedium: TextStyle(
+        color: textColor,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.2,
       ),
       bodyLarge: TextStyle(
+        color: textColor,
         height: 1.35,
         letterSpacing: -0.1,
       ),
       bodyMedium: TextStyle(
+        color: isDark ? const Color(0xFFE5E7EB) : const Color(0xFF111827),
         height: 1.35,
         letterSpacing: -0.05,
       ),
       labelLarge: TextStyle(
+        color: textColor,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.1,
       ),
     ),
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       centerTitle: false,
-      backgroundColor: Colors.white,
-      foregroundColor: Colors.black87,
+      backgroundColor: scaffoldBackground,
+      foregroundColor: textColor,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
       titleTextStyle: TextStyle(
-        color: Colors.black87,
+        color: textColor,
         fontSize: 20,
         fontWeight: FontWeight.w900,
         letterSpacing: -0.4,
       ),
     ),
     cardTheme: CardThemeData(
-      color: Colors.white,
+      color: surfaceColor,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(22),
       ),
+    ),
+    dividerTheme: DividerThemeData(
+      color: isDark ? const Color(0xFF263244) : const Color(0xFFE5EAF3),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -438,7 +470,8 @@ ThemeData _buildHalaTheme() {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(999),
       ),
-      labelStyle: const TextStyle(
+      labelStyle: TextStyle(
+        color: textColor,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.1,
       ),
@@ -451,13 +484,20 @@ class HalaPhApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      debugShowCheckedModeBanner: false,
-      title: 'HalaPH - Discover Philippines',
-      theme: _buildHalaTheme(),
-      routerDelegate: _router.routerDelegate,
-      routeInformationParser: _router.routeInformationParser,
-      routeInformationProvider: _router.routeInformationProvider,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeModeService.themeMode,
+      builder: (context, themeMode, _) {
+        return MaterialApp.router(
+          debugShowCheckedModeBanner: false,
+          title: 'HalaPH - Discover Philippines',
+          theme: _buildHalaTheme(Brightness.light),
+          darkTheme: _buildHalaTheme(Brightness.dark),
+          themeMode: themeMode,
+          routerDelegate: _router.routerDelegate,
+          routeInformationParser: _router.routeInformationParser,
+          routeInformationProvider: _router.routeInformationProvider,
+        );
+      },
     );
   }
 }
