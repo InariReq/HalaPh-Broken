@@ -24,99 +24,106 @@ class DestinationService {
   static final List<Destination> _popularMalls = [
     Destination(
       id: 'sm_trinoma',
-      name: 'SM City Trinoma',
-      description: 'Major shopping mall in Quezon City with over 300 shops, restaurants, and a cinema.',
+      name: 'TriNoma',
+      description:
+          'Major shopping mall in Quezon City with over 300 shops, restaurants, and a cinema.',
       location: 'EDSA corner North Avenue, Quezon City',
       coordinates: const LatLng(14.6536, 121.0334),
-      imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7f/Trinoma.jpg/1200px-Trinoma.jpg',
+      imageUrl: '',
       category: DestinationCategory.malls,
       rating: 4.5,
       tags: ['shopping', 'dining', 'cinema', 'SM Supermalls'],
-      
     ),
     Destination(
       id: 'sm_moa',
       name: 'SM Mall of Asia',
-      description: 'One of the largest malls in Asia with shopping, dining, entertainment, and an ice skating rink.',
+      description:
+          'One of the largest malls in Asia with shopping, dining, entertainment, and an ice skating rink.',
       location: 'Seaside Blvd, Pasay City, Metro Manila',
       coordinates: const LatLng(14.5352, 120.9829),
-      imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/SM_Mall_of_Asia.jpg/1200px-SM_Mall_of_Asia.jpg',
+      imageUrl: '',
       category: DestinationCategory.malls,
       rating: 4.6,
-      tags: ['shopping', 'dining', 'entertainment', 'SM Supermalls', 'ice skating'],
-      
+      tags: [
+        'shopping',
+        'dining',
+        'entertainment',
+        'SM Supermalls',
+        'ice skating'
+      ],
     ),
     Destination(
       id: 'sm_megamall',
       name: 'SM Megamall',
-      description: 'Large shopping mall in Ortigas Center with diverse retail stores and restaurants.',
+      description:
+          'Large shopping mall in Ortigas Center with diverse retail stores and restaurants.',
       location: 'EDSA corner Julia Vargas Avenue, Mandaluyong City',
       coordinates: const LatLng(14.5842, 121.0564),
-      imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/SM_Megamall.jpg/1200px-SM_Megamall.jpg',
+      imageUrl: '',
       category: DestinationCategory.malls,
       rating: 4.5,
       tags: ['shopping', 'dining', 'SM Supermalls'],
-      
     ),
     Destination(
       id: 'ayala_glorietta',
       name: 'Ayala Malls Glorietta',
-      description: 'Upscale shopping mall complex in Makati with luxury brands and fine dining.',
+      description:
+          'Upscale shopping mall complex in Makati with luxury brands and fine dining.',
       location: 'Ayala Center, Makati City',
       coordinates: const LatLng(14.5518, 121.0244),
-      imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Glorietta.jpg/1200px-Glorietta.jpg',
+      imageUrl: '',
       category: DestinationCategory.malls,
       rating: 4.6,
       tags: ['luxury shopping', 'fine dining', 'Ayala Malls'],
-      
     ),
     Destination(
       id: 'robinsons_manila',
       name: 'Robinsons Place Manila',
-      description: 'Major shopping mall in Manila with a wide variety of retail and dining options.',
+      description:
+          'Major shopping mall in Manila with a wide variety of retail and dining options.',
       location: 'Pedro Gil corner Adriatico Street, Manila',
       coordinates: const LatLng(14.5726, 120.9943),
-      imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Robinsons_Place_Manila.jpg/1200px-Robinsons_Place_Manila.jpg',
+      imageUrl: '',
       category: DestinationCategory.malls,
       rating: 4.4,
       tags: ['shopping', 'dining', 'Robinsons Malls'],
-      
     ),
     Destination(
       id: 'sm_north',
       name: 'SM North EDSA',
-      description: 'One of the oldest and largest malls in the Philippines located in Quezon City.',
+      description:
+          'One of the oldest and largest malls in the Philippines located in Quezon City.',
       location: 'EDSA, Quezon City, Metro Manila',
       coordinates: const LatLng(14.6554, 121.0289),
-      imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/SM_North_EDSA.JPG/1200px-SM_North_EDSA.JPG',
+      imageUrl: '',
       category: DestinationCategory.malls,
       rating: 4.5,
       tags: ['shopping', 'dining', 'cinema', 'SM Supermalls'],
-      
     ),
     Destination(
       id: 'greenbelt',
       name: 'Greenbelt Mall',
-      description: 'Premium shopping and dining destination in Makati with landscaped gardens.',
+      description:
+          'Premium shopping and dining destination in Makati with landscaped gardens.',
       location: 'Ayala Center, Makati City',
       coordinates: const LatLng(14.5500, 121.0255),
-      imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Greenbelt%2C_Ayala_Center%2C_Makati.jpg/1200px-Greenbelt%2C_Ayala_Center%2C_Makati.jpg',
+      imageUrl: '',
       category: DestinationCategory.malls,
       rating: 4.7,
       tags: ['luxury shopping', 'fine dining', 'Ayala Malls', 'gardens'],
-      
     ),
     Destination(
       id: 'sm_aura',
       name: 'SM Aura Premier',
-      description: 'Upscale shopping mall in Taguig with high-end brands and dining options.',
-      location: '26th Street corner McKinley Parkway, Bonifacio Global City, Taguig',
+      description:
+          'Upscale shopping mall in Taguig with high-end brands and dining options.',
+      location:
+          '26th Street corner McKinley Parkway, Bonifacio Global City, Taguig',
       coordinates: const LatLng(14.5493, 121.0505),
-      imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/SM_Aura_Premier.jpg/1200px-SM_Aura_Premier.jpg',
+      imageUrl: '',
       category: DestinationCategory.malls,
       rating: 4.6,
       tags: ['luxury shopping', 'dining', 'SM Supermalls', 'BGC'],
-      
     ),
   ];
 
@@ -315,12 +322,11 @@ class DestinationService {
     final deltaLatRad = (point2.latitude - point1.latitude) * (pi / 180);
     final deltaLngRad = (point2.longitude - point1.longitude) * (pi / 180);
 
-    final a =
-        sin(deltaLatRad / 2) * sin(deltaLatRad / 2) +
-            cos(lat1Rad) *
-                cos(lat2Rad) *
-                sin(deltaLngRad / 2) *
-                sin(deltaLngRad / 2);
+    final a = sin(deltaLatRad / 2) * sin(deltaLatRad / 2) +
+        cos(lat1Rad) *
+            cos(lat2Rad) *
+            sin(deltaLngRad / 2) *
+            sin(deltaLngRad / 2);
     final c = 2 * asin(sqrt(a).clamp(0.0, 1.0));
     return earthRadius * c;
   }
@@ -388,9 +394,8 @@ class DestinationService {
         'maxwidth': '300',
       });
 
-      final response = await http
-          .get(uri)
-          .timeout(_placesSearchTimeout, onTimeout: () => throw TimeoutException(''));
+      final response = await http.get(uri).timeout(_placesSearchTimeout,
+          onTimeout: () => throw TimeoutException(''));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
@@ -413,17 +418,95 @@ class DestinationService {
     LatLng origin, {
     required int limit,
   }) {
-    final deduped = deduplicateDestinationsById(places)
+    final bestByKey = <String, Destination>{};
+
+    for (final place in places) {
+      final key = _destinationDedupeKey(place);
+      final existing = bestByKey[key];
+
+      if (existing == null ||
+          _shouldPreferDestination(place, existing, origin)) {
+        bestByKey[key] = place;
+      }
+    }
+
+    final deduped = bestByKey.values.toList()
       ..sort(
         (a, b) =>
             _trendingScore(b, origin).compareTo(_trendingScore(a, origin)),
       );
+
     return deduped.take(limit).toList(growable: false);
   }
 
+  static String _destinationDedupeKey(Destination destination) {
+    final normalizedName = _normalizeDestinationName(destination.name);
+    if (normalizedName.isNotEmpty) {
+      return '${destination.category.name}|$normalizedName';
+    }
+
+    final coordinates = destination.coordinates;
+    if (coordinates != null) {
+      final latBucket = (coordinates.latitude * 1000).round();
+      final lngBucket = (coordinates.longitude * 1000).round();
+      return '${destination.category.name}|$latBucket,$lngBucket';
+    }
+
+    return '${destination.category.name}|${destination.id.toLowerCase()}';
+  }
+
+  static String _normalizeDestinationName(String value) {
+    final words = value
+        .toLowerCase()
+        .replaceAll('&', ' and ')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .where(
+          (word) => !{
+            'city',
+            'mall',
+            'malls',
+            'shopping',
+            'center',
+            'centre',
+            'the',
+            'of',
+          }.contains(word),
+        )
+        .toList();
+
+    return words.join(' ');
+  }
+
+  static bool _shouldPreferDestination(
+    Destination candidate,
+    Destination existing,
+    LatLng origin,
+  ) {
+    final candidateImagePriority = _imagePriority(candidate.imageUrl);
+    final existingImagePriority = _imagePriority(existing.imageUrl);
+
+    if (candidateImagePriority != existingImagePriority) {
+      return candidateImagePriority > existingImagePriority;
+    }
+
+    return _trendingScore(candidate, origin) > _trendingScore(existing, origin);
+  }
+
+  static int _imagePriority(String imageUrl) {
+    final trimmed = imageUrl.trim();
+    if (trimmed.isEmpty) return 0;
+    if (trimmed
+        .startsWith('https://maps.googleapis.com/maps/api/place/photo')) {
+      return 3;
+    }
+    if (trimmed.startsWith('http')) return 1;
+    return 0;
+  }
+
   static double _trendingScore(Destination destination, LatLng origin) {
-    final reviews =
-        destination.tags.contains('popular') ? 500.0 : 50.0;
+    final reviews = destination.tags.contains('popular') ? 500.0 : 50.0;
     final distance = destination.coordinates == null
         ? 12.0
         : calculateDistance(origin, destination.coordinates!);
@@ -479,7 +562,9 @@ class DestinationService {
     Map<String, dynamic> item,
     String? placeId,
   ) {
-    final id = placeId ?? item['place_id'] ?? 'google_${DateTime.now().millisecondsSinceEpoch}';
+    final id = placeId ??
+        item['place_id'] ??
+        'google_${DateTime.now().millisecondsSinceEpoch}';
     final name = item['name'] as String? ?? 'Unknown Place';
     final formattedAddress =
         item['formatted_address'] as String? ?? 'Philippines';
@@ -493,15 +578,21 @@ class DestinationService {
     final types = item['types'] as List?;
     if (types != null) {
       final typesStr = types.join(' ').toLowerCase();
-      if (typesStr.contains('restaurant') || typesStr.contains('food') || typesStr.contains('cafe')) {
+      if (typesStr.contains('restaurant') ||
+          typesStr.contains('food') ||
+          typesStr.contains('cafe')) {
         category = DestinationCategory.food;
       } else if (typesStr.contains('park') || typesStr.contains('garden')) {
         category = DestinationCategory.park;
       } else if (typesStr.contains('museum') || typesStr.contains('gallery')) {
         category = DestinationCategory.museum;
-      } else if (typesStr.contains('shopping') || typesStr.contains('mall') || typesStr.contains('store')) {
+      } else if (typesStr.contains('shopping') ||
+          typesStr.contains('mall') ||
+          typesStr.contains('store')) {
         category = DestinationCategory.malls;
-      } else if (typesStr.contains('tourist') || typesStr.contains('attraction') || typesStr.contains('landmark')) {
+      } else if (typesStr.contains('tourist') ||
+          typesStr.contains('attraction') ||
+          typesStr.contains('landmark')) {
         category = DestinationCategory.landmark;
       }
     }
@@ -511,7 +602,8 @@ class DestinationService {
     if (photos != null && photos.isNotEmpty) {
       final photoRef = photos[0]['photo_reference'] as String?;
       if (photoRef != null) {
-        imageUrl = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=300&photoreference=$photoRef&key=$_googleApiKey';
+        imageUrl =
+            'https://maps.googleapis.com/maps/api/place/photo?maxwidth=300&photoreference=$photoRef&key=$_googleApiKey';
       }
     }
 
@@ -525,7 +617,6 @@ class DestinationService {
       category: category,
       rating: rating,
       tags: types?.cast<String>() ?? [],
-      
     );
   }
 }
