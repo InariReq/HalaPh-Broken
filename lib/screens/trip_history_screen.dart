@@ -53,7 +53,14 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Trip History'),
+        title: const Text(
+          'Trip History',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.2,
+          ),
+        ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
@@ -61,35 +68,95 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
       body: RefreshIndicator(
         onRefresh: _loadTripHistory,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(
+                child: Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: const Color(0xFFE5EAF3)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: SizedBox(
+                    height: 36,
+                    width: 36,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: Colors.blue[700],
+                    ),
+                  ),
+                ),
+              )
             : _pastPlans.isEmpty
                 ? ListView(
-                    padding: const EdgeInsets.all(24),
-                    children: const [
-                      SizedBox(height: 120),
-                      Icon(Icons.history, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text(
-                        'No trip history yet',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black87,
+                    padding: const EdgeInsets.fromLTRB(24, 120, 24, 24),
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: const Color(0xFFE5EAF3)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 18,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
                         ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Plans you mark as finished will appear here. Old plans also appear here after their end date.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                        child: Column(
+                          children: [
+                            Container(
+                              height: 64,
+                              width: 64,
+                              decoration: BoxDecoration(
+                                color: Colors.blue[50],
+                                borderRadius: BorderRadius.circular(22),
+                              ),
+                              child: Icon(
+                                Icons.history_rounded,
+                                size: 34,
+                                color: Colors.blue[700],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'No trip history yet',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF111827),
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Plans you mark as finished will appear here. Old plans also appear here after their end date.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                height: 1.35,
+                                color: Color(0xFF6B7280),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   )
                 : ListView.separated(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
                     itemCount: _pastPlans.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, __) => const SizedBox(height: 14),
                     itemBuilder: (context, index) {
                       final plan = _pastPlans[index];
                       return _TripHistoryCard(plan: plan);
@@ -115,9 +182,13 @@ class _TripHistoryCard extends StatelessWidget {
         .where((name) => name.trim().isNotEmpty)
         .toSet()
         .toList();
+    final totalStops = plan.itinerary.fold<int>(
+      0,
+      (total, day) => total + day.items.length,
+    );
 
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(22),
       onTap: () {
         GoRouter.of(context).push(
           '/plan-details?planId=${Uri.encodeComponent(plan.id)}',
@@ -126,12 +197,18 @@ class _TripHistoryCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE8EEF8)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              color: Colors.blue.withValues(alpha: 0.10),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -142,30 +219,46 @@ class _TripHistoryCard extends StatelessWidget {
             if (hasBanner)
               CachedNetworkImage(
                 imageUrl: banner,
-                height: 120,
+                height: 138,
                 width: double.infinity,
                 fit: BoxFit.cover,
+                placeholder: (_, __) => _buildBannerFallback(),
                 errorWidget: (_, __, ___) => _buildBannerFallback(),
               )
             else
               _buildBannerFallback(),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     plan.title.isEmpty ? 'Untitled Trip' : plan.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF111827),
+                      letterSpacing: -0.2,
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    plan.formattedDateRange,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildInfoChip(
+                        icon: Icons.calendar_today_rounded,
+                        label: plan.formattedDateRange,
+                        color: const Color(0xFF475569),
+                      ),
+                      _buildInfoChip(
+                        icon: Icons.place_rounded,
+                        label: '$totalStops stop${totalStops == 1 ? '' : 's'}',
+                        color: const Color(0xFF1976D2),
+                      ),
+                    ],
                   ),
                   if (destinations.isNotEmpty) ...[
                     const SizedBox(height: 10),
@@ -173,25 +266,49 @@ class _TripHistoryCard extends StatelessWidget {
                       destinations.take(3).join(' • '),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.3,
+                        color: Colors.grey[800],
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Icon(Icons.check_circle,
-                          size: 18, color: Colors.green),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Completed',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.green[700],
-                          fontWeight: FontWeight.w600,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green[50],
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.check_circle_rounded,
+                              size: 15,
+                              color: Colors.green[700],
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Completed',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green[700],
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const Spacer(),
-                      Icon(Icons.chevron_right, color: Colors.grey[500]),
+                      Icon(Icons.chevron_right_rounded,
+                          color: Colors.grey[500]),
                     ],
                   ),
                 ],
@@ -203,12 +320,56 @@ class _TripHistoryCard extends StatelessWidget {
     );
   }
 
+  Widget _buildInfoChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBannerFallback() {
     return Container(
-      height: 96,
+      height: 118,
       width: double.infinity,
-      color: const Color(0xFFE3F2FD),
-      child: const Icon(Icons.route, size: 38, color: Color(0xFF1976D2)),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF1976D2),
+            Color(0xFF03A9F4),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.route_rounded,
+          size: 42,
+          color: Colors.white.withValues(alpha: 0.78),
+        ),
+      ),
     );
   }
 }
