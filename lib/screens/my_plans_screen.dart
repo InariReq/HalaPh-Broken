@@ -107,19 +107,15 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            'MY PERSONAL PLANS',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
-              letterSpacing: 1.2,
-            ),
-          ),
+        _buildSectionHeader(
+          title: 'MY PERSONAL PLANS',
+          subtitle: plans.isEmpty
+              ? 'Plans you create will appear here.'
+              : '${plans.length} active plan${plans.length == 1 ? '' : 's'}',
+          icon: Icons.person_pin_circle_rounded,
+          iconColor: const Color(0xFF1976D2),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         plans.isEmpty
             ? _buildEmptyPlansPlaceholder('No personal plans yet')
             : Column(
@@ -133,19 +129,15 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            'COLLABORATIVE PLANS',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
-              letterSpacing: 1.2,
-            ),
-          ),
+        _buildSectionHeader(
+          title: 'COLLABORATIVE PLANS',
+          subtitle: plans.isEmpty
+              ? 'Shared trips from friends will appear here.'
+              : '${plans.length} shared plan${plans.length == 1 ? '' : 's'}',
+          icon: Icons.groups_rounded,
+          iconColor: const Color(0xFF7B1FA2),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         plans.isEmpty
             ? _buildEmptyPlansPlaceholder('No collaborative plans yet')
             : Column(
@@ -154,6 +146,71 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                     .toList(),
               ),
       ],
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE7EDF7)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              height: 42,
+              width: 42,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF111827),
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -224,71 +281,120 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   Widget _buildPlanCard(TravelPlan plan, {bool isSharedPlan = false}) {
     final shouldLeave = isSharedPlan && !SimplePlanService.isPlanOwner(plan.id);
     final firstDestination = _firstPlanDestination(plan);
+    final destinationCount = _destinationCount(plan);
+    final accentColor =
+        isSharedPlan ? const Color(0xFF7B1FA2) : const Color(0xFF1976D2);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE8EEF8)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: accentColor.withValues(alpha: 0.10),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: InkWell(
         onTap: () {
-          // Navigate to plan details
           context.go('/plan-details?planId=${plan.id}');
         },
-        borderRadius: BorderRadius.circular(12),
-        child: Row(
-          children: [
-            // Left blue bar
-            Container(
-              width: 4,
-              height: 80,
-              decoration: const BoxDecoration(
-                color: Color(0xFF64B5F6),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  bottomLeft: Radius.circular(12),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 76,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      accentColor,
+                      accentColor.withValues(alpha: 0.72),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  isSharedPlan ? Icons.group_work_rounded : Icons.map_rounded,
+                  color: Colors.white,
+                  size: 24,
                 ),
               ),
-            ),
-            // Content
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
+              const SizedBox(width: 14),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      plan.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(
-                          Icons.calendar_today,
-                          size: 14,
-                          color: Colors.grey[600],
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _formatDateRange(plan.startDate, plan.endDate),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w400,
+                        Flexible(
+                          child: Text(
+                            plan.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF111827),
+                              letterSpacing: -0.2,
+                            ),
                           ),
+                        ),
+                        if (plan.isFinished) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green[50],
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              'Done',
+                              style: TextStyle(
+                                color: Colors.green[700],
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        _buildPlanMetaChip(
+                          icon: Icons.calendar_today_rounded,
+                          label: _formatDateRange(
+                            plan.startDate,
+                            plan.endDate,
+                          ),
+                          color: const Color(0xFF475569),
+                        ),
+                        _buildPlanMetaChip(
+                          icon: Icons.place_rounded,
+                          label:
+                              '$destinationCount stop${destinationCount == 1 ? '' : 's'}',
+                          color: accentColor,
                         ),
                       ],
                     ),
@@ -297,11 +403,8 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                   ],
                 ),
               ),
-            ),
-            // Right side buttons
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Row(
+              const SizedBox(width: 4),
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (!shouldLeave && !plan.isFinished)
@@ -321,7 +424,6 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                         minHeight: 32,
                       ),
                     ),
-                  // Delete personal/owned plans; leave shared plans owned by others.
                   IconButton(
                     onPressed: () {
                       if (shouldLeave) {
@@ -342,14 +444,49 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                       minHeight: 32,
                     ),
                   ),
-                  // Chevron
-                  Icon(Icons.chevron_right, color: Colors.grey[600], size: 20),
+                  Icon(Icons.chevron_right, color: Colors.grey[500], size: 20),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPlanMetaChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  int _destinationCount(TravelPlan plan) {
+    return plan.itinerary.fold<int>(
+      0,
+      (total, day) => total + day.items.length,
     );
   }
 
@@ -420,27 +557,46 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        width: double.infinity,
+        padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[200]!),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE5EAF3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
-        child: Center(
-          child: Column(
-            children: [
-              Icon(
-                Icons.folder_open_outlined,
-                size: 48,
-                color: Colors.grey[400],
+        child: Column(
+          children: [
+            Container(
+              height: 58,
+              width: 58,
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(height: 8),
-              Text(
-                message,
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              child: Icon(
+                Icons.folder_open_rounded,
+                size: 30,
+                color: Colors.blue[700],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF6B7280),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -535,63 +691,81 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   Widget _buildCreateNewPlan(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Start a new adventure',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
+      child: InkWell(
+        onTap: () {
+          debugPrint('My Plans Create New Plan tapped!');
+          GoRouter.of(context).push('/create-plan');
+        },
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF1976D2),
+                Color(0xFF03A9F4),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ),
-          const SizedBox(height: 12),
-          InkWell(
-            onTap: () {
-              debugPrint('My Plans Create New Plan tapped!');
-              GoRouter.of(context).push('/create-plan');
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue[200]!),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.withValues(alpha: 0.22),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.add_circle_outline,
-                        color: Colors.blue[600],
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Create New Plan',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    color: Colors.blue[600],
-                    size: 16,
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
-        ],
+          child: Row(
+            children: [
+              Container(
+                height: 44,
+                width: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.add_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Create New Plan',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Start a route, add stops, and organize your trip.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
