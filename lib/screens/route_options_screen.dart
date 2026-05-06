@@ -231,6 +231,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     final bool mapsConfigured = GoogleMapsService.isConfigured;
     return Column(
       children: [
+        _buildAnimatedRouteHeader(),
         if (!mapsConfigured)
           Container(
             width: double.infinity,
@@ -276,7 +277,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             itemBuilder: (context, index) {
               final fare = _fares[index];
               final isCheapest = index == 0;
-              return _buildFareCard(fare, isCheapest);
+              return _buildFareCard(fare, isCheapest, index);
             },
           ),
         ),
@@ -284,39 +285,195 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     );
   }
 
-  Widget _buildFareCard(_TransportFare fare, bool isCheapest) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () {
-          if (_origin != null && _destination != null) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => RouteMapScreen(
-                  mode: fare.mode,
-                  modeName: fare.modeName,
-                  origin: _origin!,
-                  destination: _destination!,
-                  polyline: fare.polyline,
-                  steps: fare.steps,
-                  fare: fare.fare,
+  Widget _buildAnimatedRouteHeader() {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 700),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, -26 * (1 - value)),
+            child: Transform.scale(
+              scale: 0.94 + (0.06 * value),
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEAF5FF),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFBBDEFB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withValues(alpha: 0.12),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.4, end: 1),
+              duration: const Duration(milliseconds: 900),
+              curve: Curves.easeOutBack,
+              builder: (context, scale, child) {
+                return Transform.scale(scale: scale, child: child);
+              },
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.blue[600],
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withValues(alpha: 0.28),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.route_rounded,
+                  color: Colors.white,
+                  size: 26,
                 ),
               ),
-            );
-          }
-        },
-        borderRadius: BorderRadius.circular(12),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Route options ready',
+                    style: TextStyle(
+                      color: Colors.blue[900],
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Choose the best way to ${widget.destinationName}.',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.blue[700],
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 1000),
+              curve: Curves.easeOutBack,
+              builder: (context, turns, child) {
+                return Transform.rotate(
+                  angle: turns * 0.35,
+                  child: child,
+                );
+              },
+              child: Icon(
+                Icons.swipe_up_rounded,
+                color: Colors.blue[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFareCard(_TransportFare fare, bool isCheapest, int index) {
+    debugPrint('ROUTE OPTIONS CARD ANIMATION: ${fare.modeName} index=$index');
+    final entranceDuration = Duration(
+      milliseconds: 520 + (index * 140).clamp(0, 560),
+    );
+
+    void openRouteMap() {
+      if (_origin != null && _destination != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => RouteMapScreen(
+              mode: fare.mode,
+              modeName: fare.modeName,
+              origin: _origin!,
+              destination: _destination!,
+              polyline: fare.polyline,
+              steps: fare.steps,
+              fare: fare.fare,
+            ),
+          ),
+        );
+      }
+    }
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: entranceDuration,
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 64 * (1 - value)),
+            child: Transform.scale(
+              scale: 0.90 + (0.10 * value),
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: _RouteOptionPressableCard(
+        onTap: openRouteMap,
+        isCheapest: isCheapest,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              CircleAvatar(
-                backgroundColor:
-                    isCheapest ? Colors.green[100] : Colors.grey[200],
-                child: Icon(
-                  fare.icon,
-                  color: isCheapest ? Colors.green[700] : Colors.grey[700],
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.45, end: 1),
+                duration: const Duration(milliseconds: 620),
+                curve: Curves.easeOutBack,
+                builder: (context, scale, child) {
+                  return Transform.scale(
+                    scale: scale,
+                    child: child,
+                  );
+                },
+                child: Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isCheapest ? Colors.green[100] : Colors.grey[200],
+                    boxShadow: isCheapest
+                        ? [
+                            BoxShadow(
+                              color: Colors.green.withValues(alpha: 0.18),
+                              blurRadius: 14,
+                              offset: const Offset(0, 4),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Icon(
+                    fare.icon,
+                    color: isCheapest ? Colors.green[700] : Colors.grey[700],
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
@@ -326,72 +483,126 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          fare.modeName,
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        Flexible(
+                          child: Text(
+                            fare.modeName,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
                         ),
                         if (isCheapest) ...[
                           const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green[100],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              'CHEAPEST',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.green[700],
-                                fontWeight: FontWeight.bold,
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.30, end: 1),
+                            duration: const Duration(milliseconds: 760),
+                            curve: Curves.easeOutBack,
+                            builder: (context, scale, child) {
+                              return Transform.scale(
+                                scale: scale,
+                                child: child,
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green[100],
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: Colors.green.withValues(alpha: 0.20),
+                                ),
+                              ),
+                              child: Text(
+                                'CHEAPEST',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.green[700],
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.2,
+                                ),
                               ),
                             ),
                           ),
                         ],
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     Text(
                       '${_formatDuration(fare.duration)} • ${_formatDistance(fare.distance)}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
+                    if (fare.steps.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        '${fare.steps.length} route steps available',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.blue[600],
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
+              const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    // Compute base fare to determine discount percentage.
-                    (() {
-                      try {
-                        final base =
-                            FareService.fareBreakdown(fare.mode, fare.distance)
-                                .baseFare;
-                        final discountPct =
-                            base > 0 ? ((base - fare.fare) / base) * 100 : 0.0;
-                        return '☑ ${fare.fare > 0 ? '₱${fare.fare.toStringAsFixed(0)}' : 'FREE'}${discountPct > 0 ? ' • ${discountPct.toStringAsFixed(0)}% off' : ''}';
-                      } catch (_) {
-                        return fare.fare > 0
-                            ? '₱${fare.fare.toStringAsFixed(0)}'
-                            : 'FREE';
-                      }
-                    })(),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isCheapest ? Colors.green[700] : Colors.black87,
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.60, end: 1),
+                    duration: const Duration(milliseconds: 620),
+                    curve: Curves.easeOutBack,
+                    builder: (context, scale, child) {
+                      return Transform.scale(
+                        scale: scale,
+                        child: child,
+                      );
+                    },
+                    child: Text(
+                      (() {
+                        try {
+                          final base = FareService.fareBreakdown(
+                            fare.mode,
+                            fare.distance,
+                          ).baseFare;
+                          final discountPct = base > 0
+                              ? ((base - fare.fare) / base) * 100
+                              : 0.0;
+                          return '☑ ${fare.fare > 0 ? '₱${fare.fare.toStringAsFixed(0)}' : 'FREE'}${discountPct > 0 ? ' • ${discountPct.toStringAsFixed(0)}% off' : ''}';
+                        } catch (_) {
+                          return fare.fare > 0
+                              ? '₱${fare.fare.toStringAsFixed(0)}'
+                              : 'FREE';
+                        }
+                      })(),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: isCheapest ? Colors.green[700] : Colors.black87,
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 5),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'View Map',
-                        style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       const SizedBox(width: 4),
                       const Icon(Icons.map, size: 16, color: Colors.blue),
@@ -416,6 +627,77 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       return '${duration.inHours}h ${duration.inMinutes.remainder(60)}m';
     }
     return '${duration.inMinutes}m';
+  }
+}
+
+class _RouteOptionPressableCard extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  final bool isCheapest;
+
+  const _RouteOptionPressableCard({
+    required this.child,
+    required this.onTap,
+    required this.isCheapest,
+  });
+
+  @override
+  State<_RouteOptionPressableCard> createState() =>
+      _RouteOptionPressableCardState();
+}
+
+class _RouteOptionPressableCardState extends State<_RouteOptionPressableCard> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() {
+      _pressed = value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      scale: _pressed ? 0.94 : 1,
+      duration: Duration(milliseconds: _pressed ? 80 : 140),
+      curve: Curves.easeOut,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: widget.isCheapest
+                ? Colors.green.withValues(alpha: 0.28)
+                : const Color(0xFFE8E8E8),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: widget.isCheapest
+                  ? Colors.green.withValues(alpha: 0.14)
+                  : Colors.black.withValues(alpha: 0.06),
+              blurRadius: widget.isCheapest ? 26 : 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: widget.onTap,
+            onTapDown: (_) => _setPressed(true),
+            onTapCancel: () => _setPressed(false),
+            onTapUp: (_) => _setPressed(false),
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
   }
 }
 
