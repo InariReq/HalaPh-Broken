@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:halaph/services/destination_service.dart';
@@ -397,6 +398,115 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  String? _bestPlanImagePath(TravelPlan plan) {
+    final banner = plan.bannerImage?.trim();
+    if (banner != null && banner.isNotEmpty) {
+      return banner;
+    }
+
+    for (final day in plan.itinerary) {
+      for (final item in day.items) {
+        final imageUrl = item.destination.imageUrl.trim();
+        if (imageUrl.isNotEmpty) {
+          return imageUrl;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  Widget _buildNextPlanImageHeader(String dayText, String? imagePath) {
+    final hasNetworkImage =
+        imagePath != null && imagePath.trim().startsWith('http');
+    final hasLocalImage = imagePath != null &&
+        imagePath.trim().isNotEmpty &&
+        !hasNetworkImage &&
+        File(imagePath.trim()).existsSync();
+
+    Widget imageLayer;
+    if (hasNetworkImage) {
+      imageLayer = CachedNetworkImage(
+        imageUrl: imagePath.trim(),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorWidget: (context, url, error) => _buildPlanImageFallback(),
+        placeholder: (context, url) => _buildPlanImageFallback(),
+      );
+    } else if (hasLocalImage) {
+      imageLayer = Image.file(
+        File(imagePath.trim()),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, error, stackTrace) => _buildPlanImageFallback(),
+      );
+    } else {
+      imageLayer = _buildPlanImageFallback();
+    }
+
+    return SizedBox(
+      height: 120,
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            imageLayer,
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.08),
+                    Colors.black.withValues(alpha: 0.35),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  dayText,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue[700],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlanImageFallback() {
+    return Container(
+      color: Colors.blue[400],
+      child: Center(
+        child: Icon(
+          Icons.calendar_month,
+          size: 48,
+          color: Colors.white.withValues(alpha: 0.3),
+        ),
+      ),
+    );
+  }
+
   Widget _buildNextPlanCard(BuildContext context, TravelPlan plan) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -420,6 +530,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? 'Tomorrow'
                 : 'In $daysUntil days';
     final destinationCount = _destinationCount(plan);
+    final heroImagePath = _bestPlanImagePath(plan);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -442,48 +553,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.blue[400],
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-              ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    top: 12,
-                    left: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        dayText,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.blue[700],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Center(
-                    child: Icon(
-                      Icons.calendar_month,
-                      size: 48,
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _buildNextPlanImageHeader(dayText, heroImagePath),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(

@@ -664,25 +664,26 @@ class SimplePlanService {
   }
 
   static (int, int) _parseTime(String timeStr) {
-    try {
-      final cleaned = timeStr.trim().replaceAll(RegExp(r'\s+'), ' ');
-      final parts = cleaned.split(' ');
-      final hm = parts[0].split(':');
-      var hour = int.parse(hm[0]);
-      final minute = int.parse(hm[1]);
+    final normalized = timeStr.trim().toUpperCase();
+    final match = RegExp(r'^(\d{1,2}):(\d{2})\s*(AM|PM)?$').firstMatch(
+      normalized,
+    );
 
-      if (parts.length > 1) {
-        final period = parts[1].toUpperCase();
-        if (period == 'PM' && hour != 12) {
-          hour += 12;
-        } else if (period == 'AM' && hour == 12) {
-          hour = 0;
-        }
-      }
-      return (hour, minute);
-    } catch (_) {
+    if (match == null) {
       return (10, 0);
     }
+
+    var hour = int.tryParse(match.group(1) ?? '') ?? 10;
+    final minute = (int.tryParse(match.group(2) ?? '') ?? 0).clamp(0, 59);
+    final period = match.group(3);
+
+    if (period == 'PM' && hour < 12) {
+      hour += 12;
+    } else if (period == 'AM' && hour == 12) {
+      hour = 0;
+    }
+
+    return (hour.clamp(0, 23), minute);
   }
 
   static Future<List<TravelPlan>> _loadRemotePlans() async {

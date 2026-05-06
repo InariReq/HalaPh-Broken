@@ -8,6 +8,7 @@ import 'package:halaph/screens/add_place_screen.dart';
 import 'package:halaph/screens/friends_screen.dart';
 import 'package:halaph/utils/navigation_utils.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 class DestinationData {
@@ -173,6 +174,23 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     }
   }
 
+  Future<File> _copyBannerImageToPermanentStorage(File source) async {
+    final documentsDir = await getApplicationDocumentsDirectory();
+    final bannerDir = Directory('${documentsDir.path}/plan_banners');
+
+    if (!await bannerDir.exists()) {
+      await bannerDir.create(recursive: true);
+    }
+
+    final extension = source.path.split('.').last.toLowerCase();
+    final safeExtension =
+        extension.isEmpty || extension.length > 5 ? 'jpg' : extension;
+    final fileName =
+        'plan_banner_${DateTime.now().microsecondsSinceEpoch}.$safeExtension';
+
+    return source.copy('${bannerDir.path}/$fileName');
+  }
+
   Future<void> _pickBannerImage() async {
     try {
       final XFile? image = await _imagePicker.pickImage(
@@ -183,9 +201,13 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
       );
 
       if (image != null) {
+        final permanentBanner = await _copyBannerImageToPermanentStorage(
+          File(image.path),
+        );
+
         if (!mounted) return;
         setState(() {
-          _bannerImage = File(image.path);
+          _bannerImage = permanentBanner;
         });
       }
     } catch (e) {
