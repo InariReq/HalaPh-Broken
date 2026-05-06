@@ -128,8 +128,21 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       }
       _fares = [];
       for (final modeData in modes) {
-        final fare = FareService.estimateFare(modeData.mode, distance,
-            type: _passengerType);
+        final commuteEstimate = FareService.estimateCommuteTotal(
+          modeData.mode,
+          distance,
+          type: _passengerType,
+        );
+        final regularCommuteEstimate = FareService.estimateCommuteTotal(
+          modeData.mode,
+          distance,
+          type: PassengerType.regular,
+        );
+
+        final fare = commuteEstimate.totalFare;
+        final baseFare = regularCommuteEstimate.totalFare;
+        final fareBreakdown = commuteEstimate.displayLines;
+
         final duration =
             BudgetRoutingService.estimateDuration(distance, modeData.mode);
 
@@ -152,10 +165,12 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           modeName: modeData.name,
           icon: modeData.icon,
           fare: fare,
+          baseFare: baseFare,
           distance: distance,
           duration: duration,
           steps: steps,
           polyline: polyline,
+          fareBreakdown: fareBreakdown,
         ));
       }
 
@@ -405,6 +420,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
               polyline: fare.polyline,
               steps: fare.steps,
               fare: fare.fare,
+              fareBreakdown: fare.fareBreakdown,
             ),
           ),
         );
@@ -541,6 +557,37 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                         ),
                       ),
                     ],
+                    if (fare.fareBreakdown.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      ...fare.fareBreakdown.take(4).map(
+                            (line) => Padding(
+                              padding: const EdgeInsets.only(bottom: 3),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    Icons.payments_rounded,
+                                    size: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Expanded(
+                                    child: Text(
+                                      line,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey[700],
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                    ],
                   ],
                 ),
               ),
@@ -560,20 +607,11 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                     },
                     child: Text(
                       (() {
-                        try {
-                          final base = FareService.fareBreakdown(
-                            fare.mode,
-                            fare.distance,
-                          ).baseFare;
-                          final discountPct = base > 0
-                              ? ((base - fare.fare) / base) * 100
-                              : 0.0;
-                          return '☑ ${fare.fare > 0 ? '₱${fare.fare.toStringAsFixed(0)}' : 'FREE'}${discountPct > 0 ? ' • ${discountPct.toStringAsFixed(0)}% off' : ''}';
-                        } catch (_) {
-                          return fare.fare > 0
-                              ? '₱${fare.fare.toStringAsFixed(0)}'
-                              : 'FREE';
-                        }
+                        final discountPct = fare.baseFare > 0
+                            ? ((fare.baseFare - fare.fare) / fare.baseFare) *
+                                100
+                            : 0.0;
+                        return '☑ ${fare.fare > 0 ? '₱${fare.fare.toStringAsFixed(0)}' : 'FREE'}${discountPct > 0 ? ' • ${discountPct.toStringAsFixed(0)}% off' : ''}';
                       })(),
                       style: TextStyle(
                         fontSize: 18,
@@ -706,20 +744,24 @@ class _TransportFare {
   final String modeName;
   final IconData icon;
   final double fare;
+  final double baseFare;
   final double distance;
   final Duration duration;
   final List<Map<String, dynamic>> steps;
   final String polyline;
+  final List<String> fareBreakdown;
 
   _TransportFare({
     required this.mode,
     required this.modeName,
     required this.icon,
     required this.fare,
+    required this.baseFare,
     required this.distance,
     required this.duration,
     this.steps = const [],
     this.polyline = '',
+    this.fareBreakdown = const [],
   });
 }
 

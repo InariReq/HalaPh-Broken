@@ -12,6 +12,7 @@ class RouteMapScreen extends StatefulWidget {
   final String polyline;
   final List<Map<String, dynamic>> steps;
   final double fare;
+  final List<String> fareBreakdown;
 
   const RouteMapScreen({
     super.key,
@@ -22,6 +23,7 @@ class RouteMapScreen extends StatefulWidget {
     required this.polyline,
     required this.steps,
     required this.fare,
+    this.fareBreakdown = const [],
   });
 
   @override
@@ -300,29 +302,66 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                               color: const Color(0xFFE8E8E8),
                             ),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.payments, color: Colors.green[700]),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  widget.fare > 0
-                                      ? 'Estimated fare: ₱${widget.fare.toStringAsFixed(0)}'
-                                      : 'No fare estimate available',
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
+                              Row(
+                                children: [
+                                  Icon(Icons.payments,
+                                      color: Colors.green[700]),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      widget.fare > 0
+                                          ? 'Estimated total fare: ₱${widget.fare.toStringAsFixed(0)}'
+                                          : 'No fare estimate available',
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    '${widget.steps.length} steps',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (widget.fareBreakdown.isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                ...widget.fareBreakdown.map(
+                                  (line) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(
+                                          Icons.circle,
+                                          size: 6,
+                                          color: Colors.green[700],
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            line,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[700],
+                                              height: 1.25,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                              Text(
-                                '${widget.steps.length} steps',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              ],
                             ],
                           ),
                         ),
