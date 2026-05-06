@@ -107,15 +107,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     try {
       if (query.isEmpty) {
+        final location = await DestinationService.getCurrentLocation();
         final destinations = await DestinationService.getTrendingDestinations();
         final deduped =
             DestinationService.deduplicateDestinationsById(destinations);
+        final nearbyTrending = _prioritizedNearbyTrendingPlaces(
+          deduped,
+          location,
+          radiusKm: 5,
+          limit: 5,
+        );
 
         if (!mounted || generation != _searchGeneration) return;
 
         setState(() {
           _selectedCategory = null;
-          _destinations = deduped;
+          _destinations = nearbyTrending;
         });
       } else {
         final destinations = await DestinationService.searchDestinations(query);
@@ -190,6 +197,51 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return nearby.take(limit).toList();
   }
 
+  List<Destination> _prioritizedNearbyTrendingPlaces(
+    List<Destination> destinations,
+    LatLng location, {
+    required double radiusKm,
+    required int limit,
+  }) {
+    final nearby = destinations.where((destination) {
+      final coordinates = destination.coordinates;
+      if (coordinates == null) return true;
+      return _distanceKm(location, coordinates) <= radiusKm;
+    }).toList()
+      ..sort((a, b) {
+        final priorityCompare =
+            _nearbyTrendingPriority(a).compareTo(_nearbyTrendingPriority(b));
+        if (priorityCompare != 0) return priorityCompare;
+
+        final aDistance = a.coordinates == null
+            ? double.infinity
+            : _distanceKm(location, a.coordinates!);
+        final bDistance = b.coordinates == null
+            ? double.infinity
+            : _distanceKm(location, b.coordinates!);
+        final distanceCompare = aDistance.compareTo(bDistance);
+        if (distanceCompare != 0) return distanceCompare;
+
+        final ratingCompare = b.rating.compareTo(a.rating);
+        if (ratingCompare != 0) return ratingCompare;
+
+        return a.name.compareTo(b.name);
+      });
+
+    return nearby.take(limit).toList();
+  }
+
+  int _nearbyTrendingPriority(Destination destination) {
+    return switch (destination.category) {
+      DestinationCategory.food => 0,
+      DestinationCategory.malls => 1,
+      DestinationCategory.activities => 2,
+      DestinationCategory.landmark => 3,
+      DestinationCategory.park => 4,
+      DestinationCategory.museum => 5,
+    };
+  }
+
   Future<void> _filterByCategory(DestinationCategory? category) async {
     final generation = ++_searchGeneration;
 
@@ -203,20 +255,27 @@ class _ExploreScreenState extends State<ExploreScreen> {
     });
 
     try {
+      final location = await DestinationService.getCurrentLocation();
+
       if (category == null) {
         final destinations = await DestinationService.getTrendingDestinations();
         final deduped =
             DestinationService.deduplicateDestinationsById(destinations);
+        final nearbyTrending = _prioritizedNearbyTrendingPlaces(
+          deduped,
+          location,
+          radiusKm: 5,
+          limit: 5,
+        );
 
         if (!mounted || generation != _searchGeneration) return;
 
         setState(() {
-          _destinations = deduped;
+          _destinations = nearbyTrending;
         });
         return;
       }
 
-      final location = await DestinationService.getCurrentLocation();
       final destinations = await DestinationService.searchDestinations('');
       final deduped =
           DestinationService.deduplicateDestinationsById(destinations);
@@ -381,7 +440,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final summary = isSearching
         ? 'Showing search results'
         : _selectedCategory == null
-            ? 'Showing nearby trending places'
+            ? 'Showing 5 nearby trending places, prioritizing food and malls'
             : 'Showing up to 5 nearby places within 5 km for this category';
 
     return Padding(
