@@ -122,7 +122,10 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                     ? ListView(
                         padding: const EdgeInsets.fromLTRB(20, 24, 20, 110),
                         children: [
-                          _EmptyFavoritesCard(),
+                          _FavoritesEntrance(
+                            order: 0,
+                            child: _EmptyFavoritesCard(),
+                          ),
                         ],
                       )
                     : ListView.separated(
@@ -137,34 +140,66 @@ class _FavoritesScreenState extends State<FavoritesScreen>
 
                           final destination = _favorites[index - 1];
 
-                          return _FavoriteCard(
-                            destination: destination,
-                            onOpen: () =>
-                                ExploreDetailsScreen.showAsBottomSheet(
-                              context,
-                              destinationId: destination.id,
-                              source: 'favorites',
+                          return _FavoritesEntrance(
+                            order: index - 1,
+                            child: _FavoriteCard(
                               destination: destination,
-                            ),
-                            onRoutes: () {
-                              Navigator.push(
+                              onOpen: () =>
+                                  ExploreDetailsScreen.showAsBottomSheet(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (context) => RouteOptionsScreen(
-                                    destinationId: destination.id,
-                                    destinationName: destination.name,
-                                    source: 'favorites',
-                                    destination: destination,
+                                destinationId: destination.id,
+                                source: 'favorites',
+                                destination: destination,
+                              ),
+                              onRoutes: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => RouteOptionsScreen(
+                                      destinationId: destination.id,
+                                      destinationName: destination.name,
+                                      source: 'favorites',
+                                      destination: destination,
+                                    ),
                                   ),
-                                ),
-                              );
-                            },
-                            onRemove: () => _removeFavorite(destination.id),
+                                );
+                              },
+                              onRemove: () => _removeFavorite(destination.id),
+                            ),
                           );
                         },
                       ),
               ),
       ),
+    );
+  }
+}
+
+class _FavoritesEntrance extends StatelessWidget {
+  final int order;
+  final Widget child;
+
+  const _FavoritesEntrance({
+    required this.order,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 260 + (order.clamp(0, 5) * 35)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 12 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 }

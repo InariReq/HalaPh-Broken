@@ -361,10 +361,13 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         itemCount: destinations.length,
         itemBuilder: (context, index) {
           final destination = destinations[index];
-          return Container(
-            width: 200,
-            margin: const EdgeInsets.only(right: 12),
-            child: _buildDestinationCard(destination),
+          return _buildPlaceEntrance(
+            order: index,
+            child: Container(
+              width: 200,
+              margin: const EdgeInsets.only(right: 12),
+              child: _buildDestinationCard(destination),
+            ),
           );
         },
       ),
@@ -374,69 +377,72 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   Widget _buildDestinationGrid(List<Destination> destinations) {
     if (destinations.isEmpty) {
       final providerError = DestinationService.placesProviderError;
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 8),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: Theme.of(context)
-                  .colorScheme
-                  .outlineVariant
-                  .withValues(alpha: 0.28),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+      return _buildPlaceEntrance(
+        order: 0,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 8),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withValues(alpha: 0.28),
               ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Container(
-                height: 58,
-                width: 58,
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Icon(
-                  Icons.travel_explore_rounded,
-                  size: 30,
-                  color: Colors.blue[700],
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                providerError == null
-                    ? 'No places found'
-                    : 'Google Places is unavailable',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (providerError != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  providerError,
-                  textAlign: TextAlign.center,
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
                 ),
               ],
-            ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  height: 58,
+                  width: 58,
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    Icons.travel_explore_rounded,
+                    size: 30,
+                    color: Colors.blue[700],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  providerError == null
+                      ? 'No places found'
+                      : 'Google Places is unavailable',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (providerError != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    providerError,
+                    textAlign: TextAlign.center,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       );
@@ -448,11 +454,35 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       itemCount: destinations.length,
       itemBuilder: (context, index) {
         final destination = destinations[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _buildDestinationCard(destination),
+        return _buildPlaceEntrance(
+          order: index,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildDestinationCard(destination),
+          ),
         );
       },
+    );
+  }
+
+  Widget _buildPlaceEntrance({
+    required int order,
+    required Widget child,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 260 + (order.clamp(0, 5) * 35)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 12 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 

@@ -307,15 +307,28 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildHeroImageWithOverlay(),
+                    _buildDetailsEntrance(
+                      order: 0,
+                      child: _buildHeroImageWithOverlay(),
+                    ),
                     const SizedBox(height: 16),
-                    _buildCategorySection(),
+                    _buildDetailsEntrance(
+                      order: 1,
+                      child: _buildCategorySection(),
+                    ),
                     const SizedBox(height: 16),
-                    _buildAddToPlanButton(),
+                    _buildDetailsEntrance(
+                      order: 2,
+                      child: _buildAddToPlanButton(),
+                    ),
                     const SizedBox(height: 24),
-                    _buildAboutSection(),
+                    _buildDetailsEntrance(
+                        order: 3, child: _buildAboutSection()),
                     const SizedBox(height: 24),
-                    _buildViewRoutesButton(),
+                    _buildDetailsEntrance(
+                      order: 4,
+                      child: _buildViewRoutesButton(),
+                    ),
                     const SizedBox(height: 32),
                   ],
                 ),
@@ -324,6 +337,27 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDetailsEntrance({
+    required int order,
+    required Widget child,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 260 + (order * 35)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 12 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 

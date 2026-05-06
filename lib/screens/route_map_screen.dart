@@ -191,38 +191,42 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
               top: 8,
               left: 12,
               right: 12,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFF332711)
-                      : Colors.amber[100],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFFF6D58A)
-                          : Colors.amber[900],
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Live directions are unavailable. Using estimated route data.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? const Color(0xFFFFF0C2)
-                              : Colors.amber[900],
-                          fontWeight: FontWeight.w700,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+              child: _buildRoutePanelEntrance(
+                order: 0,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF332711)
+                        : Colors.amber[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFFF6D58A)
+                            : Colors.amber[900],
                       ),
-                    ),
-                  ],
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Live directions are unavailable. Using estimated route data.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFFFFF0C2)
+                                    : Colors.amber[900],
+                            fontWeight: FontWeight.w700,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -330,149 +334,158 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                     }
 
                     if (index == 1) {
-                      return Padding(
-                        padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
+                      return _buildRoutePanelEntrance(
+                        order: 1,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
                               color: Theme.of(context)
                                   .colorScheme
-                                  .outlineVariant
-                                  .withValues(alpha: 0.28),
+                                  .surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant
+                                    .withValues(alpha: 0.28),
+                              ),
                             ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.payments,
-                                    color: Theme.of(context).brightness ==
-                                            Brightness.dark
-                                        ? Colors.green[300]
-                                        : Colors.green[700],
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      widget.fare > 0
-                                          ? 'Estimated total fare: ₱${widget.fare.toStringAsFixed(0)}'
-                                          : 'No fare estimate available',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.payments,
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? Colors.green[300]
+                                          : Colors.green[700],
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        widget.fare > 0
+                                            ? 'Estimated total fare: ₱${widget.fare.toStringAsFixed(0)}'
+                                            : 'No fare estimate available',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${widget.steps.length} steps',
                                       style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
                                         color: Theme.of(context)
                                             .colorScheme
-                                            .onSurface,
+                                            .onSurfaceVariant,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (widget.fareBreakdown.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  ...widget.fareBreakdown.map(
+                                    (line) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Icon(
+                                            Icons.circle,
+                                            size: 6,
+                                            color: Colors.green[700],
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              line,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                                height: 1.25,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
-                                  Text(
-                                    '${widget.steps.length} steps',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
                                 ],
-                              ),
-                              if (widget.fareBreakdown.isNotEmpty) ...[
-                                const SizedBox(height: 10),
-                                ...widget.fareBreakdown.map(
-                                  (line) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 4),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(
-                                          Icons.circle,
-                                          size: 6,
-                                          color: Colors.green[700],
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            line,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
-                                              height: 1.25,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
                               ],
-                            ],
+                            ),
                           ),
                         ),
                       );
                     }
 
                     if (index == 2) {
-                      return _buildRouteGuidanceCard();
+                      return _buildRoutePanelEntrance(
+                        order: 2,
+                        child: _buildRouteGuidanceCard(),
+                      );
                     }
 
                     if (!hasSteps) {
-                      return Padding(
-                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
-                        child: Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color:
-                                Theme.of(context).brightness == Brightness.dark
-                                    ? const Color(0xFF332711)
-                                    : const Color(0xFFFFF8E1),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
+                      return _buildRoutePanelEntrance(
+                        order: 3,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+                          child: Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
                               color: Theme.of(context).brightness ==
                                       Brightness.dark
-                                  ? const Color(0xFF8A641B)
-                                  : const Color(0xFFFFECB3),
-                            ),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.info_outline,
+                                  ? const Color(0xFF332711)
+                                  : const Color(0xFFFFF8E1),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
                                 color: Theme.of(context).brightness ==
                                         Brightness.dark
-                                    ? const Color(0xFFF6D58A)
-                                    : Colors.orange,
+                                    ? const Color(0xFF8A641B)
+                                    : const Color(0xFFFFECB3),
                               ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Detailed step-by-step directions are unavailable. Use the map preview and estimated route data.',
-                                  style: TextStyle(
-                                    height: 1.35,
-                                    color: Theme.of(context).brightness ==
-                                            Brightness.dark
-                                        ? const Color(0xFFFFF0C2)
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .onSurface,
-                                    fontWeight: FontWeight.w600,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? const Color(0xFFF6D58A)
+                                      : Colors.orange,
+                                ),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Detailed step-by-step directions are unavailable. Use the map preview and estimated route data.',
+                                    style: TextStyle(
+                                      height: 1.35,
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? const Color(0xFFFFF0C2)
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -667,6 +680,27 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   String get _destinationLabel {
     final value = widget.destinationName.trim();
     return value.isEmpty ? 'your destination' : value;
+  }
+
+  Widget _buildRoutePanelEntrance({
+    required int order,
+    required Widget child,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 260 + (order.clamp(0, 4) * 35)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 12 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
   }
 
   String _firstTransitLineName() {

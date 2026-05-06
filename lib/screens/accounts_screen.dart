@@ -275,7 +275,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         children: [
-          _buildCurrentAccountHeader(),
+          _buildAccountsEntrance(order: 0, child: _buildCurrentAccountHeader()),
           const SizedBox(height: 24),
           Text(
             'Saved Accounts',
@@ -295,12 +295,16 @@ class _AccountsScreenState extends State<AccountsScreen> {
           ),
           const SizedBox(height: 16),
           if (_savedAccounts.isEmpty)
-            _buildEmptySavedAccounts()
+            _buildAccountsEntrance(order: 1, child: _buildEmptySavedAccounts())
           else
-            ..._savedAccounts.map((account) {
+            ..._savedAccounts.asMap().entries.map((entry) {
+              final account = entry.value;
               final isCurrent =
                   currentEmail == account.email.trim().toLowerCase();
-              return _buildSavedAccountCard(account, isCurrent: isCurrent);
+              return _buildAccountsEntrance(
+                order: entry.key + 1,
+                child: _buildSavedAccountCard(account, isCurrent: isCurrent),
+              );
             }),
           const SizedBox(height: 12),
           OutlinedButton.icon(
@@ -334,6 +338,27 @@ class _AccountsScreenState extends State<AccountsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAccountsEntrance({
+    required int order,
+    required Widget child,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 260 + (order.clamp(0, 5) * 35)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 12 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 
