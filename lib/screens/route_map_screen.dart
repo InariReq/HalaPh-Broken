@@ -195,210 +195,331 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
               ),
             ),
           DraggableScrollableSheet(
-            initialChildSize: 0.3,
-            minChildSize: 0.1,
-            maxChildSize: 0.6,
+            initialChildSize: 0.35,
+            minChildSize: 0.12,
+            maxChildSize: 0.72,
             builder: (context, scrollController) {
+              final hasSteps = widget.steps.isNotEmpty;
+              final itemCount = hasSteps ? widget.steps.length + 2 : 3;
+
               return Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16),
+                    top: Radius.circular(22),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, -5),
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 16,
+                      offset: const Offset(0, -6),
                     ),
                   ],
                 ),
-                child: Column(
-                  children: [
-                    // Handle bar
-                    Container(
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    // Fare display
-                    if (widget.fare > 0)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            Icon(Icons.payments, color: Colors.green[700]),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Fare: ₱${widget.fare.toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                child: ListView.builder(
+                  controller: scrollController,
+                  physics: const ClampingScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  itemCount: itemCount,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return Column(
+                        children: [
+                          const SizedBox(height: 10),
+                          Center(
+                            child: Container(
+                              width: 46,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(999),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    const SizedBox(height: 8),
-                    // Step list
-                    Expanded(
-                      child: ListView.builder(
-                        controller: scrollController,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: widget.steps.length,
-                        itemBuilder: (context, index) {
-                          final step = widget.steps[index];
-                          final instruction =
-                              step['html_instructions'] as String? ?? '';
-                          final distance =
-                              (step['distance'] as Map?)?['text'] as String? ??
-                                  '';
-                          final duration =
-                              (step['duration'] as Map?)?['text'] as String? ??
-                                  '';
-                          // Optional transit details for more precise ride instructions
-                          String transitInfo = '';
-                          final transitDetails =
-                              step['transit_details'] as Map<String, dynamic>?;
-                          if (transitDetails != null) {
-                            final line =
-                                transitDetails['line'] as Map<String, dynamic>?;
-                            final lineName =
-                                (line?['short_name'] ?? line?['name'] ?? '')
-                                    .toString();
-                            final depStop = transitDetails['departure_stop']
-                                as Map<String, dynamic>?;
-                            final depStopName = depStop?['name'] ?? '';
-                            final arrStop = transitDetails['arrival_stop']
-                                as Map<String, dynamic>?;
-                            final arrStopName = arrStop?['name'] ?? '';
-                            final depTime = transitDetails['departure_time']
-                                as Map<String, dynamic>?;
-                            final depTimeText = depTime?['text'] ?? '';
-                            final arrTime = transitDetails['arrival_time']
-                                as Map<String, dynamic>?;
-                            final arrTimeText = arrTime?['text'] ?? '';
-                            String detail = '';
-                            if (lineName.isNotEmpty)
-                              detail += 'Board $lineName';
-                            if (depStopName.isNotEmpty)
-                              detail += (detail.isEmpty ? '' : ' ') +
-                                  'at $depStopName';
-                            if (depTimeText.isNotEmpty)
-                              detail += ' ($depTimeText)';
-                            if (arrStopName.isNotEmpty)
-                              detail += ' to $arrStopName';
-                            if (arrTimeText.isNotEmpty)
-                              detail += ' ($arrTimeText)';
-                            if (detail.isNotEmpty) transitInfo = detail;
-                          }
-                          final isCurrentStep = index == _currentStep;
+                          ),
+                          const SizedBox(height: 14),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 18),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: _getModeColor().withValues(
+                                      alpha: 0.12,
+                                    ),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Icon(
+                                    Icons.route,
+                                    color: _getModeColor(),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${widget.modeName} instructions',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Drag anywhere on this panel to expand.',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                      );
+                    }
 
-                          return InkWell(
-                            onTap: () {
-                              setState(() {
-                                _currentStep = index;
-                              });
-                              // Extract lat/lng from step if available
-                              final latLng = _extractStepLocation(step);
-                              if (latLng != null) {
-                                _mapController?.animateCamera(
-                                  CameraUpdate.newLatLng(latLng),
-                                );
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  left: BorderSide(
-                                    color: isCurrentStep
-                                        ? _getModeColor()
-                                        : Colors.grey[300]!,
-                                    width: isCurrentStep ? 3 : 1,
+                    if (index == 1) {
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: const Color(0xFFE8E8E8),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.payments, color: Colors.green[700]),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  widget.fare > 0
+                                      ? 'Estimated fare: ₱${widget.fare.toStringAsFixed(0)}'
+                                      : 'No fare estimate available',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    width: 24,
-                                    height: 24,
-                                    margin: const EdgeInsets.only(
-                                        left: 8, right: 12),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
+                              Text(
+                                '${widget.steps.length} steps',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    if (!hasSteps) {
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+                        child: Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF8E1),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: const Color(0xFFFFECB3),
+                            ),
+                          ),
+                          child: const Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.info_outline, color: Colors.orange),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Detailed step-by-step directions are unavailable. Use the map preview and estimated route data.',
+                                  style: TextStyle(height: 1.35),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    final stepIndex = index - 2;
+                    final step = widget.steps[stepIndex];
+                    final instruction =
+                        step['html_instructions'] as String? ?? '';
+                    final distance =
+                        (step['distance'] as Map?)?['text'] as String? ?? '';
+                    final duration =
+                        (step['duration'] as Map?)?['text'] as String? ?? '';
+
+                    String transitInfo = '';
+                    final transitDetails =
+                        step['transit_details'] as Map<String, dynamic>?;
+                    if (transitDetails != null) {
+                      final line =
+                          transitDetails['line'] as Map<String, dynamic>?;
+                      final lineName =
+                          (line?['short_name'] ?? line?['name'] ?? '')
+                              .toString();
+                      final depStop = transitDetails['departure_stop']
+                          as Map<String, dynamic>?;
+                      final depStopName = depStop?['name'] ?? '';
+                      final arrStop = transitDetails['arrival_stop']
+                          as Map<String, dynamic>?;
+                      final arrStopName = arrStop?['name'] ?? '';
+                      final depTime = transitDetails['departure_time']
+                          as Map<String, dynamic>?;
+                      final depTimeText = depTime?['text'] ?? '';
+                      final arrTime = transitDetails['arrival_time']
+                          as Map<String, dynamic>?;
+                      final arrTimeText = arrTime?['text'] ?? '';
+
+                      String detail = '';
+                      if (lineName.isNotEmpty) {
+                        detail += 'Board $lineName';
+                      }
+                      if (depStopName.isNotEmpty) {
+                        detail += '${detail.isEmpty ? '' : ' '}at $depStopName';
+                      }
+                      if (depTimeText.isNotEmpty) {
+                        detail += ' ($depTimeText)';
+                      }
+                      if (arrStopName.isNotEmpty) {
+                        detail += ' to $arrStopName';
+                      }
+                      if (arrTimeText.isNotEmpty) {
+                        detail += ' ($arrTimeText)';
+                      }
+                      if (detail.isNotEmpty) transitInfo = detail;
+                    }
+
+                    final isCurrentStep = stepIndex == _currentStep;
+
+                    return Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        18,
+                        stepIndex == 0 ? 4 : 0,
+                        18,
+                        stepIndex == widget.steps.length - 1 ? 28 : 10,
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          setState(() {
+                            _currentStep = stepIndex;
+                          });
+
+                          final latLng = _extractStepLocation(step);
+                          if (latLng != null) {
+                            _mapController?.animateCamera(
+                              CameraUpdate.newLatLng(latLng),
+                            );
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: isCurrentStep
+                                ? _getModeColor().withValues(alpha: 0.08)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isCurrentStep
+                                  ? _getModeColor()
+                                  : const Color(0xFFE8E8E8),
+                              width: isCurrentStep ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isCurrentStep
+                                      ? _getModeColor()
+                                      : Colors.grey[300],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${stepIndex + 1}',
+                                    style: TextStyle(
+                                      fontSize: 12,
                                       color: isCurrentStep
-                                          ? _getModeColor()
-                                          : Colors.grey[300],
+                                          ? Colors.white
+                                          : Colors.grey[700],
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                    child: Center(
-                                      child: Text(
-                                        '${index + 1}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: isCurrentStep
-                                              ? Colors.white
-                                              : Colors.grey[600],
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _stripHtml(instruction),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        height: 1.35,
+                                        fontWeight: isCurrentStep
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color: Colors.black87,
                                       ),
                                     ),
-                                  ),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          _stripHtml(instruction),
+                                    if (transitInfo.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 7),
+                                        child: Text(
+                                          transitInfo,
                                           style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: isCurrentStep
-                                                ? FontWeight.w600
-                                                : FontWeight.normal,
+                                            fontSize: 12,
+                                            color: Colors.grey[700],
+                                            height: 1.35,
                                           ),
                                         ),
-                                        if (transitInfo.isNotEmpty)
-                                          Padding(
-                                            padding:
-                                                const EdgeInsets.only(top: 6),
-                                            child: Text(
-                                              transitInfo,
-                                              style: const TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.black54),
-                                            ),
+                                      ),
+                                    if (distance.isNotEmpty ||
+                                        duration.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 6),
+                                        child: Text(
+                                          '$distance • $duration',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey[600],
+                                            fontWeight: FontWeight.w600,
                                           ),
-                                        if (distance.isNotEmpty ||
-                                            duration.isNotEmpty)
-                                          Padding(
-                                            padding:
-                                                const EdgeInsets.only(top: 4),
-                                            child: Text(
-                                              '$distance • $duration',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.grey[600],
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               );
             },
