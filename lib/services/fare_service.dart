@@ -124,8 +124,8 @@ class FareService {
         return _estimateTerminalBasedCommute(
           mainMode: TravelMode.bus,
           mainLabel: 'Bus ride',
-          accessLabel: 'Jeep/tricycle to bus stop',
-          lastMileLabel: 'Last-mile jeep/tricycle estimate',
+          accessLabel: 'Jeep/bus to bus stop',
+          lastMileLabel: 'Last-mile jeep/bus/walk estimate',
           totalDistance: totalDistance,
           type: type,
         );
@@ -134,7 +134,7 @@ class FareService {
           mainMode: TravelMode.train,
           mainLabel: 'MRT/LRT ride',
           accessLabel: 'Jeep/bus to MRT/LRT station',
-          lastMileLabel: 'Last-mile jeep/bus/tricycle estimate',
+          lastMileLabel: 'Last-mile jeep/bus/jeep/bus estimate',
           totalDistance: totalDistance,
           type: type,
         );
@@ -142,8 +142,8 @@ class FareService {
         return _estimateTerminalBasedCommute(
           mainMode: TravelMode.fx,
           mainLabel: 'FX/Van ride',
-          accessLabel: 'Jeep/tricycle to FX/UV terminal',
-          lastMileLabel: 'Last-mile jeep/tricycle estimate',
+          accessLabel: 'Jeep/bus to FX/UV terminal',
+          lastMileLabel: 'Last-mile jeep/bus/walk estimate',
           totalDistance: totalDistance,
           type: type,
         );
