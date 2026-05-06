@@ -1242,7 +1242,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (destination.rating <= 0)
                   Positioned(
                     top: 10,
-                    right: 10,
+                    left: 10,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
