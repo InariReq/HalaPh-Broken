@@ -33,8 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _checkLocationStatus();
-    _loadTrendingDestinations();
+    _initializeLocationAndTrending();
     _loadFavorites();
     _loadUpcomingPlan();
     _favoritesSubscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
@@ -43,6 +42,11 @@ class _HomeScreenState extends State<HomeScreen> {
     _plansSubscription = SimplePlanService.changes.listen((_) {
       _loadUpcomingPlan();
     });
+  }
+
+  Future<void> _initializeLocationAndTrending() async {
+    await _checkLocationStatus();
+    await _loadTrendingDestinations();
   }
 
   Future<void> _checkLocationStatus() async {
