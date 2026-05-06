@@ -235,6 +235,23 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (!shouldLeave && !plan.isFinished)
+                    IconButton(
+                      onPressed: () {
+                        _showMarkFinishedConfirmation(context, plan);
+                      },
+                      icon: Icon(
+                        Icons.check_circle_outline,
+                        color: Colors.green[600],
+                        size: 20,
+                      ),
+                      tooltip: 'Mark as finished',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                    ),
                   // Delete personal/owned plans; leave shared plans owned by others.
                   IconButton(
                     onPressed: () {
@@ -265,6 +282,51 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showMarkFinishedConfirmation(
+    BuildContext context,
+    TravelPlan plan,
+  ) async {
+    final shouldFinish = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Mark as finished?'),
+        content: Text(
+          'Move "${plan.title}" to Trip History? You can still open it from Trip History.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Mark Finished'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldFinish != true) return;
+
+    final success = await SimplePlanService.markPlanFinished(plan.id);
+    if (!mounted || !context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'Plan moved to Trip History.'
+              : 'Could not mark plan as finished.',
+        ),
+        backgroundColor: success ? Colors.green : Colors.red,
+      ),
+    );
+
+    if (success) {
+      setState(() {});
+    }
   }
 
   String _formatDateRange(DateTime startDate, DateTime endDate) {

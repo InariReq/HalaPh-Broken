@@ -415,14 +415,24 @@ class _AccountsScreenState extends State<AccountsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
-            child: CircleAvatar(
-              radius: 40,
-              backgroundColor: Colors.blue[100],
-              child: Icon(
-                Icons.person,
-                size: 40,
-                color: Colors.blue[600],
-              ),
+            child: Builder(
+              builder: (context) {
+                final avatarUrl = _user?.avatarUrl?.trim();
+                final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+
+                return CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Colors.blue[100],
+                  backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
+                  child: hasAvatar
+                      ? null
+                      : Icon(
+                          Icons.person,
+                          size: 40,
+                          color: Colors.blue[600],
+                        ),
+                );
+              },
             ),
           ),
           const SizedBox(height: 16),

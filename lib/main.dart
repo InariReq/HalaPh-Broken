@@ -24,6 +24,7 @@ import 'screens/explore_details_screen.dart';
 import 'screens/my_plans_screen.dart';
 
 import 'screens/profile_screen.dart';
+import 'screens/trip_history_screen.dart';
 
 import 'screens/map_screen.dart';
 import 'screens/accounts_screen.dart';
@@ -138,6 +139,10 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/favorites',
       builder: (context, state) => const FavoritesScreen(),
+    ),
+    GoRoute(
+      path: '/trip-history',
+      builder: (context, state) => const TripHistoryScreen(),
     ),
     GoRoute(
       path: '/accounts',

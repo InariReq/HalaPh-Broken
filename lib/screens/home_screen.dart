@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:go_router/go_router.dart';
 import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/favorites_service.dart';
@@ -259,10 +260,23 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: Colors.blue[100],
-            child: Icon(Icons.person, color: Colors.blue[600]),
+          StreamBuilder<firebase_auth.User?>(
+            stream: firebase_auth.FirebaseAuth.instance.userChanges(),
+            initialData: firebase_auth.FirebaseAuth.instance.currentUser,
+            builder: (context, snapshot) {
+              final avatarUrl = snapshot.data?.photoURL?.trim();
+              final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+
+              return CircleAvatar(
+                radius: 20,
+                backgroundColor: Colors.blue[100],
+                backgroundImage:
+                    hasAvatar ? CachedNetworkImageProvider(avatarUrl) : null,
+                child: hasAvatar
+                    ? null
+                    : Icon(Icons.person, color: Colors.blue[600]),
+              );
+            },
           ),
         ],
       ),

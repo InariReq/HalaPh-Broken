@@ -532,7 +532,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: ElevatedButton(
         onPressed: widget.onTripHistoryTap ??
             () {
-              GoRouter.of(context).go('/my-plans');
+              GoRouter.of(context).push('/trip-history');
             },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.white,

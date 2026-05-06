@@ -91,7 +91,10 @@ class SimplePlanService {
     final identities = _identityCandidates(ownerId ?? 'current_user');
     return _plans.values
         .where(
-          (plan) => _isPlanOwner(plan, identities) && !_isCollaborative(plan),
+          (plan) =>
+              _isPlanOwner(plan, identities) &&
+              !_isCollaborative(plan) &&
+              !isPlanInTripHistory(plan),
         )
         .toList()
       ..sort((a, b) => b.startDate.compareTo(a.startDate));
@@ -102,7 +105,9 @@ class SimplePlanService {
     return _plans.values
         .where(
           (plan) =>
-              _isPlanParticipant(plan, identities) && _isCollaborative(plan),
+              _isPlanParticipant(plan, identities) &&
+              _isCollaborative(plan) &&
+              !isPlanInTripHistory(plan),
         )
         .toList()
       ..sort((a, b) => b.startDate.compareTo(a.startDate));
@@ -114,7 +119,8 @@ class SimplePlanService {
         .where(
           (plan) =>
               _isPlanParticipant(plan, identities) &&
-              !_isPlanOwner(plan, identities),
+              !_isPlanOwner(plan, identities) &&
+              !isPlanInTripHistory(plan),
         )
         .toList()
       ..sort((a, b) => b.startDate.compareTo(a.startDate));
@@ -130,6 +136,11 @@ class SimplePlanService {
   static List<TravelPlan> getAllUpcomingPlans({String? userId}) {
     final identities = _identityCandidates(userId ?? 'current_user');
     return _visibleCurrentOrFuturePlans(identities);
+  }
+
+  static bool isPlanInTripHistory(TravelPlan plan) {
+    final today = _dayOnly(DateTime.now());
+    return plan.isFinished || _dayOnly(plan.endDate).isBefore(today);
   }
 
   static TravelPlan createPlan({
@@ -175,6 +186,7 @@ class SimplePlanService {
     Map<String, String>? destinationTimes,
     Map<String, String>? destinationEndTimes,
     String? bannerImage,
+    String? status,
   }) async {
     final existing = _plans[planId];
     if (existing == null) return false;
@@ -205,6 +217,7 @@ class SimplePlanService {
       isShared: existing.isShared,
       bannerImage: bannerImage ?? existing.bannerImage,
       collaboratorUids: existing.collaboratorUids,
+      status: status ?? existing.status,
     );
 
     try {
@@ -249,6 +262,15 @@ class SimplePlanService {
   }
 
   static List<TravelPlan> getAllPlans() => _plans.values.toList();
+
+  static Future<bool> markPlanFinished(String id) async {
+    await PlanNotificationService.cancelPlanReminders(id);
+    return updatePlan(planId: id, status: 'finished');
+  }
+
+  static Future<bool> markPlanActive(String id) async {
+    return updatePlan(planId: id, status: 'active');
+  }
 
   static Future<TravelPlan?> joinSharedPlan(
     String planId, {
@@ -1380,6 +1402,7 @@ class SimplePlanService {
   static List<TravelPlan> _visibleCurrentOrFuturePlans(Set<String> identities) {
     final today = _today();
     return _plans.values.where((plan) {
+      if (isPlanInTripHistory(plan)) return false;
       return _isPlanParticipant(plan, identities) &&
           !_dayOnly(plan.endDate).isBefore(today);
     }).toList()

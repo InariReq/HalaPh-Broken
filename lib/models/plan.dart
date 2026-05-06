@@ -13,6 +13,7 @@ class TravelPlan {
   final bool isShared;
   final String? bannerImage;
   final List<String> collaboratorUids;
+  final String status;
 
   TravelPlan({
     required this.id,
@@ -25,7 +26,17 @@ class TravelPlan {
     this.isShared = false,
     this.bannerImage,
     this.collaboratorUids = const [],
+    this.status = 'active',
   });
+
+  static String _parseStatus(dynamic value) {
+    final status = value is String ? value.trim().toLowerCase() : '';
+    return status.isEmpty ? 'active' : status;
+  }
+
+  bool get isFinished => status == 'finished' || status == 'completed';
+
+  bool get isActive => !isFinished;
 
   factory TravelPlan.fromJson(Map<String, dynamic> json) {
     DateTime parseDate(dynamic value) {
@@ -51,6 +62,7 @@ class TravelPlan {
       isShared: json['isShared'] ?? false,
       bannerImage: (json['bannerImage'] as String?)?.trim(),
       collaboratorUids: List<String>.from(json['collaboratorUids'] ?? []),
+      status: _parseStatus(json['status']),
     );
   }
 
@@ -83,6 +95,7 @@ class TravelPlan {
       isShared: data['isShared'] ?? false,
       bannerImage: (data['bannerImage'] as String?)?.trim(),
       collaboratorUids: List<String>.from(data['collaboratorUids'] ?? []),
+      status: _parseStatus(data['status']),
     );
   }
 
@@ -106,6 +119,7 @@ class TravelPlan {
       'collaboratorUids': collaboratorUids.map((e) => e.trim()).toList(),
       'itinerary': itinerary.map((e) => e.toJson()).toList(),
       'isShared': isShared,
+      'status': status.trim().isEmpty ? 'active' : status.trim(),
       if (bannerImage?.isNotEmpty == true) 'bannerImage': bannerImage!.trim(),
     };
     return data;
