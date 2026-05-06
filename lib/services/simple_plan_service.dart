@@ -321,6 +321,18 @@ class SimplePlanService {
     _participantUids.clear();
   }
 
+  static Future<void> refreshPlanReminders() async {
+    for (final plan in _plans.values) {
+      await PlanNotificationService.schedulePlanReminders(plan);
+    }
+  }
+
+  static Future<void> cancelAllPlanReminders() async {
+    for (final planId in _plans.keys) {
+      await PlanNotificationService.cancelPlanReminders(planId);
+    }
+  }
+
   static Future<bool> updatePlanParticipants({
     required String planId,
     required List<String> participantUids,

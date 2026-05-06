@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:halaph/models/plan.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -9,6 +10,7 @@ class PlanNotificationService {
       FlutterLocalNotificationsPlugin();
 
   static bool _initialized = false;
+  static const String _enabledKey = 'plan_reminders_enabled';
 
   static Future<void> initialize() async {
     if (_initialized) return;
@@ -30,9 +32,32 @@ class PlanNotificationService {
     );
 
     await _plugin.initialize(settings);
-    await _requestPermissions();
 
     _initialized = true;
+  }
+
+  static Future<bool> arePlanRemindersEnabled() async {
+    try {
+      final prefs = SharedPreferencesAsync();
+      return await prefs.getBool(_enabledKey) ?? false;
+    } catch (error) {
+      debugPrint('Plan notifications: failed to read setting: $error');
+      return false;
+    }
+  }
+
+  static Future<void> setPlanRemindersEnabled(bool enabled) async {
+    try {
+      final prefs = SharedPreferencesAsync();
+      await prefs.setBool(_enabledKey, enabled);
+    } catch (error) {
+      debugPrint('Plan notifications: failed to save setting: $error');
+    }
+
+    if (enabled) {
+      await initialize();
+      await _requestPermissions();
+    }
   }
 
   static Future<void> _requestPermissions() async {
@@ -52,6 +77,11 @@ class PlanNotificationService {
   }
 
   static Future<void> schedulePlanReminders(TravelPlan plan) async {
+    if (!await arePlanRemindersEnabled()) {
+      await cancelPlanReminders(plan.id);
+      return;
+    }
+
     await initialize();
     await cancelPlanReminders(plan.id);
 

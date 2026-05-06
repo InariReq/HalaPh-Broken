@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:halaph/services/auth_service.dart';
 import 'package:halaph/models/user.dart';
+import 'package:halaph/services/plan_notification_service.dart';
+import 'package:halaph/services/simple_plan_service.dart';
 
 class AccountsScreen extends StatefulWidget {
   final VoidCallback? onLoginSuccess;
@@ -20,12 +22,12 @@ class _AccountsScreenState extends State<AccountsScreen> {
   bool _loading = false;
   bool _isLogin = true;
   bool _notificationsEnabled = false;
-  TimeOfDay _notificationTime = TimeOfDay(hour: 9, minute: 0);
 
   @override
   void initState() {
     super.initState();
     _loadUser();
+    _loadPlanReminderSetting();
   }
 
   @override
@@ -101,10 +103,34 @@ class _AccountsScreenState extends State<AccountsScreen> {
     });
   }
 
+  Future<void> _loadPlanReminderSetting() async {
+    final enabled = await PlanNotificationService.arePlanRemindersEnabled();
+    if (!mounted) return;
+    setState(() {
+      _notificationsEnabled = enabled;
+    });
+  }
+
   Future<void> _toggleNotifications(bool value) async {
     setState(() {
       _notificationsEnabled = value;
     });
+
+    await PlanNotificationService.setPlanRemindersEnabled(value);
+
+    if (value) {
+      await SimplePlanService.refreshPlanReminders();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Plan reminders turned on')),
+      );
+    } else {
+      await SimplePlanService.cancelAllPlanReminders();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Plan reminders turned off')),
+      );
+    }
   }
 
   bool get _canLeaveAccountScreen {
@@ -257,7 +283,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : Text(
@@ -447,10 +474,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.notifications_outlined, color: Colors.grey[600]),
+                        Icon(Icons.notifications_outlined,
+                            color: Colors.grey[600]),
                         const SizedBox(width: 12),
                         const Text(
-                          'Daily Reminders',
+                          'Plan Reminder',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.black87,
@@ -458,73 +486,23 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         ),
                       ],
                     ),
-                      Switch(
-                        value: _notificationsEnabled,
-                        onChanged: _toggleNotifications,
-                        activeThumbColor: Colors.blue[600],
-                        activeTrackColor: Colors.blue[600]?.withValues(alpha: 0.5),
-                      ),
+                    Switch(
+                      value: _notificationsEnabled,
+                      onChanged: _toggleNotifications,
+                      activeThumbColor: Colors.blue[600],
+                      activeTrackColor:
+                          Colors.blue[600]?.withValues(alpha: 0.5),
+                    ),
                   ],
                 ),
                 if (_notificationsEnabled) ...[
                   const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.access_time, color: Colors.grey[600]),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Reminder Time',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        _notificationTime.format(context),
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.blue[600],
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final picked = await showTimePicker(
-                          context: context,
-                          initialTime: _notificationTime,
-                        );
-                          if (picked != null) {
-                           setState(() {
-                             _notificationTime = picked;
-                           });
-                         }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[50],
-                        foregroundColor: Colors.blue[600],
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Change Time',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                  Text(
+                    'Plan reminders will notify you 1 hour before the first stop and 30 minutes before each next stop.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                      height: 1.4,
                     ),
                   ),
                 ],
