@@ -253,11 +253,16 @@ service cloud.firestore {
          request.auth.uid in request.resource.data.participantUids) ||
         // Participant can leave by removing only their own UID.
         isParticipantLeavingPlan() ||
-        // Participant can update but NOT change ownerId, ownerUid, createdBy, participantUids
+        // Editor collaborator can update plan content but cannot change ownership or access lists
         (isPlanParticipant(resource.data) &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'startDate', 'endDate', 'days', 'itinerary', 'itineraries', 'items', 'destinationIds', 'updatedAt', 'version']) &&
+         resource.data.collaboratorUids is list &&
+         request.auth.uid in resource.data.collaboratorUids &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'startDate', 'endDate', 'days', 'itinerary', 'itineraries', 'items', 'destinationIds', 'bannerImage', 'isShared', 'updatedAt', 'version']) &&
          request.resource.data.createdBy == resource.data.createdBy &&
-         request.resource.data.participantUids == resource.data.participantUids)
+         request.resource.data.ownerUid == resource.data.ownerUid &&
+         request.resource.data.ownerId == resource.data.ownerId &&
+         request.resource.data.participantUids == resource.data.participantUids &&
+         request.resource.data.collaboratorUids == resource.data.collaboratorUids)
       );
       allow delete: if signedIn() && (
         resource.data.createdBy == request.auth.uid ||
