@@ -7,6 +7,8 @@ import 'package:halaph/models/plan.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/services/friend_service.dart';
+import 'package:halaph/services/commuter_type_service.dart';
+import 'package:halaph/services/fare_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/screens/add_place_screen.dart';
 import 'package:halaph/screens/friends_screen.dart';
@@ -20,6 +22,18 @@ class DestinationData {
     required this.destination,
     required this.fromDay,
     required this.fromIndex,
+  });
+}
+
+class _BudgetPassengerEstimate {
+  final String name;
+  final PassengerType type;
+  final double estimate;
+
+  const _BudgetPassengerEstimate({
+    required this.name,
+    required this.type,
+    required this.estimate,
   });
 }
 
@@ -68,6 +82,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   Map<int, List<Destination>> _itinerary = {};
   Map<String, String> _destinationStartTimes = {};
   Map<String, String> _destinationEndTimes = {};
+  Map<String, PassengerType> _budgetPassengerTypes = {};
+  Map<String, String> _budgetPassengerNames = {};
 
   bool get _canEditPlan =>
       _plan != null && SimplePlanService.canEditPlan(_plan!.id);
@@ -143,6 +159,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
             );
           }
         }
+
+        await _loadBudgetPassengerTypes();
       }
     } catch (error) {
       debugPrint('Plan details load failed: $error');
@@ -196,6 +214,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     setState(() {
       _plan = updatedPlan;
     });
+    unawaited(_loadBudgetPassengerTypes());
     _showSuccess('Collaborators updated');
   }
 
@@ -740,9 +759,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     );
   }
 
-  int _budgetParticipantCount() {
+  Set<String> _budgetParticipantIds() {
     final plan = _plan;
-    if (plan == null) return 1;
+    if (plan == null) return const <String>{};
 
     final participants = <String>{};
     for (final uid in plan.participantUids) {
@@ -756,7 +775,87 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     final owner = plan.createdBy.trim();
     if (owner.isNotEmpty) participants.add(owner);
 
+    return participants;
+  }
+
+  int _budgetParticipantCount() {
+    final participants = _budgetParticipantIds();
     return participants.isEmpty ? 1 : participants.length;
+  }
+
+  Future<void> _loadBudgetPassengerTypes() async {
+    final plan = _plan;
+    if (plan == null) return;
+
+    final participantIds = _budgetParticipantIds();
+    if (participantIds.isEmpty) return;
+
+    final types = <String, PassengerType>{};
+    final names = <String, String>{};
+
+    try {
+      final myType = await CommuterTypeService().loadCommuterType();
+      final myCode = await _friendService.getMyCode().catchError((_) => '');
+
+      final myIds = <String>{};
+      if (myCode.trim().isNotEmpty) myIds.add(myCode.trim());
+      if (SimplePlanService.isPlanOwner(plan.id) &&
+          plan.createdBy.trim().isNotEmpty) {
+        myIds.add(plan.createdBy.trim());
+      }
+
+      for (final id in myIds) {
+        if (participantIds.contains(id)) {
+          types[id] = myType;
+          names[id] = 'You';
+        }
+      }
+
+      final friends = await _friendService.getFriends();
+      await Future.wait(
+        friends.map((friend) async {
+          final matchingIds = <String>[];
+
+          final friendCode = friend.code.trim();
+          if (friendCode.isNotEmpty && participantIds.contains(friendCode)) {
+            matchingIds.add(friendCode);
+          }
+
+          final friendUid = friend.uid?.trim();
+          if (friendUid != null &&
+              friendUid.isNotEmpty &&
+              participantIds.contains(friendUid)) {
+            matchingIds.add(friendUid);
+          }
+
+          if (matchingIds.isEmpty) return;
+
+          final label = await _friendService.getPublicCommuterTypeLabel(friend);
+          final type = CommuterTypeService.fromKey(label);
+          final displayName =
+              friend.name.trim().isNotEmpty ? friend.name.trim() : friendCode;
+
+          for (final id in matchingIds) {
+            types[id] = type;
+            names[id] = displayName.isNotEmpty ? displayName : 'Friend';
+          }
+        }),
+      );
+    } catch (error) {
+      debugPrint('Budget passenger type load failed: $error');
+    }
+
+    var index = 1;
+    for (final id in participantIds) {
+      types.putIfAbsent(id, () => PassengerType.regular);
+      names.putIfAbsent(id, () => 'Participant ${index++}');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _budgetPassengerTypes = types;
+      _budgetPassengerNames = names;
+    });
   }
 
   int _budgetStopCount() {
@@ -777,6 +876,57 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     return _budgetStopCount() * minimumLocalFarePerStop;
   }
 
+  double _estimateForPassengerType(
+    double regularEstimate,
+    PassengerType passengerType,
+  ) {
+    return switch (CommuterTypeService.normalize(passengerType)) {
+      PassengerType.student ||
+      PassengerType.senior ||
+      PassengerType.pwd =>
+        regularEstimate * 0.8,
+      PassengerType.regular || PassengerType.adult => regularEstimate,
+    };
+  }
+
+  List<_BudgetPassengerEstimate> _budgetPassengerEstimates(
+    double regularPassengerEstimate,
+  ) {
+    final participantIds = _budgetParticipantIds().toList()..sort();
+
+    if (participantIds.isEmpty) {
+      return [
+        _BudgetPassengerEstimate(
+          name: 'You',
+          type: PassengerType.regular,
+          estimate: regularPassengerEstimate,
+        ),
+      ];
+    }
+
+    return participantIds.map((id) {
+      final type = _budgetPassengerTypes[id] ?? PassengerType.regular;
+      return _BudgetPassengerEstimate(
+        name: _budgetPassengerNames[id] ?? 'Participant',
+        type: type,
+        estimate: _estimateForPassengerType(regularPassengerEstimate, type),
+      );
+    }).toList();
+  }
+
+  String _formatPerPassengerRange(List<_BudgetPassengerEstimate> estimates) {
+    if (estimates.isEmpty) return 'Pending';
+
+    final amounts = estimates.map((estimate) => estimate.estimate).toList()
+      ..sort();
+
+    if (amounts.first == amounts.last) {
+      return _formatBudgetAmount(amounts.first);
+    }
+
+    return '${_formatBudgetAmount(amounts.first)}–${_formatBudgetAmount(amounts.last)}';
+  }
+
   String _formatBudgetAmount(double value) {
     return '₱${value.toStringAsFixed(0)}';
   }
@@ -785,8 +935,14 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     final stopCount = _budgetStopCount();
     final participantCount = _budgetParticipantCount();
     final dayCount = _budgetDayCountWithStops();
-    final perPersonEstimate = _estimatedTransportTotal();
-    final totalEstimate = perPersonEstimate * participantCount;
+    final regularPassengerEstimate = _estimatedTransportTotal();
+    final passengerEstimates =
+        _budgetPassengerEstimates(regularPassengerEstimate);
+    final totalEstimate = passengerEstimates.fold<double>(
+      0,
+      (total, estimate) => total + estimate.estimate,
+    );
+    final perPassengerDisplay = _formatPerPassengerRange(passengerEstimates);
     final hasStops = stopCount > 0;
     final participantLabel = participantCount == 1
         ? '1 participant'
@@ -882,10 +1038,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: _buildBudgetMetric(
-                    label: 'Per person',
-                    value: hasStops
-                        ? _formatBudgetAmount(perPersonEstimate)
-                        : 'Pending',
+                    label: 'Per passenger',
+                    value: hasStops ? perPassengerDisplay : 'Pending',
                   ),
                 ),
               ],
@@ -910,8 +1064,27 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   _buildBudgetDetailLine(
                     icon: Icons.groups_rounded,
                     text:
-                        'Estimated for $participantLabel. Public transport fares are paid per passenger.',
+                        'Estimated for $participantLabel using saved commuter types.',
                   ),
+                  if (hasStops && passengerEstimates.isNotEmpty) ...[
+                    const SizedBox(height: 7),
+                    ...passengerEstimates.take(4).map(
+                          (estimate) => Padding(
+                            padding: const EdgeInsets.only(bottom: 7),
+                            child: _buildBudgetDetailLine(
+                              icon: CommuterTypeService.iconFor(estimate.type),
+                              text:
+                                  '${estimate.name}, ${CommuterTypeService.labelFor(estimate.type)}: ${_formatBudgetAmount(estimate.estimate)}',
+                            ),
+                          ),
+                        ),
+                    if (passengerEstimates.length > 4)
+                      _buildBudgetDetailLine(
+                        icon: Icons.more_horiz_rounded,
+                        text:
+                            '+${passengerEstimates.length - 4} more participant estimates.',
+                      ),
+                  ],
                   const SizedBox(height: 7),
                   _buildBudgetDetailLine(
                     icon: Icons.route_rounded,
@@ -923,7 +1096,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   _buildBudgetDetailLine(
                     icon: Icons.info_outline_rounded,
                     text:
-                        'Actual fares may change by route, transfers, discounts, passenger type, and live transport availability.',
+                        'Unknown participant fare types default to Regular. Actual fares may change by route, transfers, discounts, passenger type, and live transport availability.',
                   ),
                 ],
               ),
