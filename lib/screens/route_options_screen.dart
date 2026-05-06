@@ -239,7 +239,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         if (!mapsConfigured)
           Container(
             width: double.infinity,
-            color: Colors.amber[100],
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF3A2D12)
+                : Colors.amber[100],
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
@@ -257,7 +259,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           ),
         Container(
           padding: const EdgeInsets.all(16),
-          color: Colors.blue[50],
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Theme.of(context).colorScheme.surfaceContainerHighest
+              : Colors.blue[50],
           child: Row(
             children: [
               Icon(Icons.info_outline, color: Colors.blue[600], size: 20),
@@ -315,7 +319,14 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         decoration: BoxDecoration(
           color: const Color(0xFFEAF5FF),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFBBDEFB)),
+          border: Border.all(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withValues(alpha: 0.28)
+                : const Color(0xFFBBDEFB),
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.blue.withValues(alpha: 0.12),
@@ -347,7 +358,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                     ),
                   ],
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.route_rounded,
                   color: Colors.white,
                   size: 26,
@@ -467,7 +478,11 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                   height: 46,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isCheapest ? Colors.green[100] : Colors.grey[200],
+                    color: isCheapest
+                        ? (Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF16351F)
+                            : Colors.green[100])
+                        : Theme.of(context).colorScheme.surfaceContainerHighest,
                     boxShadow: isCheapest
                         ? [
                             BoxShadow(
@@ -480,7 +495,11 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                   ),
                   child: Icon(
                     fare.icon,
-                    color: isCheapest ? Colors.green[700] : Colors.grey[700],
+                    color: isCheapest
+                        ? (Theme.of(context).brightness == Brightness.dark
+                            ? Colors.green[300]
+                            : Colors.green[700])
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -544,7 +563,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                       '${_formatDuration(fare.duration)} • ${_formatDistance(fare.distance)}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[600],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -570,7 +589,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                                   Icon(
                                     Icons.payments_rounded,
                                     size: 12,
-                                    color: Colors.grey[600],
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
                                   ),
                                   const SizedBox(width: 5),
                                   Expanded(
@@ -580,7 +601,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: Colors.grey[700],
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -618,7 +641,11 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: isCheapest ? Colors.green[700] : Colors.black87,
+                        color: isCheapest
+                            ? (Theme.of(context).brightness == Brightness.dark
+                                ? Colors.green[300]
+                                : Colors.green[700])
+                            : Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                   ),
@@ -630,12 +657,12 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                         'View Map',
                         style: TextStyle(
                           fontSize: 10,
-                          color: Colors.grey[600],
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.map, size: 16, color: Colors.blue),
+                      Icon(Icons.map, size: 16, color: Colors.blue),
                     ],
                   ),
                 ],

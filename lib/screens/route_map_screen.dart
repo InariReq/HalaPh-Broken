@@ -161,7 +161,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         backgroundColor: _getModeColor(),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh),
             onPressed: _reloadRoute,
             tooltip: 'Refresh Route',
           ),
@@ -195,7 +195,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.amber[100],
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF3A2D12)
+                      : Colors.amber[100],
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -250,7 +252,12 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                               width: 46,
                               height: 5,
                               decoration: BoxDecoration(
-                                color: Colors.grey[300],
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant
+                                    : Colors.grey[300],
                                 borderRadius: BorderRadius.circular(999),
                               ),
                             ),
@@ -295,7 +302,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                         'Drag anywhere on this panel to expand.',
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: Colors.grey[600],
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
                                         ),
                                       ),
                                     ],
@@ -346,7 +355,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                     '${widget.steps.length} steps',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey[600],
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -372,7 +383,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                             line,
                                             style: TextStyle(
                                               fontSize: 12,
-                                              color: Colors.grey[700],
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
                                               height: 1.25,
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -559,7 +572,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                           transitInfo,
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: Colors.grey[700],
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
                                             height: 1.35,
                                           ),
                                         ),
@@ -572,7 +587,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                           '$distance • $duration',
                                           style: TextStyle(
                                             fontSize: 11,
-                                            color: Colors.grey[600],
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
@@ -759,9 +776,15 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7E6),
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF3A2D12)
+                      : const Color(0xFFFFF7E6),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFFD699)),
+                  border: Border.all(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF9A6B14)
+                        : const Color(0xFFFFD699),
+                  ),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -806,7 +829,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           height: 1.3,
-                          color: Colors.grey[700],
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
