@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/simple_plan_service.dart';
@@ -393,12 +394,14 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
       final fallbackUserId = await _authService.getCurrentUserIdentifier();
       final creatorId =
           currentUserId.isNotEmpty ? currentUserId : fallbackUserId;
+      final storageOwnerId =
+          FirebaseAuth.instance.currentUser?.uid ?? creatorId;
 
       final bannerImagePath = _bannerImage == null
           ? _firstDestinationImageUrl()
           : await _uploadBannerImageIfPossible(
               bannerFile: _bannerImage!,
-              ownerId: creatorId,
+              ownerId: storageOwnerId,
             );
 
       // Save with timeout to prevent hanging
