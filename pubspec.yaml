@@ -42,6 +42,7 @@ flutter:
   assets:
     - .env
     - assets/icons/
+    - lib/Assets/gtfs-master/gtfs-master/routes.txt
 
 flutter_icons:
   android: true

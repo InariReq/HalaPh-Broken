@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/services/budget_routing_service.dart';
 import 'package:halaph/services/google_maps_service.dart';
+import 'package:halaph/models/verified_route.dart';
+import 'package:halaph/services/verified_route_service.dart';
 import 'package:halaph/utils/map_utils.dart';
 
 class RouteMapScreen extends StatefulWidget {
@@ -39,6 +41,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   int _currentStep = 0;
   String _polyline = '';
   List<LatLng> _routePoints = [];
+  VerifiedRouteReference? _historicalRouteReference;
 
   @override
   void initState() {
@@ -47,6 +50,18 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     _routePoints =
         _polyline.isNotEmpty ? MapUtils.decodePolyline(_polyline) : [];
     _setupMap();
+    _loadHistoricalRouteReference();
+  }
+
+  Future<void> _loadHistoricalRouteReference() async {
+    final reference = await VerifiedRouteService.findHistoricalRouteReference(
+      mode: widget.mode,
+      destinationName: widget.destinationName,
+    );
+    if (!mounted) return;
+    setState(() {
+      _historicalRouteReference = reference;
+    });
   }
 
   void _setupMap() {
@@ -591,26 +606,40 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
   String _routeDirectionInstruction(String lineName) {
     final destination = _destinationLabel;
+    final historicalReference = _historicalRouteReference;
+    final historicalRouteName = historicalReference?.displayName ?? '';
 
     switch (widget.mode) {
       case TravelMode.jeepney:
         if (lineName.isNotEmpty) {
           return 'Ride the $lineName route heading toward $destination.';
         }
+        if (historicalRouteName.isNotEmpty) {
+          return 'Historical route reference found: $historicalRouteName. Use it as a signboard clue, then confirm with the driver before boarding.';
+        }
         return 'Look for a jeepney signboard heading toward $destination. Confirm with the driver that it passes your drop-off before boarding.';
       case TravelMode.bus:
         if (lineName.isNotEmpty) {
           return 'Ride the $lineName bus route heading toward $destination.';
+        }
+        if (historicalRouteName.isNotEmpty) {
+          return 'Historical route reference found: $historicalRouteName. Use it as a direction clue, then confirm the active route with the conductor.';
         }
         return 'Look for a bus route heading toward $destination or the nearest terminal. Confirm the drop-off point with the conductor before boarding.';
       case TravelMode.train:
         if (lineName.isNotEmpty) {
           return 'Take $lineName toward the station serving $destination.';
         }
+        if (historicalRouteName.isNotEmpty) {
+          return 'Historical rail reference found: $historicalRouteName. Confirm the current station direction before boarding.';
+        }
         return 'Take the MRT/LRT line toward the station nearest $destination, then use the last-mile ride shown in the fare breakdown.';
       case TravelMode.fx:
         if (lineName.isNotEmpty) {
           return 'Ride the $lineName FX/UV route heading toward $destination.';
+        }
+        if (historicalRouteName.isNotEmpty) {
+          return 'Historical road route reference found: $historicalRouteName. Confirm the active FX/UV terminal route before boarding.';
         }
         return 'Look for an FX/UV terminal route heading toward $destination. Confirm the terminal and drop-off point before boarding.';
       case TravelMode.walking:
@@ -619,10 +648,21 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   }
 
   List<String> _routeDirectionNotes(String lineName) {
+    final historicalReference = _historicalRouteReference;
+
     if (lineName.isNotEmpty) {
       return [
+        'Live route step provided this line name.',
         'Use this route or line name when checking the vehicle signboard.',
         'Follow the listed boarding and alighting stops when the step list provides them.',
+      ];
+    }
+
+    if (historicalReference != null) {
+      return [
+        historicalReference.sourceLabel,
+        historicalReference.sourceDetail,
+        'This route reference is historical. Confirm that the route still operates before riding.',
       ];
     }
 
@@ -660,6 +700,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     final instruction = _routeDirectionInstruction(lineName);
     final notes = _routeDirectionNotes(lineName);
     final hasExactLine = lineName.isNotEmpty;
+    final hasHistoricalReference = _historicalRouteReference != null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
@@ -684,7 +725,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                   child: Text(
                     hasExactLine
                         ? 'Specific route to look for'
-                        : 'Route direction to look for',
+                        : hasHistoricalReference
+                            ? 'Historical route reference'
+                            : 'Route direction to look for',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
