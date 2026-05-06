@@ -358,6 +358,94 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
+ThemeData _buildHalaTheme() {
+  const seedBlue = Color(0xFF1976D2);
+
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: seedBlue,
+      brightness: Brightness.light,
+    ),
+    scaffoldBackgroundColor: const Color(0xFFF6F8FC),
+    fontFamily: 'Roboto',
+    textTheme: const TextTheme(
+      headlineLarge: TextStyle(
+        fontWeight: FontWeight.w900,
+        letterSpacing: -0.8,
+      ),
+      headlineMedium: TextStyle(
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.6,
+      ),
+      titleLarge: TextStyle(
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.3,
+      ),
+      titleMedium: TextStyle(
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.2,
+      ),
+      bodyLarge: TextStyle(
+        height: 1.35,
+        letterSpacing: -0.1,
+      ),
+      bodyMedium: TextStyle(
+        height: 1.35,
+        letterSpacing: -0.05,
+      ),
+      labelLarge: TextStyle(
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.1,
+      ),
+    ),
+    appBarTheme: const AppBarTheme(
+      centerTitle: false,
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.black87,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      titleTextStyle: TextStyle(
+        color: Colors.black87,
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+        letterSpacing: -0.4,
+      ),
+    ),
+    cardTheme: CardThemeData(
+      color: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        elevation: 0,
+        backgroundColor: seedBlue,
+        foregroundColor: Colors.white,
+        textStyle: const TextStyle(
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.1,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(999),
+      ),
+      labelStyle: const TextStyle(
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.1,
+      ),
+    ),
+  );
+}
+
 class HalaPhApp extends StatelessWidget {
   const HalaPhApp({super.key});
 
@@ -366,20 +454,7 @@ class HalaPhApp extends StatelessWidget {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'HalaPH - Discover Philippines',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        fontFamily: 'Roboto',
-        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          titleTextStyle: TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
+      theme: _buildHalaTheme(),
       routerDelegate: _router.routerDelegate,
       routeInformationParser: _router.routeInformationParser,
       routeInformationProvider: _router.routeInformationProvider,

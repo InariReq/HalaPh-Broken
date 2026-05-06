@@ -189,15 +189,51 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            SliverToBoxAdapter(child: _buildHeader(context)),
+            SliverToBoxAdapter(
+              child: _buildHomeEntrance(
+                order: 0,
+                child: _buildHeader(context),
+              ),
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            SliverToBoxAdapter(child: _buildCurrentPlan(context)),
+            SliverToBoxAdapter(
+              child: _buildHomeEntrance(
+                order: 1,
+                child: _buildCurrentPlan(context),
+              ),
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            SliverToBoxAdapter(child: _buildTrendingSection(context)),
+            SliverToBoxAdapter(
+              child: _buildHomeEntrance(
+                order: 2,
+                child: _buildTrendingSection(context),
+              ),
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: 96)),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildHomeEntrance({
+    required Widget child,
+    required int order,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 360 + (order * 90)),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 18 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 
@@ -293,14 +329,48 @@ class _HomeScreenState extends State<HomeScreen> {
               final avatarUrl = snapshot.data?.photoURL?.trim();
               final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
 
-              return CircleAvatar(
-                radius: 20,
-                backgroundColor: Colors.blue[100],
-                backgroundImage:
-                    hasAvatar ? CachedNetworkImageProvider(avatarUrl) : null,
-                child: hasAvatar
-                    ? null
-                    : Icon(Icons.person, color: Colors.blue[600]),
+              return Tooltip(
+                message: 'Open settings',
+                child: Material(
+                  color: Colors.transparent,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () => GoRouter.of(context).push('/settings'),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF1976D2),
+                            Color(0xFF03A9F4),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withValues(alpha: 0.22),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 20,
+                        backgroundColor: Colors.white,
+                        backgroundImage: hasAvatar
+                            ? CachedNetworkImageProvider(avatarUrl)
+                            : null,
+                        child: hasAvatar
+                            ? null
+                            : Icon(Icons.person, color: Colors.blue[700]),
+                      ),
+                    ),
+                  ),
+                ),
               );
             },
           ),
