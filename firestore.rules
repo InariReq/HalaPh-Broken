@@ -231,8 +231,12 @@ service cloud.firestore {
       allow create: if signedIn() && request.auth.uid == request.resource.data.uid
         && request.resource.data.code is string
         && request.resource.data.code.size() == 7;  // Format: XX-0000
-      allow update: if signedIn() && request.auth.uid == resource.data.uid
-        && request.resource.data.keys() <= ['uid', 'code', 'name', 'email', 'avatarUrl', 'favoritePlaceIds', 'favoritePlaces', 'updatedAt'];
+      allow update: if signedIn()
+        && request.auth.uid == resource.data.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.code == resource.data.code
+        && request.resource.data.keys().hasOnly(['uid', 'code', 'name', 'email', 'avatarUrl', 'favoritePlaceIds', 'favoritePlaces', 'createdAt', 'updatedAt'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'avatarUrl', 'favoritePlaceIds', 'favoritePlaces', 'updatedAt']);
       allow delete: if signedIn() && request.auth.uid == resource.data.uid;
     }
 
