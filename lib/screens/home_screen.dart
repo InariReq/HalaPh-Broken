@@ -288,7 +288,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Text(
                       'Discover Philippines',
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Icon(
@@ -296,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       size: 20,
                       color: _locationEnabled
                           ? Colors.green[600]
-                          : Colors.grey[600],
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     if (!_locationEnabled) ...[
                       const SizedBox(width: 4),
@@ -418,16 +421,26 @@ class _HomeScreenState extends State<HomeScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 20),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFFFFFFFF),
-              Color(0xFFF3F8FF),
-            ],
+          gradient: LinearGradient(
+            colors: Theme.of(context).brightness == Brightness.dark
+                ? [
+                    Theme.of(context).colorScheme.surfaceContainerHigh,
+                    Theme.of(context).colorScheme.surfaceContainer,
+                  ]
+                : const [
+                    Color(0xFFFFFFFF),
+                    Color(0xFFF3F8FF),
+                  ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE1ECFF)),
+          border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.28),
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.blue.withValues(alpha: 0.10),
@@ -470,16 +483,26 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFFFFFFF),
-            Color(0xFFF3F8FF),
-          ],
+        gradient: LinearGradient(
+          colors: Theme.of(context).brightness == Brightness.dark
+              ? [
+                  Theme.of(context).colorScheme.surfaceContainerHigh,
+                  Theme.of(context).colorScheme.surfaceContainer,
+                ]
+              : const [
+                  Color(0xFFFFFFFF),
+                  Color(0xFFF3F8FF),
+                ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE1ECFF)),
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.28),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.blue.withValues(alpha: 0.10),
@@ -708,9 +731,14 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8EEF8)),
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.28),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.blue.withValues(alpha: 0.10),
@@ -718,7 +746,7 @@ class _HomeScreenState extends State<HomeScreen> {
             offset: const Offset(0, 14),
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: 0.18),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -774,7 +802,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 4),
                       Text(
                         _formatDateRange(plan.startDate, plan.endDate),
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -964,16 +995,25 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFFFFBEB),
-            Color(0xFFFFF4D8),
-          ],
+        gradient: LinearGradient(
+          colors: Theme.of(context).brightness == Brightness.dark
+              ? const [
+                  Color(0xFF332711),
+                  Color(0xFF2B2110),
+                ]
+              : const [
+                  Color(0xFFFFFBEB),
+                  Color(0xFFFFF4D8),
+                ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFFDFA3)),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF8A641B)
+              : const Color(0xFFFFDFA3),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.orange.withValues(alpha: 0.10),
@@ -1038,12 +1078,17 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       height: 220,
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE5EAF3)),
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.28),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: 0.18),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -1072,7 +1117,9 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 'No nearby places found from your current location',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -1141,9 +1188,14 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 18),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE8EEF8)),
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.28),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.blue.withValues(alpha: 0.10),
@@ -1151,7 +1203,7 @@ class _HomeScreenState extends State<HomeScreen> {
             offset: const Offset(0, 14),
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: 0.18),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -1210,7 +1262,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withValues(alpha: 0.04),
+                          Colors.black.withValues(alpha: 0.18),
                           Colors.black.withValues(alpha: 0.76),
                         ],
                       ),
@@ -1304,7 +1356,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.star_rounded,
                             color: Color(0xFFFFB300),
                             size: 15,

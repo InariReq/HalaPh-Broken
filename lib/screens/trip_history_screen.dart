@@ -72,12 +72,17 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
+                    color: Theme.of(context).colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: const Color(0xFFE5EAF3)),
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outlineVariant
+                          .withValues(alpha: 0.28),
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
+                        color: Colors.black.withValues(alpha: 0.18),
                         blurRadius: 18,
                         offset: const Offset(0, 8),
                       ),
@@ -100,12 +105,17 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).cardColor,
+                          color: Theme.of(context).colorScheme.surfaceContainer,
                           borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: const Color(0xFFE5EAF3)),
+                          border: Border.all(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outlineVariant
+                                .withValues(alpha: 0.28),
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
+                              color: Colors.black.withValues(alpha: 0.18),
                               blurRadius: 18,
                               offset: const Offset(0, 8),
                             ),
@@ -133,8 +143,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w900,
-                                color: Color(0xFF111827),
-                                letterSpacing: -0.3,
+                                color: Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -144,7 +153,9 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                               style: TextStyle(
                                 fontSize: 14,
                                 height: 1.35,
-                                color: Color(0xFF6B7280),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -196,9 +207,14 @@ class _TripHistoryCard extends StatelessWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFE8EEF8)),
+          border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.28),
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.blue.withValues(alpha: 0.10),
@@ -206,7 +222,7 @@ class _TripHistoryCard extends StatelessWidget {
               offset: const Offset(0, 12),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withValues(alpha: 0.18),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
@@ -239,8 +255,7 @@ class _TripHistoryCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
-                      color: Color(0xFF111827),
-                      letterSpacing: -0.2,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -249,11 +264,13 @@ class _TripHistoryCard extends StatelessWidget {
                     runSpacing: 8,
                     children: [
                       _buildInfoChip(
+                        context,
                         icon: Icons.calendar_today_rounded,
                         label: plan.formattedDateRange,
-                        color: const Color(0xFF475569),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                       _buildInfoChip(
+                        context,
                         icon: Icons.place_rounded,
                         label: '$totalStops stop${totalStops == 1 ? '' : 's'}',
                         color: const Color(0xFF1976D2),
@@ -283,7 +300,9 @@ class _TripHistoryCard extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green[50],
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF16351F)
+                              : Colors.green[50],
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Row(
@@ -307,8 +326,10 @@ class _TripHistoryCard extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      Icon(Icons.chevron_right_rounded,
-                          color: Colors.grey[500]),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ],
                   ),
                 ],
@@ -320,7 +341,8 @@ class _TripHistoryCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoChip({
+  Widget _buildInfoChip(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required Color color,

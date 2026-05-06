@@ -350,16 +350,26 @@ class _ExploreScreenState extends State<ExploreScreen> {
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
       child: Container(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFFFFFFFF),
-              Color(0xFFF4F8FF),
-            ],
+          gradient: LinearGradient(
+            colors: Theme.of(context).brightness == Brightness.dark
+                ? [
+                    Theme.of(context).colorScheme.surfaceContainerHigh,
+                    Theme.of(context).colorScheme.surfaceContainer,
+                  ]
+                : const [
+                    Color(0xFFFFFFFF),
+                    Color(0xFFF4F8FF),
+                  ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFE4EEF9)),
+          border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.28),
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.blue.withValues(alpha: 0.08),
@@ -375,11 +385,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
             fontSize: 15,
             fontWeight: FontWeight.w600,
             letterSpacing: -0.1,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
           decoration: InputDecoration(
             hintText: 'Search destinations, malls, cafes...',
             hintStyle: TextStyle(
-              color: Colors.grey[500],
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 15,
               fontWeight: FontWeight.w500,
             ),
@@ -393,7 +404,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.close_rounded),
+                    icon: Icon(Icons.close_rounded),
                     onPressed: () {
                       _searchController.clear();
                       _queueSearchDestinations();
@@ -463,18 +474,27 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   : Icon(
                       _categoryIcon(category),
                       size: 17,
-                      color: isSelected ? Colors.white : Colors.grey[600],
+                      color: isSelected
+                          ? Colors.white
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
               selectedColor: Colors.blue[700],
               surfaceTintColor: Colors.transparent,
               labelStyle: TextStyle(
-                color: isSelected ? Colors.white : Colors.grey[700],
+                color: isSelected
+                    ? Colors.white
+                    : Theme.of(context).colorScheme.onSurface,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.1,
               ),
               side: BorderSide(
-                color: isSelected ? Colors.blue[700]! : const Color(0xFFE1E8F2),
+                color: isSelected
+                    ? Colors.blue[700]!
+                    : Theme.of(context)
+                        .colorScheme
+                        .outlineVariant
+                        .withValues(alpha: 0.28),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
               elevation: 0,
@@ -512,7 +532,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFD7E8FF)),
+          border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.28),
+          ),
         ),
         child: Row(
           children: [
@@ -531,7 +556,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 summary,
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.blueGrey[800],
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Theme.of(context).colorScheme.onSurface
+                      : Colors.blueGrey[800],
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.1,
                 ),
@@ -549,7 +576,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.search, size: 64, color: Colors.grey),
+            Icon(Icons.search, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
               'No destinations found',
@@ -610,9 +637,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.blue[50],
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Theme.of(context).colorScheme.surfaceContainerHigh
+            : Colors.blue[50],
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.blue[200]!),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Theme.of(context)
+                  .colorScheme
+                  .outlineVariant
+                  .withValues(alpha: 0.28)
+              : Colors.blue[200]!,
+        ),
       ),
       child: Row(
         children: [
@@ -623,7 +659,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
               'Only ${_destinations.length} found. Try a different search or category!',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.blue[700],
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFFBFDBFE)
+                    : Colors.blue[700],
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -696,7 +734,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.94),
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+          border:
+              Border.all(color: Theme.of(context).colorScheme.outlineVariant),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.10),
@@ -733,7 +772,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 15),
+          Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 15),
           const SizedBox(width: 3),
           Text(
             destination.rating.toStringAsFixed(1),
@@ -755,9 +794,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 22),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE9EEF6)),
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.28),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.07),
@@ -823,7 +867,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.92),
                       borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: Colors.white),
+                      border: Border.all(
+                          color: Theme.of(context).colorScheme.outlineVariant),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -901,7 +946,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.place_rounded,
                             color: Colors.white70,
                             size: 15,

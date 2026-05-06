@@ -292,13 +292,19 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           onPressed: () => context.go('/'),
         ),
         actions: [
           if (!_isEditing && _canEditPlan)
             IconButton(
-              icon: const Icon(Icons.edit, color: Colors.black),
+              icon: Icon(
+                Icons.edit,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               onPressed: () {
                 setState(() {
                   _isEditing = true;
@@ -307,7 +313,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
             ),
           if (!_isEditing)
             IconButton(
-              icon: const Icon(Icons.ios_share, color: Colors.black),
+              icon: Icon(
+                Icons.ios_share,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               onPressed: _plan == null
                   ? null
                   : () => context.push(
@@ -318,7 +327,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               _plan != null &&
               SimplePlanService.isPlanOwner(_plan!.id))
             IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
+              icon: Icon(Icons.delete, color: Colors.red),
               onPressed: () {
                 _showPlanDeleteConfirmation();
               },
@@ -332,7 +341,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
             ),
           if (_isEditing)
             IconButton(
-              icon: const Icon(Icons.close, color: Colors.black),
+              icon: Icon(
+                Icons.close,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               onPressed: () {
                 setState(() {
                   _isEditing = false;
@@ -362,12 +374,17 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       child: Container(
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFE5EAF3)),
+          border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.28),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withValues(alpha: 0.18),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),
@@ -407,7 +424,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               Text(
                 'The plan you\'re looking for doesn\'t exist or may have been deleted.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 32),
               ElevatedButton(
@@ -562,7 +582,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.04),
+                    Colors.black.withValues(alpha: 0.18),
                     Colors.black.withValues(alpha: 0.78),
                   ],
                 ),
@@ -622,7 +642,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.calendar_today_rounded,
                           color: Colors.white,
                           size: 14,
@@ -702,7 +722,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.group_add, size: 20),
+                  Icon(Icons.group_add, size: 20),
                   const SizedBox(width: 8),
                   Text(
                     _plan == null
@@ -840,12 +860,17 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         child: Container(
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
+            color: Theme.of(context).colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFE5EAF3)),
+            border: Border.all(
+              color: Theme.of(context)
+                  .colorScheme
+                  .outlineVariant
+                  .withValues(alpha: 0.28),
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: Colors.black.withValues(alpha: 0.18),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
@@ -870,7 +895,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                 const SizedBox(height: 12),
                 Text(
                   'No itinerary items yet',
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 if (_isEditing)
                   Padding(
@@ -906,12 +934,17 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
+                  color: Theme.of(context).colorScheme.surfaceContainer,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE5EAF3)),
+                  border: Border.all(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .outlineVariant
+                        .withValues(alpha: 0.28),
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
+                      color: Colors.black.withValues(alpha: 0.18),
                       blurRadius: 18,
                       offset: const Offset(0, 8),
                     ),
@@ -963,8 +996,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       margin: const EdgeInsets.only(bottom: 16),
                       height: isHovering ? 60 : 40,
                       decoration: BoxDecoration(
-                        color:
-                            isHovering ? Colors.blue[50] : Colors.transparent,
+                        color: isHovering
+                            ? Theme.of(context).colorScheme.surfaceContainerHigh
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                         border: isHovering
                             ? Border.all(color: Colors.blue[300]!)
@@ -1083,7 +1117,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       ),
       childWhenDragging: Container(
         decoration: BoxDecoration(
-          color: Colors.grey[50],
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: Colors.blue[200]!,
@@ -1142,12 +1176,14 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           return AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             decoration: BoxDecoration(
-              color: isHovering ? Colors.blue[50] : null,
+              color: isHovering
+                  ? Theme.of(context).colorScheme.surfaceContainerHigh
+                  : null,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Container(
               decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
+                color: Theme.of(context).colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
@@ -1158,7 +1194,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     offset: Offset(0, isHovering ? 10 : 12),
                   ),
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: Colors.black.withValues(alpha: 0.18),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -1249,7 +1285,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                                 ),
                               ],
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.delete,
                               size: 20,
                               color: Colors.red,
@@ -1304,7 +1340,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                                 _addPlaceAfter(destination, day, index),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.blue,
-                              side: const BorderSide(color: Colors.blue),
+                              side: BorderSide(color: Colors.blue),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -1313,7 +1349,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.add, size: 16),
+                                Icon(Icons.add, size: 16),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Place After',
@@ -1357,7 +1393,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
             offset: const Offset(0, 12),
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: 0.18),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -1421,7 +1457,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.edit, color: Colors.white, size: 14),
+                        Icon(Icons.edit, color: Colors.white, size: 14),
                       ],
                     ),
                   ),
@@ -1473,7 +1509,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     onPressed: () => _addPlaceAfter(destination, day, index),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.blue,
-                      side: const BorderSide(color: Colors.blue),
+                      side: BorderSide(color: Colors.blue),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -1482,7 +1518,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.add, size: 16),
+                        Icon(Icons.add, size: 16),
                         const SizedBox(width: 6),
                         Text(
                           'Place After',
@@ -1614,13 +1650,13 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.play_arrow),
+                leading: Icon(Icons.play_arrow),
                 title: Text('Start Time'),
                 subtitle: Text(start),
                 onTap: () => Navigator.of(context).pop('start'),
               ),
               ListTile(
-                leading: const Icon(Icons.stop),
+                leading: Icon(Icons.stop),
                 title: Text('End Time'),
                 subtitle: Text(end),
                 onTap: () => Navigator.of(context).pop('end'),

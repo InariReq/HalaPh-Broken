@@ -201,7 +201,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                 contentPadding: EdgeInsets.zero,
                 title: Text(plan.title),
                 subtitle: Text(plan.formattedDateRange),
-                trailing: const Icon(Icons.add_circle_outline),
+                trailing: Icon(Icons.add_circle_outline),
                 onTap: () => Navigator.of(context).pop(plan),
               ),
             ),
@@ -248,7 +248,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(20),
             topRight: Radius.circular(20),
@@ -263,7 +263,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -287,13 +287,15 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: Colors.grey[100],
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.close,
                         size: 18,
-                        color: Colors.black54,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -369,19 +371,28 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.grey[100],
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE5EAF3)),
+          border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.28),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.star_border_rounded, color: Color(0xFF6B7280), size: 17),
+            Icon(
+              Icons.star_border_rounded,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              size: 17,
+            ),
             SizedBox(width: 6),
             Text(
               'No rating yet',
               style: TextStyle(
-                color: Color(0xFF374151),
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
               ),
@@ -394,19 +405,27 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF332711)
+            : const Color(0xFFFFF8E1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFFECB3)),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF8A641B)
+              : const Color(0xFFFFECB3),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 17),
+          Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 17),
           const SizedBox(width: 5),
           Text(
             rating.toStringAsFixed(1),
             style: TextStyle(
-              color: Color(0xFF7A5200),
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFFFFF0C2)
+                  : Color(0xFF7A5200),
               fontSize: 14,
               fontWeight: FontWeight.w800,
             ),
@@ -415,7 +434,9 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
           Text(
             'Rating',
             style: TextStyle(
-              color: Color(0xFF7A5200),
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFFFFF0C2)
+                  : Color(0xFF7A5200),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -459,7 +480,9 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                         imageUrl: imageUrl.trim(),
                         fit: BoxFit.cover,
                         placeholder: (context, url) => Container(
-                          color: Colors.grey[100],
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
                           child: Center(
                             child: CircularProgressIndicator(
                               color: Colors.blue[600],
@@ -680,7 +703,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
             _destination!.description,
             style: TextStyle(
               fontSize: 14,
-              color: Color(0xFF757575),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               height: 1.5,
             ),
           ),
@@ -698,9 +721,15 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.green[50],
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF16351F)
+              : Colors.green[50],
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.green[200]!),
+          border: Border.all(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.green.withValues(alpha: 0.30)
+                : Colors.green[200]!,
+          ),
         ),
         child: Row(
           children: [
@@ -711,7 +740,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                 color: Colors.green,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.add, color: Colors.white, size: 16),
+              child: Icon(Icons.add, color: Colors.white, size: 16),
             ),
             const SizedBox(width: 12),
             Text(
@@ -723,7 +752,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
               ),
             ),
             const Spacer(),
-            const Icon(
+            Icon(
               Icons.keyboard_arrow_down,
               color: Colors.green,
               size: 20,

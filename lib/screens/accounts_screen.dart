@@ -288,7 +288,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
           const SizedBox(height: 8),
           Text(
             'Switch accounts saved on this device. Passwords are never saved.',
-            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 16),
           if (_savedAccounts.isEmpty)
@@ -313,12 +316,17 @@ class _AccountsScreenState extends State<AccountsScreen> {
                       _nameController.clear();
                     });
                   },
-            icon: const Icon(Icons.person_add_alt_1),
+            icon: Icon(Icons.person_add_alt_1),
             label: Text('Add another account'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
               foregroundColor: Colors.blue[700],
-              side: BorderSide(color: Colors.blue.shade200),
+              side: BorderSide(
+                color: Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withValues(alpha: 0.28),
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -338,9 +346,14 @@ class _AccountsScreenState extends State<AccountsScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.blue[50],
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFBBDEFB)),
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.28),
+        ),
       ),
       child: Row(
         children: [
@@ -367,7 +380,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 const SizedBox(height: 4),
                 Text(
                   email,
-                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -399,10 +415,17 @@ class _AccountsScreenState extends State<AccountsScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isCurrent ? Colors.blue[50] : Colors.white,
+        color: isCurrent
+            ? Theme.of(context).colorScheme.surfaceContainerHigh
+            : Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isCurrent ? const Color(0xFFBBDEFB) : const Color(0xFFE0E0E0),
+          color: isCurrent
+              ? Colors.blue.withValues(alpha: 0.42)
+              : Theme.of(context)
+                  .colorScheme
+                  .outlineVariant
+                  .withValues(alpha: 0.28),
         ),
       ),
       child: Row(
@@ -432,7 +455,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 const SizedBox(height: 2),
                 Text(
                   account.email,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -451,7 +477,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
             ),
             IconButton(
               onPressed: () => _removeSavedAccount(account),
-              icon: Icon(Icons.close, size: 18, color: Colors.grey[600]),
+              icon: Icon(
+                Icons.close,
+                size: 18,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ],
@@ -463,13 +493,21 @@ class _AccountsScreenState extends State<AccountsScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.28),
+        ),
       ),
       child: Text(
         'No saved accounts yet.',
-        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+        style: TextStyle(
+          fontSize: 14,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }
@@ -488,13 +526,18 @@ class _AccountsScreenState extends State<AccountsScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.blue[50],
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFBBDEFB)),
+                border: Border.all(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .outlineVariant
+                      .withValues(alpha: 0.28),
+                ),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.swap_horiz, color: Colors.blue),
+                  Icon(Icons.swap_horiz, color: Colors.blue),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -513,12 +556,15 @@ class _AccountsScreenState extends State<AccountsScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
                 'Your current account stays active until another sign-in succeeds.',
-                style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -554,13 +600,16 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 : _isLogin
                     ? 'Sign in to switch or continue using HalaPH.'
                     : 'Create another account for this device.',
-            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            style: TextStyle(
+              fontSize: 16,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 32),
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
+              color: Theme.of(context).colorScheme.surfaceContainer,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -639,7 +688,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 onPressed: () => setState(() => _isLogin = !_isLogin),
                 child: RichText(
                   text: TextSpan(
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                     children: [
                       TextSpan(
                         text: _isLogin
@@ -735,7 +787,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         prefixIcon: Icon(icon),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
-        fillColor: Colors.grey[50],
+        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       ),
     );
   }
