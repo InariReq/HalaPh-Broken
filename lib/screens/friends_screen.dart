@@ -169,7 +169,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
               if (count > 0) ...[
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: selected ? Colors.white : Colors.red,
                     borderRadius: BorderRadius.circular(10),
@@ -316,7 +317,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
       if (!mounted) return;
       if (result.success) {
         setState(() {
-          _pendingRequests.removeWhere((r) => r['fromUid'] == request['fromUid']);
+          _pendingRequests
+              .removeWhere((r) => r['fromUid'] == request['fromUid']);
         });
         await _loadData();
         messenger.showSnackBar(
@@ -351,7 +353,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
       if (!mounted) return;
       if (success) {
         setState(() {
-          _pendingRequests.removeWhere((r) => r['fromUid'] == request['fromUid']);
+          _pendingRequests
+              .removeWhere((r) => r['fromUid'] == request['fromUid']);
         });
         messenger.showSnackBar(
           SnackBar(
@@ -536,9 +539,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
               ],
             ),
             child: Column(
-              children: _members
-                  .map((friend) => _buildMemberTile(friend))
-                  .toList(),
+              children:
+                  _members.map((friend) => _buildMemberTile(friend)).toList(),
             ),
           ),
       ],
@@ -551,9 +553,17 @@ class _FriendsScreenState extends State<FriendsScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            // Handle member tap
-          },
+          onTap: widget.selectionMode
+              ? () {
+                  setState(() {
+                    if (_selectedCodes.contains(friend.code)) {
+                      _selectedCodes.remove(friend.code);
+                    } else {
+                      _selectedCodes.add(friend.code);
+                    }
+                  });
+                }
+              : () => _showFriendProfileSheet(friend),
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -647,6 +657,90 @@ class _FriendsScreenState extends State<FriendsScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showFriendProfileSheet(Friend friend) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        final hasAvatar =
+            friend.avatarUrl != null && friend.avatarUrl!.trim().isNotEmpty;
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 44,
+                  backgroundColor: Colors.grey[200],
+                  backgroundImage:
+                      hasAvatar ? NetworkImage(friend.avatarUrl!) : null,
+                  child: hasAvatar
+                      ? null
+                      : Icon(Icons.person, size: 48, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  friend.name,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  friend.code.isNotEmpty ? friend.code : 'No friend code',
+                  style: TextStyle(fontSize: 15, color: Colors.grey[700]),
+                ),
+                if (friend.email?.trim().isNotEmpty == true) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    friend.email!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE3F2FD),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    'Plan role: ${friend.role}',
+                    style: TextStyle(
+                      color: Colors.blue[700],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.close),
+                    label: const Text('Close'),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
