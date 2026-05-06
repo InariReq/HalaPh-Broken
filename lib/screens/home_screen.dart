@@ -843,9 +843,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             errorWidget: (context, url, error) {
-                              debugPrint(
-                                'CachedNetworkImage error for ${destination.name}: $error',
-                              );
                               return _buildFallbackImage(destination.category);
                             },
                           )

@@ -556,9 +556,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               ),
                             ),
                             errorWidget: (context, url, error) {
-                              debugPrint(
-                                'CachedNetworkImage error for ${destination.name}: $error',
-                              );
                               return _buildFallbackImage(destination.category);
                             },
                           )
