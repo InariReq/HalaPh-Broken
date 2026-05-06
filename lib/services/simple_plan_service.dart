@@ -730,7 +730,8 @@ class SimplePlanService {
 
     // Debug logging
     debugPrint('Saving plan to: sharedPlans/${plan.id}');
-    debugPrint('Current UID: $ownerUid');
+    debugPrint('Current UID: $currentUid');
+    debugPrint('Owner UID: $ownerUid');
     debugPrint('Plan payload keys: ${data.keys.toList()}');
 
     // Force required fields to match rules
@@ -778,10 +779,28 @@ class SimplePlanService {
 
     debugPrint('Final plan payload: $data');
 
-    await _plansCollection
-        .doc(plan.id)
-        .set(data)
-        .timeout(const Duration(seconds: 8));
+    final planRef = _plansCollection.doc(plan.id);
+
+    if (currentUid != ownerUid) {
+      final editorData = <String, dynamic>{
+        'title': data['title'],
+        'startDate': data['startDate'],
+        'endDate': data['endDate'],
+        'itinerary': data['itinerary'],
+        'isShared': data['isShared'],
+        'bannerImage': data['bannerImage'],
+        'updatedAt': data['updatedAt'],
+      };
+
+      editorData.removeWhere((key, value) => value == null);
+
+      debugPrint('Editor update payload keys: ${editorData.keys.toList()}');
+
+      await planRef.update(editorData).timeout(const Duration(seconds: 8));
+    } else {
+      await planRef.set(data).timeout(const Duration(seconds: 8));
+    }
+
     _ownerUids[plan.id] = ownerUid;
     _participantUids[plan.id] = resolvedParticipantUids;
   }
