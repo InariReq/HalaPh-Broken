@@ -785,12 +785,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     final stopCount = _budgetStopCount();
     final participantCount = _budgetParticipantCount();
     final dayCount = _budgetDayCountWithStops();
-    final totalEstimate = _estimatedTransportTotal();
-    final perPersonEstimate = participantCount <= 0
-        ? totalEstimate
-        : totalEstimate / participantCount;
+    final perPersonEstimate = _estimatedTransportTotal();
+    final totalEstimate = perPersonEstimate * participantCount;
     final hasStops = stopCount > 0;
-    final splitLabel = participantCount == 1
+    final participantLabel = participantCount == 1
         ? '1 participant'
         : '$participantCount participants';
     final stopLabel =
@@ -911,7 +909,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                 children: [
                   _buildBudgetDetailLine(
                     icon: Icons.groups_rounded,
-                    text: 'Split across $splitLabel.',
+                    text:
+                        'Estimated for $participantLabel. Public transport fares are paid per passenger.',
                   ),
                   const SizedBox(height: 7),
                   _buildBudgetDetailLine(
@@ -924,7 +923,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   _buildBudgetDetailLine(
                     icon: Icons.info_outline_rounded,
                     text:
-                        'Actual fares may change by route, transfers, discounts, and live transport availability.',
+                        'Actual fares may change by route, transfers, discounts, passenger type, and live transport availability.',
                   ),
                 ],
               ),
