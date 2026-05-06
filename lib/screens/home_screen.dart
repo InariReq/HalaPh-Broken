@@ -189,11 +189,36 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            SliverToBoxAdapter(child: _buildHeader(context)),
+            SliverToBoxAdapter(
+              child: _buildHomeEntrance(
+                child: _buildHeader(context),
+                delay: 0,
+                slideY: -18,
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: _buildHomeEntrance(
+                child: _buildAnimatedHomeHero(context),
+                delay: 90,
+                slideY: 26,
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 18)),
+            SliverToBoxAdapter(
+              child: _buildHomeEntrance(
+                child: _buildCurrentPlan(context),
+                delay: 160,
+                slideY: 28,
+              ),
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            SliverToBoxAdapter(child: _buildCurrentPlan(context)),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            SliverToBoxAdapter(child: _buildTrendingSection(context)),
+            SliverToBoxAdapter(
+              child: _buildHomeEntrance(
+                child: _buildTrendingSection(context),
+                delay: 240,
+                slideY: 30,
+              ),
+            ),
             const SliverToBoxAdapter(child: SizedBox(height: 96)),
           ],
         ),
@@ -203,6 +228,126 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _locationEnabled = true;
   String _locationStatus = 'Getting location...';
+
+  Widget _buildHomeEntrance({
+    required Widget child,
+    required int delay,
+    required double slideY,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 520 + delay),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, animatedChild) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, slideY * (1 - value)),
+            child: Transform.scale(
+              scale: 0.96 + (0.04 * value),
+              child: animatedChild,
+            ),
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+
+  Widget _buildAnimatedHomeHero(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.blue[600]!,
+            Colors.blue[400]!,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withValues(alpha: 0.24),
+            blurRadius: 26,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.35, end: 1),
+            duration: const Duration(milliseconds: 850),
+            curve: Curves.easeOutBack,
+            builder: (context, scale, child) {
+              return Transform.scale(scale: scale, child: child);
+            },
+            child: Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.30),
+                ),
+              ),
+              child: const Icon(
+                Icons.explore_rounded,
+                color: Colors.white,
+                size: 30,
+              ),
+            ),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Plan your next trip',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  _locationStatus,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.88),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: -0.18, end: 0),
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.easeOutBack,
+            builder: (context, turns, child) {
+              return Transform.rotate(
+                angle: turns,
+                child: child,
+              );
+            },
+            child: Icon(
+              Icons.arrow_forward_rounded,
+              color: Colors.white.withValues(alpha: 0.92),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildHeader(BuildContext context) {
     return Padding(
@@ -267,14 +412,22 @@ class _HomeScreenState extends State<HomeScreen> {
               final avatarUrl = snapshot.data?.photoURL?.trim();
               final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
 
-              return CircleAvatar(
-                radius: 20,
-                backgroundColor: Colors.blue[100],
-                backgroundImage:
-                    hasAvatar ? CachedNetworkImageProvider(avatarUrl) : null,
-                child: hasAvatar
-                    ? null
-                    : Icon(Icons.person, color: Colors.blue[600]),
+              return TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.6, end: 1),
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeOutBack,
+                builder: (context, scale, child) {
+                  return Transform.scale(scale: scale, child: child);
+                },
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Colors.blue[100],
+                  backgroundImage:
+                      hasAvatar ? CachedNetworkImageProvider(avatarUrl) : null,
+                  child: hasAvatar
+                      ? null
+                      : Icon(Icons.person, color: Colors.blue[600]),
+                ),
               );
             },
           ),
@@ -724,7 +877,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ..._trendingDestinations.map(_buildTrendingCard),
+                      ..._trendingDestinations.asMap().entries.map(
+                            (entry) => _buildAnimatedTrendingCard(
+                              entry.value,
+                              entry.key,
+                            ),
+                          ),
                       if (hasFewResults) _buildSearchPrompt(),
                     ],
                   ),
@@ -874,6 +1032,29 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAnimatedTrendingCard(Destination destination, int index) {
+    final delay = (index * 70).clamp(0, 420);
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 420 + delay),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 34 * (1 - value)),
+            child: Transform.scale(
+              scale: 0.94 + (0.06 * value),
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: _buildTrendingCard(destination),
     );
   }
 
