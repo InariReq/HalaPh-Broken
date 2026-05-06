@@ -50,7 +50,10 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
               ),
             ),
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black),
+              icon: Icon(
+                Icons.arrow_back,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               onPressed: () => safeNavigateBack(context),
             ),
           ),
@@ -176,7 +179,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF111827),
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
           ),
@@ -210,7 +213,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
             title,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Color(0xFF111827),
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
@@ -220,7 +223,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
             message,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Color(0xFF6B7280),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 13,
               height: 1.35,
               fontWeight: FontWeight.w600,
@@ -258,7 +261,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
                 child: Text(
                   'Plan Link',
                   style: TextStyle(
-                    color: Color(0xFF111827),
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                   ),
@@ -273,12 +276,17 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFD9E8FF)),
+              border: Border.all(
+                color: Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withValues(alpha: 0.28),
+              ),
             ),
             child: SelectableText(
               shareUrl,
               style: TextStyle(
-                color: Color(0xFF1F2937),
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 13,
                 height: 1.35,
                 fontWeight: FontWeight.w600,
@@ -319,9 +327,14 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
 
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
-      color: Theme.of(context).cardColor,
+      color: Theme.of(context).colorScheme.surfaceContainer,
       borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: const Color(0xFFE5EAF3)),
+      border: Border.all(
+        color: Theme.of(context)
+            .colorScheme
+            .outlineVariant
+            .withValues(alpha: 0.28),
+      ),
       boxShadow: [
         BoxShadow(
           color: Colors.black.withValues(alpha: 0.04),

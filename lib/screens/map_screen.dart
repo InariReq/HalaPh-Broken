@@ -168,23 +168,32 @@ class _MapScreenState extends State<MapScreen> {
         title: Text(
           'Map View',
           style: TextStyle(
-            color: Colors.black87,
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
           onPressed: () => safeNavigateBack(context),
         ),
         actions: [
           if (_userLocation != null)
             IconButton(
-              icon: const Icon(Icons.my_location, color: Colors.black87),
+              icon: Icon(
+                Icons.my_location,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               onPressed: _moveToUserLocation,
             ),
           IconButton(
-            icon: const Icon(Icons.filter_list, color: Colors.black87),
+            icon: Icon(
+              Icons.filter_list,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
             onPressed: _showFilterDialog,
           ),
         ],
@@ -347,14 +356,21 @@ class _MapScreenState extends State<MapScreen> {
                       margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Colors.grey[200],
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
                           backgroundImage:
                               destination.imageUrl.startsWith('http')
                                   ? NetworkImage(destination.imageUrl)
                                   : null,
                           child: destination.imageUrl.startsWith('http')
                               ? null
-                              : Icon(Icons.place, color: Colors.grey[600]),
+                              : Icon(
+                                  Icons.place,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
                         ),
                         title: Text(destination.name),
                         subtitle: Column(

@@ -111,7 +111,8 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.black),
+          icon:
+              Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => safeNavigateBack(context),
         ),
         title: Text(
@@ -119,7 +120,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
               ? 'Add to Day ${widget.targetDay}'
               : 'Add Place',
           style: TextStyle(
-            color: Colors.black,
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w800,
           ),
@@ -142,9 +143,14 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
+                        color: Theme.of(context).colorScheme.surfaceContainer,
                         borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: const Color(0xFFE5EAF3)),
+                        border: Border.all(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .outlineVariant
+                              .withValues(alpha: 0.28),
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.04),
@@ -210,9 +216,14 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
+          color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFE5EAF3)),
+          border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.28),
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.blue.withValues(alpha: 0.10),
@@ -228,11 +239,12 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         ),
         child: TextField(
           controller: _searchController,
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
           onChanged: (_) => _onSearchChanged(),
           decoration: InputDecoration(
             hintText: 'Search Philippines destinations...',
             hintStyle: TextStyle(
-              color: Colors.grey[500],
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 15,
               fontWeight: FontWeight.w500,
             ),
@@ -275,17 +287,26 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                 selected: isSelected,
                 onSelected: (selected) =>
                     _filterByCategory(selected ? category : null),
-                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                selectedColor: Colors.blue[50],
+                backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+                selectedColor: Theme.of(context).brightness == Brightness.dark
+                    ? const Color(0xFF123153)
+                    : Colors.blue[50],
                 showCheckmark: false,
                 labelStyle: TextStyle(
-                  color: isSelected ? Colors.blue[700] : Colors.grey[700],
+                  color: isSelected
+                      ? (Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFFBFDBFE)
+                          : Colors.blue[700])
+                      : Theme.of(context).colorScheme.onSurface,
                   fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
                 ),
                 side: BorderSide(
                   color: isSelected
                       ? const Color(0xFF90CAF9)
-                      : const Color(0xFFE5EAF3),
+                      : Theme.of(context)
+                          .colorScheme
+                          .outlineVariant
+                          .withValues(alpha: 0.28),
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
@@ -325,8 +346,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w900,
-            color: Color(0xFF111827),
-            letterSpacing: -0.2,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ],
@@ -360,9 +380,14 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
+            color: Theme.of(context).colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFE5EAF3)),
+            border: Border.all(
+              color: Theme.of(context)
+                  .colorScheme
+                  .outlineVariant
+                  .withValues(alpha: 0.28),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -393,7 +418,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                     : 'Google Places is unavailable',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Color(0xFF6B7280),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
                 ),
@@ -405,7 +430,10 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                   textAlign: TextAlign.center,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ],
@@ -433,8 +461,13 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       height: 292,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        color: Theme.of(context).cardColor,
-        border: Border.all(color: const Color(0xFFE8EEF8)),
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.28),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.blue.withValues(alpha: 0.10),
@@ -492,7 +525,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF111827),
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -502,7 +535,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                         destination.location,
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.grey[600],
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                         maxLines: 1,

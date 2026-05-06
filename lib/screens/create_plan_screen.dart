@@ -659,13 +659,14 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.black),
+          icon:
+              Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface),
           onPressed: () => safeNavigateBack(context),
         ),
         title: Text(
           'Blank Plan',
           style: TextStyle(
-            color: Colors.black,
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -944,7 +945,12 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.blue[700],
                     backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                    side: const BorderSide(color: Color(0xFFBBDEFB)),
+                    side: BorderSide(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outlineVariant
+                          .withValues(alpha: 0.28),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
@@ -983,9 +989,14 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
+            color: Theme.of(context).colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFE5EAF3)),
+            border: Border.all(
+              color: Theme.of(context)
+                  .colorScheme
+                  .outlineVariant
+                  .withValues(alpha: 0.28),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -1014,7 +1025,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                 'Please select a date range to start planning',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Color(0xFF6B7280),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                   height: 1.3,
@@ -1060,7 +1071,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                     Text(
                       'Itinerary Day $dayNumber',
                       style: TextStyle(
-                        color: Colors.black,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w900,
                         fontSize: 19,
                       ),
@@ -1072,7 +1083,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                           _startDate!.add(Duration(days: dayNumber - 1)),
                         ),
                         style: TextStyle(
-                          color: Colors.grey[600],
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
@@ -1124,7 +1135,9 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                 margin: const EdgeInsets.only(bottom: 16),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: isHovering ? Colors.blue[50] : Colors.transparent,
+                  color: isHovering
+                      ? Theme.of(context).colorScheme.surfaceContainerHigh
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                   border:
                       isHovering ? Border.all(color: Colors.blue[300]!) : null,
@@ -1132,9 +1145,14 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
+                    color: Theme.of(context).colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFFE5EAF3)),
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outlineVariant
+                          .withValues(alpha: 0.28),
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.04),
@@ -1162,7 +1180,9 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                           style: TextStyle(
                             color: isHovering
                                 ? Colors.blue[600]
-                                : Colors.grey[500],
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
                             fontSize: 14,
                             fontWeight: isHovering
                                 ? FontWeight.w600
@@ -1201,7 +1221,9 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                     margin: const EdgeInsets.only(bottom: 16),
                     height: isHovering ? 60 : 40,
                     decoration: BoxDecoration(
-                      color: isHovering ? Colors.blue[50] : Colors.transparent,
+                      color: isHovering
+                          ? Theme.of(context).colorScheme.surfaceContainerHigh
+                          : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
                       border: isHovering
                           ? Border.all(color: Colors.blue[300]!)
@@ -1363,7 +1385,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                         Text(
                           'Move "${destination.name}"',
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
