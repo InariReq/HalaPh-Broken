@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:halaph/models/destination.dart';
+import 'package:halaph/utils/dev_mode.dart';
 
 class DestinationService {
   static const LatLng _defaultSearchLocation = LatLng(14.5995, 120.9842);
@@ -199,7 +200,9 @@ class DestinationService {
     // Typed searches should come from Google Places, not hardcoded fallback data.
     // Keep hardcoded malls only for empty/default discovery.
     final List<Destination> allDestinations =
-        hasTypedQuery ? <Destination>[] : [..._popularMalls];
+        hasTypedQuery && DevModeService.allowPaidGoogleApis
+            ? <Destination>[]
+            : [..._popularMalls];
 
     final isMallQuery = queryLower.contains('mall') ||
         queryLower.contains('shopping') ||
@@ -211,6 +214,22 @@ class DestinationService {
         queryLower.contains('glorietta') ||
         queryLower.contains('greenbelt') ||
         queryLower.contains('aura');
+
+    if (!DevModeService.allowPaidGoogleApis) {
+      final localDestinations = hasTypedQuery
+          ? allDestinations.where((destination) {
+              final searchable = [
+                destination.name,
+                destination.location,
+                destination.description,
+                destination.tags.join(' '),
+              ].join(' ').toLowerCase();
+              return searchable.contains(queryLower);
+            }).toList()
+          : allDestinations;
+
+      return _rankAndLimit(localDestinations, location, limit: 24);
+    }
 
     try {
       final googleResults = await _searchPlaces(
@@ -248,6 +267,11 @@ class DestinationService {
       final List<Destination> trending = [..._popularMalls];
 
       final location = await _getSearchLocation();
+
+      if (!DevModeService.allowPaidGoogleApis) {
+        return _rankAndLimit(trending, location, limit: 20);
+      }
+
       final places = await _discoverPlaces(location);
       trending.addAll(places);
 
@@ -265,6 +289,21 @@ class DestinationService {
     DestinationCategory? category,
   }) async {
     final searchLocation = location ?? await _getSearchLocation();
+
+    if (!DevModeService.allowPaidGoogleApis) {
+      final localDestinations = _popularMalls.where((destination) {
+        final searchable = [
+          destination.name,
+          destination.location,
+          destination.description,
+          destination.tags.join(' '),
+        ].join(' ').toLowerCase();
+        return searchable.contains(query.toLowerCase());
+      }).toList();
+
+      return _rankAndLimit(localDestinations, searchLocation, limit: 24);
+    }
+
     final searchQuery = _queryFor(query, category);
     final places = await _searchPlaces(
       query: searchQuery,
@@ -436,6 +475,11 @@ class DestinationService {
     required LatLng location,
     required int limit,
   }) async {
+    if (!DevModeService.allowPaidGoogleApis) {
+      debugPrint('Google Places skipped by dev cost guard: $query');
+      return <Destination>[];
+    }
+
     try {
       final uri = Uri.parse(
         'https://maps.googleapis.com/maps/api/place/textsearch/json',
@@ -602,6 +646,10 @@ class DestinationService {
     LatLng location, {
     required int maxHydration,
   }) async {
+    if (!DevModeService.allowPaidGoogleApis) {
+      return destinations;
+    }
+
     final hydrated = <Destination>[];
     var requestsUsed = 0;
 

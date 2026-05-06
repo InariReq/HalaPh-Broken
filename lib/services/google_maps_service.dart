@@ -4,13 +4,15 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:halaph/models/destination.dart';
+import 'package:halaph/utils/dev_mode.dart';
 
 class GoogleMapsService {
   static String get _googleApiKey => (dotenv.env['MAPS_API_KEY'] ?? '').trim();
 
   // Determine if Google Maps API key is actually configured in the environment.
   // If missing, API calls will gracefully fail and UI can show an estimated state.
-  static bool get isConfigured => _googleApiKey.isNotEmpty;
+  static bool get isConfigured =>
+      DevModeService.allowPaidGoogleApis && _googleApiKey.isNotEmpty;
 
   /// Get directions using Google Directions API.
   /// Costs: ~$5 per 1,000 requests.
@@ -37,12 +39,10 @@ class GoogleMapsService {
         'key': _googleApiKey,
       });
 
-        debugPrint('🌍 Google Directions: Getting $mode directions (billable)');
+      debugPrint('🌍 Google Directions: Getting $mode directions (billable)');
       // ApiUsageTracker.logPlaceSearch('directions_$mode');
 
-      final response = await http
-          .get(url)
-          .timeout(const Duration(seconds: 10));
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
@@ -85,9 +85,7 @@ class GoogleMapsService {
       debugPrint('🌍 Google Geocoding: "$address" (billable)');
       // ApiUsageTracker.logPlaceSearch('geocode');
 
-      final response = await http
-          .get(url)
-          .timeout(const Duration(seconds: 10));
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
@@ -129,9 +127,7 @@ class GoogleMapsService {
       debugPrint('🌍 Google Places: Searching "$query" (billable)');
       // ApiUsageTracker.logPlaceSearch(query);
 
-      final response = await http
-          .get(uri)
-          .timeout(const Duration(seconds: 10));
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
@@ -199,7 +195,9 @@ class GoogleMapsService {
         return DestinationCategory.park;
       } else if (t.contains('museum')) {
         return DestinationCategory.museum;
-      } else if (t.contains('shop') || t.contains('mall') || t.contains('market')) {
+      } else if (t.contains('shop') ||
+          t.contains('mall') ||
+          t.contains('market')) {
         return DestinationCategory.malls;
       } else if (t.contains('tourist') || t.contains('attraction')) {
         return DestinationCategory.landmark;
