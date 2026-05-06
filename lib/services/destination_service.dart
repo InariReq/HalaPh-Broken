@@ -305,14 +305,65 @@ class DestinationService {
   }
 
   static List<Destination> deduplicateDestinationsById(List<Destination> list) {
-    final seen = <String>{};
     final out = <Destination>[];
+
     for (final destination in list) {
-      if (seen.add(destination.id)) {
+      final duplicateIndex = out.indexWhere(
+        (existing) => _areDuplicateDestinations(existing, destination),
+      );
+
+      if (duplicateIndex == -1) {
         out.add(destination);
+        continue;
+      }
+
+      final existing = out[duplicateIndex];
+      if (_imagePriority(destination.imageUrl) >
+          _imagePriority(existing.imageUrl)) {
+        out[duplicateIndex] = destination;
       }
     }
+
     return out;
+  }
+
+  static bool _areDuplicateDestinations(
+    Destination a,
+    Destination b,
+  ) {
+    if (a.id.trim().isNotEmpty && a.id == b.id) return true;
+
+    final aName = _normalizeDestinationName(a.name);
+    final bName = _normalizeDestinationName(b.name);
+
+    if (aName.isNotEmpty && bName.isNotEmpty) {
+      if (aName == bName) return true;
+      if (_nameSimilarity(aName, bName) >= 0.72 && _areCoordinatesClose(a, b)) {
+        return true;
+      }
+    }
+
+    return _areCoordinatesClose(a, b) && a.category == b.category;
+  }
+
+  static bool _areCoordinatesClose(Destination a, Destination b) {
+    final aCoords = a.coordinates;
+    final bCoords = b.coordinates;
+    if (aCoords == null || bCoords == null) return false;
+
+    return calculateDistance(aCoords, bCoords) <= 0.15;
+  }
+
+  static double _nameSimilarity(String a, String b) {
+    final aWords = a.split(' ').where((word) => word.isNotEmpty).toSet();
+    final bWords = b.split(' ').where((word) => word.isNotEmpty).toSet();
+
+    if (aWords.isEmpty || bWords.isEmpty) return 0;
+
+    final shared = aWords.intersection(bWords).length;
+    final total = aWords.union(bWords).length;
+
+    return shared / total;
   }
 
   static double calculateDistance(LatLng point1, LatLng point2) {
@@ -390,8 +441,6 @@ class DestinationService {
         'location': '${location.latitude},${location.longitude}',
         'radius': '3000',
         'key': _googleApiKey,
-        'maxheight': '300',
-        'maxwidth': '300',
       });
 
       final response = await http.get(uri).timeout(_placesSearchTimeout,
@@ -418,9 +467,10 @@ class DestinationService {
     LatLng origin, {
     required int limit,
   }) {
+    final cleanedPlaces = deduplicateDestinationsById(places);
     final bestByKey = <String, Destination>{};
 
-    for (final place in places) {
+    for (final place in cleanedPlaces) {
       final key = _destinationDedupeKey(place);
       final existing = bestByKey[key];
 
@@ -603,7 +653,7 @@ class DestinationService {
       final photoRef = photos[0]['photo_reference'] as String?;
       if (photoRef != null) {
         imageUrl =
-            'https://maps.googleapis.com/maps/api/place/photo?maxwidth=300&photoreference=$photoRef&key=$_googleApiKey';
+            'https://maps.googleapis.com/maps/api/place/photo?maxwidth=1200&photoreference=$photoRef&key=$_googleApiKey';
       }
     }
 

@@ -108,7 +108,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final destinations = await DestinationService.searchDestinations(
         _searchController.text,
       );
-      final filteredDestinations = _applyAdvancedFilters(destinations);
+      final filteredDestinations = _applyAdvancedFilters(
+        DestinationService.deduplicateDestinationsById(destinations),
+      );
       if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _destinations = filteredDestinations;
