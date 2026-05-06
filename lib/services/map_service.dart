@@ -89,8 +89,7 @@ class MapService {
     double deltaLatRad = (point2.latitude - point1.latitude) * (pi / 180);
     double deltaLngRad = (point2.longitude - point1.longitude) * (pi / 180);
 
-    double a =
-        sin(deltaLatRad / 2) * sin(deltaLatRad / 2) +
+    double a = sin(deltaLatRad / 2) * sin(deltaLatRad / 2) +
         cos(lat1Rad) *
             cos(lat2Rad) *
             sin(deltaLngRad / 2) *

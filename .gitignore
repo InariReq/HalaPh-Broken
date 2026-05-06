@@ -89,3 +89,6 @@ AUDIT_REPORT.md
 rules_tests/insert_tests.js
 rules_tests/insert_update_tests.js
 rules_tests/insert_update_tests.py
+
+# Local JS dependencies
+rules_tests/node_modules/

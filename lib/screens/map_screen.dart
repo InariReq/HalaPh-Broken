@@ -21,8 +21,8 @@ class _MapScreenState extends State<MapScreen> {
   bool _isLoading = true;
   LatLng? _userLocation;
   List<Destination> _allDestinations = [];
-  Set<DestinationCategory> _selectedCategories = DestinationCategory.values
-      .toSet();
+  Set<DestinationCategory> _selectedCategories =
+      DestinationCategory.values.toSet();
 
   @override
   void initState() {
@@ -32,7 +32,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _initializeMap() async {
     if (!mounted) return;
-    
+
     setState(() {
       _isLoading = true;
     });
@@ -47,7 +47,7 @@ class _MapScreenState extends State<MapScreen> {
 
       // Try to get user location with retry
       _userLocation = await DestinationService.getCurrentLocation();
-      
+
       if (DestinationService.isInvalidLocation(_userLocation!)) {
         debugPrint('Map: Using default location (user location unavailable)');
         _userLocation = const LatLng(14.5995, 120.9842); // Manila default
@@ -57,7 +57,7 @@ class _MapScreenState extends State<MapScreen> {
 
       final markers = _buildMarkers();
       if (!mounted) return;
-      
+
       setState(() {
         _markers = markers;
         _isLoading = false;
@@ -68,17 +68,18 @@ class _MapScreenState extends State<MapScreen> {
     } catch (e) {
       debugPrint('Error initializing map: $e');
       if (!mounted) return;
-      
+
       setState(() {
         _isLoading = false;
         _userLocation = const LatLng(14.5995, 120.9842); // Fallback to Manila
       });
-      
+
       // Show error message to user
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Using default location. Turn on GPS for accurate position.'),
+            content: Text(
+                'Using default location. Turn on GPS for accurate position.'),
             backgroundColor: Colors.orange,
             action: SnackBarAction(
               label: 'Retry',
@@ -216,7 +217,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _moveToUserLocation() async {
     if (_mapController == null) return;
-    
+
     // Try to get fresh location
     try {
       final location = await DestinationService.getCurrentLocation();
@@ -229,7 +230,7 @@ class _MapScreenState extends State<MapScreen> {
     } catch (e) {
       debugPrint('Error refreshing location: $e');
     }
-    
+
     if (_userLocation != null && mounted) {
       _mapController!.animateCamera(
         CameraUpdate.newLatLngZoom(_userLocation!, 15.0),
@@ -349,8 +350,8 @@ class _MapScreenState extends State<MapScreen> {
                           backgroundColor: Colors.grey[200],
                           backgroundImage:
                               destination.imageUrl.startsWith('http')
-                              ? NetworkImage(destination.imageUrl)
-                              : null,
+                                  ? NetworkImage(destination.imageUrl)
+                                  : null,
                           child: destination.imageUrl.startsWith('http')
                               ? null
                               : Icon(Icons.place, color: Colors.grey[600]),

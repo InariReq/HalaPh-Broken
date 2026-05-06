@@ -51,21 +51,25 @@ class ApiUsageTracker {
     final runtime = DateTime.now().difference(_sessionStart).inMinutes;
 
     debugPrint('💰 API COSTS (session: ${runtime}min):');
-    debugPrint('  Place Searches: $_placeSearches (\$${searchCost.toStringAsFixed(2)})');
-    debugPrint('  Place Details:  $_placeDetails (\$${detailsCost.toStringAsFixed(2)})');
-    debugPrint('  Autocomplete:   $_autocompleteCalls (\$${autoCost.toStringAsFixed(2)})');
+    debugPrint(
+        '  Place Searches: $_placeSearches (\$${searchCost.toStringAsFixed(2)})');
+    debugPrint(
+        '  Place Details:  $_placeDetails (\$${detailsCost.toStringAsFixed(2)})');
+    debugPrint(
+        '  Autocomplete:   $_autocompleteCalls (\$${autoCost.toStringAsFixed(2)})');
     debugPrint('  TOTAL ESTIMATED: \$${total.toStringAsFixed(2)}');
     debugPrint('  REMAINING CREDITS: \$${(300.0 - total).toStringAsFixed(2)}');
 
     if (total > _highSpendWarningUSD) {
-      debugPrint('⚠️ WARNING: Over \$$_highSpendWarningUSD spent! \$${300.0 - total} remaining.');
+      debugPrint(
+          '⚠️ WARNING: Over \$$_highSpendWarningUSD spent! \$${300.0 - total} remaining.');
     }
   }
 
   static void _log(String type, String message) {
     final timestamp = DateTime.now().toIso8601String();
     final logLine = '[$timestamp] $type: $message\n';
-    
+
     try {
       final file = File(_logFileName);
       if (file.existsSync()) {

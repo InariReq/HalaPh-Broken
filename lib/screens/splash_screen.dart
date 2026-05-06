@@ -21,10 +21,10 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkAuthAndNavigate() async {
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
-    
+
     final isLoggedIn = await _auth.isLoggedIn();
     if (!mounted) return;
-    
+
     if (isLoggedIn) {
       context.go('/');
     } else {
@@ -47,10 +47,15 @@ class _SplashScreenState extends State<SplashScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(25),
               ),
-              child: const Icon(Icons.explore, size: 50, color: Color(0xFF0066FF)),
+              child:
+                  const Icon(Icons.explore, size: 50, color: Color(0xFF0066FF)),
             ),
             const SizedBox(height: 20),
-            const Text('HalaPH', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
+            const Text('HalaPH',
+                style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white)),
           ],
         ),
       ),

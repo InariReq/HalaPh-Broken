@@ -10,14 +10,10 @@ void main() {
     await tester.pumpWidget(const HalaPhApp());
     await tester.pump();
 
-    final hasLoader = find
-        .byType(CircularProgressIndicator)
-        .evaluate()
-        .isNotEmpty;
-    final hasAuthForm = find
-        .textContaining('Sign in to your account')
-        .evaluate()
-        .isNotEmpty;
+    final hasLoader =
+        find.byType(CircularProgressIndicator).evaluate().isNotEmpty;
+    final hasAuthForm =
+        find.textContaining('Sign in to your account').evaluate().isNotEmpty;
 
     expect(hasLoader || hasAuthForm, isTrue);
   });

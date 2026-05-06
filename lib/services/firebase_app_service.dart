@@ -54,13 +54,13 @@ class FirebaseAppService {
         await Firebase.initializeApp();
         debugPrint('Firebase initialized with native platform config.');
       }
-      
+
       // Enable Firestore offline persistence
       FirebaseFirestore.instance.settings = const Settings(
         persistenceEnabled: true,
         cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
       );
-      
+
       // Initialize Realtime Database
       _initializeDatabase();
       // Optionally connect to Firebase emulators if configured and not offline
@@ -71,7 +71,8 @@ class FirebaseAppService {
           // ignore emulator connection errors
         }
         try {
-          firebase_auth.FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
+          firebase_auth.FirebaseAuth.instance
+              .useAuthEmulator('localhost', 9099);
         } catch (_) {
           // ignore emulator connection errors
         }
@@ -88,7 +89,7 @@ class FirebaseAppService {
     }
   }
 
-static bool _shouldUseEmulators() {
+  static bool _shouldUseEmulators() {
     // Also honor in-app dev mode (emulator)
     try {
       if (DevModeService.current.value == DevMode.emulator) return true;

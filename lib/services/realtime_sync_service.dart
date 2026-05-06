@@ -35,14 +35,11 @@ class RealtimeSyncService {
 
   /// Listen to location updates for a plan
   Stream<Map<String, dynamic>> listenToLocations(String planId) {
-    return _db
-        .ref('plan_locations/$planId')
-        .onValue
-        .map((event) {
-          final data = event.snapshot.value as Map?;
-          if (data == null) return <String, dynamic>{};
-          return Map<String, dynamic>.from(data);
-        });
+    return _db.ref('plan_locations/$planId').onValue.map((event) {
+      final data = event.snapshot.value as Map?;
+      if (data == null) return <String, dynamic>{};
+      return Map<String, dynamic>.from(data);
+    });
   }
 
   /// Set user presence (online/offline)

@@ -107,10 +107,9 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
       }
 
       if (found == null) {
-        final searchResults =
-            await DestinationService.searchDestinations(
-              widget.destination?.name ?? widget.destinationId,
-            );
+        final searchResults = await DestinationService.searchDestinations(
+          widget.destination?.name ?? widget.destinationId,
+        );
         for (var dest in searchResults) {
           if (dest.id == widget.destinationId) {
             found = dest;
@@ -121,9 +120,8 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
 
       // Destination no longer fetched by ID - use existing data
 
-      final isFav = found != null
-          ? await _favoritesService.isFavorite(found.id)
-          : false;
+      final isFav =
+          found != null ? await _favoritesService.isFavorite(found.id) : false;
 
       if (mounted) {
         setState(() {
@@ -361,7 +359,8 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                           ),
                         ),
                       ),
-                      errorWidget: (context, url, error) => _buildFallbackImage(),
+                      errorWidget: (context, url, error) =>
+                          _buildFallbackImage(),
                     )
                   : _buildFallbackImage(),
             ),
