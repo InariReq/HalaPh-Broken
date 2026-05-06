@@ -105,7 +105,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -121,7 +121,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           style: const TextStyle(
             color: Colors.black,
             fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ),
@@ -138,7 +138,31 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           // Content
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: const Color(0xFFE5EAF3)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: SizedBox(
+                        height: 36,
+                        width: 36,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          color: Colors.blue[700],
+                        ),
+                      ),
+                    ),
+                  )
                 : SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 14.4),
                     child: Column(
@@ -187,12 +211,18 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE5EAF3)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
+              color: Colors.blue.withValues(alpha: 0.10),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -201,8 +231,12 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           onChanged: (_) => _onSearchChanged(),
           decoration: InputDecoration(
             hintText: 'Search Philippines destinations...',
-            hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
-            prefixIcon: const Icon(Icons.search, color: Colors.grey),
+            hintStyle: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+            prefixIcon: Icon(Icons.search_rounded, color: Colors.blue[700]),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.clear),
@@ -213,7 +247,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                   )
                 : null,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(22),
               borderSide: BorderSide.none,
             ),
             contentPadding: const EdgeInsets.symmetric(
@@ -243,12 +277,18 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                     _filterByCategory(selected ? category : null),
                 backgroundColor: Colors.white,
                 selectedColor: Colors.blue[50],
+                showCheckmark: false,
                 labelStyle: TextStyle(
-                  color: isSelected ? Colors.blue[700] : Colors.grey[600],
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? Colors.blue[700] : Colors.grey[700],
+                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
                 ),
                 side: BorderSide(
-                  color: isSelected ? Colors.blue[300]! : Colors.grey[300]!,
+                  color: isSelected
+                      ? const Color(0xFF90CAF9)
+                      : const Color(0xFFE5EAF3),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
                 ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -264,13 +304,32 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   }
 
   Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: Colors.black,
-      ),
+    return Row(
+      children: [
+        Container(
+          height: 34,
+          width: 34,
+          decoration: BoxDecoration(
+            color: Colors.blue[50],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            Icons.place_rounded,
+            color: Colors.blue[700],
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF111827),
+            letterSpacing: -0.2,
+          ),
+        ),
+      ],
     );
   }
 
@@ -296,29 +355,61 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     if (destinations.isEmpty) {
       final providerError = DestinationService.placesProviderError;
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
-        child: Column(
-          children: [
-            const Icon(Icons.place_outlined, size: 56, color: Colors.grey),
-            const SizedBox(height: 12),
-            Text(
-              providerError == null
-                  ? 'No places found'
-                  : 'Google Places is unavailable',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
-            ),
-            if (providerError != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                providerError,
-                textAlign: TextAlign.center,
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 8),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE5EAF3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
               ),
             ],
-          ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                height: 58,
+                width: 58,
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.travel_explore_rounded,
+                  size: 30,
+                  color: Colors.blue[700],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                providerError == null
+                    ? 'No places found'
+                    : 'Google Places is unavailable',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF6B7280),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (providerError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  providerError,
+                  textAlign: TextAlign.center,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ],
+          ),
         ),
       );
     }
@@ -339,15 +430,21 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
   Widget _buildDestinationCard(Destination destination) {
     return Container(
-      height: 280,
+      height: 292,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(22),
         color: Colors.white,
+        border: Border.all(color: const Color(0xFFE8EEF8)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: Colors.blue.withValues(alpha: 0.10),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -360,13 +457,13 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
             width: double.infinity,
             decoration: BoxDecoration(
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
+                top: Radius.circular(22),
               ),
               color: Colors.grey[300],
             ),
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
+                top: Radius.circular(22),
               ),
               child: destination.imageUrl.isNotEmpty
                   ? Image.network(
@@ -382,7 +479,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
           // Info
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(15),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -394,8 +491,8 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                         destination.name,
                         style: const TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF111827),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -403,7 +500,11 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                       const SizedBox(height: 4),
                       Text(
                         destination.location,
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w600,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -413,13 +514,24 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                 GestureDetector(
                   onTap: () => _addDestination(destination),
                   child: Container(
-                    width: 40,
-                    height: 40,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
-                      color: Colors.blue,
-                      shape: BoxShape.circle,
+                      color: Colors.blue[700],
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withValues(alpha: 0.22),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
-                    child: const Icon(Icons.add, color: Colors.white, size: 24),
+                    child: const Icon(
+                      Icons.add_rounded,
+                      color: Colors.white,
+                      size: 26,
+                    ),
                   ),
                 ),
               ],
@@ -432,9 +544,22 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
   Widget _buildDefaultImage() {
     return Container(
-      color: Colors.grey[300],
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF1976D2),
+            Color(0xFF03A9F4),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       child: Center(
-        child: Icon(Icons.place, size: 40, color: Colors.grey[600]),
+        child: Icon(
+          Icons.place_rounded,
+          size: 42,
+          color: Colors.white.withValues(alpha: 0.78),
+        ),
       ),
     );
   }
