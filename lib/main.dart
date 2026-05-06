@@ -241,28 +241,32 @@ class _MainNavigationState extends State<MainNavigation> {
         ],
       ),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Colors.white,
+          border: Border(
+            top: BorderSide(color: Colors.grey.shade200),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black12,
-              blurRadius: 10,
-              offset: Offset(0, -2),
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 18,
+              offset: const Offset(0, -6),
             ),
           ],
         ),
         child: SafeArea(
+          top: false,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildNavItem(Icons.home, 'Home', 0),
-                _buildNavItem(Icons.explore, 'Explore', 1),
-                _buildNavItem(Icons.calendar_today, 'Plans', 2),
-                _buildNavItem(Icons.favorite, 'Favorites', 3),
-                _buildNavItem(Icons.people, 'Friends', 4),
-                _buildNavItem(Icons.person, 'Profile', 5),
+                _buildNavItem(Icons.home_rounded, 'Home', 0),
+                _buildNavItem(Icons.explore_rounded, 'Explore', 1),
+                _buildNavItem(Icons.calendar_today_rounded, 'Plans', 2),
+                _buildNavItem(Icons.favorite_rounded, 'Favorites', 3),
+                _buildNavItem(Icons.people_alt_rounded, 'Friends', 4),
+                _buildNavItem(Icons.person_rounded, 'Profile', 5),
               ],
             ),
           ),
@@ -273,26 +277,46 @@ class _MainNavigationState extends State<MainNavigation> {
 
   Widget _buildNavItem(IconData icon, String label, int index) {
     final isActive = _currentIndex == index;
-    return GestureDetector(
-      onTap: () => _onTabChanged(index),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 24,
-            color: isActive ? Colors.blue[600] : Colors.grey[400],
+    final activeColor = Colors.blue[600]!;
+    final inactiveColor = Colors.grey[500]!;
+
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _onTabChanged(index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive
+                ? activeColor.withValues(alpha: 0.10)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isActive ? Colors.blue[600] : Colors.grey[400],
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: isActive ? activeColor : inactiveColor,
+                size: isActive ? 25 : 23,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isActive ? activeColor : inactiveColor,
+                  fontSize: 10,
+                  fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -304,12 +328,10 @@ class HalaPhApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
+      title: 'HalaPH',
       debugShowCheckedModeBanner: false,
-      title: 'HalaPH - Discover Philippines',
       theme: AppTheme.light(),
-      routerDelegate: _router.routerDelegate,
-      routeInformationParser: _router.routeInformationParser,
-      routeInformationProvider: _router.routeInformationProvider,
+      routerConfig: _router,
     );
   }
 }
