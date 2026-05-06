@@ -347,29 +347,53 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFFFFFFFF),
+              Color(0xFFF4F8FF),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE4EEF9)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
+              color: Colors.blue.withValues(alpha: 0.08),
+              blurRadius: 22,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
         child: TextField(
           controller: _searchController,
           onChanged: (_) => _queueSearchDestinations(),
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.1,
+          ),
           decoration: InputDecoration(
-            hintText: 'Search Philippines destinations...',
-            hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
-            prefixIcon: const Icon(Icons.search, color: Colors.grey),
+            hintText: 'Search destinations, malls, cafes...',
+            hintStyle: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+            ),
+            prefixIcon: Container(
+              margin: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF3FF),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(Icons.search_rounded, color: Colors.blue[700]),
+            ),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear),
+                    icon: const Icon(Icons.close_rounded),
                     onPressed: () {
                       _searchController.clear();
                       _queueSearchDestinations();
@@ -377,12 +401,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   )
                 : null,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(22),
               borderSide: BorderSide.none,
             ),
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 16,
+              horizontal: 18,
+              vertical: 18,
             ),
           ),
         ),
@@ -396,43 +420,80 @@ class _ExploreScreenState extends State<ExploreScreen> {
       ..._categories,
     ];
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: SingleChildScrollView(
+    return SizedBox(
+      height: 46,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         scrollDirection: Axis.horizontal,
-        child: Row(
-          children: categories.map((category) {
-            final isSelected = _selectedCategory == category;
-            final label = category == null
-                ? 'All'
-                : DestinationService.getCategoryName(category);
+        itemCount: categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final isSelected = _selectedCategory == category;
+          final label = category == null
+              ? 'All'
+              : DestinationService.getCategoryName(category);
 
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
-                label: Text(label),
-                selected: isSelected,
-                onSelected: (_) => _filterByCategory(category),
-                backgroundColor: Colors.white,
-                selectedColor: Colors.blue[50],
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.blue[700] : Colors.grey[600],
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                ),
-                side: BorderSide(
-                  color: isSelected ? Colors.blue[300]! : Colors.grey[300]!,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                elevation: isSelected ? 2 : 0,
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: Colors.blue.withValues(alpha: 0.18),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : [],
+            ),
+            child: FilterChip(
+              label: Text(label),
+              selected: isSelected,
+              onSelected: (_) => _filterByCategory(category),
+              showCheckmark: false,
+              avatar: category == null
+                  ? Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 17,
+                      color: isSelected ? Colors.white : Colors.blue[700],
+                    )
+                  : Icon(
+                      _categoryIcon(category),
+                      size: 17,
+                      color: isSelected ? Colors.white : Colors.grey[600],
+                    ),
+              backgroundColor: Colors.white,
+              selectedColor: Colors.blue[700],
+              surfaceTintColor: Colors.transparent,
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : Colors.grey[700],
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.1,
               ),
-            );
-          }).toList(),
-        ),
+              side: BorderSide(
+                color: isSelected ? Colors.blue[700]! : const Color(0xFFE1E8F2),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              elevation: 0,
+            ),
+          );
+        },
       ),
     );
+  }
+
+  IconData _categoryIcon(DestinationCategory category) {
+    return switch (category) {
+      DestinationCategory.park => Icons.park_rounded,
+      DestinationCategory.landmark => Icons.location_city_rounded,
+      DestinationCategory.food => Icons.restaurant_rounded,
+      DestinationCategory.activities => Icons.local_activity_rounded,
+      DestinationCategory.museum => Icons.museum_rounded,
+      DestinationCategory.malls => Icons.shopping_bag_rounded,
+    };
   }
 
   Widget _buildExploreSummary() {
@@ -445,29 +506,39 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          Icon(
-            isSearching
-                ? Icons.search_rounded
-                : _selectedCategory == null
-                    ? Icons.trending_up_rounded
-                    : Icons.near_me_rounded,
-            size: 18,
-            color: Colors.blue[700],
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              summary,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[700],
-                fontWeight: FontWeight.w600,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEAF3FF),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFD7E8FF)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSearching
+                  ? Icons.search_rounded
+                  : _selectedCategory == null
+                      ? Icons.trending_up_rounded
+                      : Icons.near_me_rounded,
+              size: 18,
+              color: Colors.blue[700],
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                summary,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.blueGrey[800],
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.1,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -511,7 +582,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
               final destination = _destinations[index];
               debugPrint('=== BUILDING CARD FOR: ${destination.name} ===');
               debugPrint('=== DESTINATION ID: ${destination.id} ===');
-              return _buildDestinationCard(destination);
+              return TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration:
+                    Duration(milliseconds: 280 + (index.clamp(0, 6) * 55)),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, child) {
+                  return Opacity(
+                    opacity: value,
+                    child: Transform.translate(
+                      offset: Offset(0, 18 * (1 - value)),
+                      child: child,
+                    ),
+                  );
+                },
+                child: _buildDestinationCard(destination),
+              );
             },
           ),
         ),
@@ -603,173 +689,234 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  Widget _buildDestinationCard(Destination destination) {
+  Widget _buildRatingBadge(Destination destination) {
+    if (destination.rating <= 0) return const SizedBox.shrink();
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFFFECB3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 15),
+          const SizedBox(width: 3),
+          Text(
+            destination.rating.toStringAsFixed(1),
+            style: const TextStyle(
+              color: Color(0xFF7A5200),
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDestinationCard(Destination destination) {
+    final hasImage = destination.imageUrl.isNotEmpty &&
+        destination.imageUrl.startsWith('http');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 22),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE9EEF6)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: 0.07),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image with overlay
             Stack(
               children: [
                 SizedBox(
                   width: double.infinity,
-                  height: 200,
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(16),
-                    ),
-                    child: destination.imageUrl.isNotEmpty &&
-                            destination.imageUrl.startsWith('http')
-                        ? CachedNetworkImage(
-                            imageUrl: destination.imageUrl,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: 200,
-                            placeholder: (context, url) => Container(
-                              color: Colors.grey[100],
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color: Colors.blue[600],
-                                ),
+                  height: 210,
+                  child: hasImage
+                      ? CachedNetworkImage(
+                          imageUrl: destination.imageUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: 210,
+                          placeholder: (context, url) => Container(
+                            color: const Color(0xFFF2F6FC),
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.blue[600],
                               ),
                             ),
-                            errorWidget: (context, url, error) {
-                              return _buildFallbackImage(destination.category);
-                            },
-                          )
-                        : _buildFallbackImage(destination.category),
-                  ),
+                          ),
+                          errorWidget: (context, url, error) {
+                            return _buildFallbackImage(destination.category);
+                          },
+                        )
+                      : _buildFallbackImage(destination.category),
                 ),
-                // Category tag and heart icon overlay
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
+                Positioned.fill(
+                  child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: Colors.blue[600],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      DestinationService.getCategoryName(destination.category),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: GestureDetector(
-                    onTap: () => _toggleFavorite(destination),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        _favoriteIds.contains(destination.id)
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        color: Colors.red,
-                        size: 18,
-                      ),
-                    ),
-                  ),
-                ),
-                // Text overlay at bottom
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(0),
-                        bottomRight: Radius.circular(0),
-                      ),
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.7),
+                          Colors.black.withValues(alpha: 0.05),
+                          Colors.black.withValues(alpha: 0.12),
+                          Colors.black.withValues(alpha: 0.76),
                         ],
+                        stops: const [0, 0.45, 1],
                       ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  ),
+                ),
+                Positioned(
+                  top: 14,
+                  left: 14,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          destination.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Icon(
+                          _categoryIcon(destination.category),
+                          size: 14,
+                          color: Colors.blue[700],
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(width: 5),
                         Text(
-                          destination.location,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
+                          DestinationService.getCategoryName(
+                              destination.category),
+                          style: TextStyle(
+                            color: Colors.blue[800],
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.1,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
                   ),
                 ),
+                Positioned(
+                  top: 14,
+                  right: 14,
+                  child: GestureDetector(
+                    onTap: () => _toggleFavorite(destination),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(19),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.10),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        _favoriteIds.contains(destination.id)
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color: Colors.red,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 16,
+                  left: 16,
+                  right: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildRatingBadge(destination),
+                      const SizedBox(height: 8),
+                      Text(
+                        destination.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.4,
+                          height: 1.05,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.place_rounded,
+                            color: Colors.white70,
+                            size: 15,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              destination.location,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-
-            // Content
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Description
                   Text(
                     destination.description,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[700],
+                      height: 1.45,
+                      fontWeight: FontWeight.w500,
+                    ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 16),
-                  // Centered View Details button
-                  Center(
-                    child: GestureDetector(
+                  Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(18),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
                       onTap: () {
                         debugPrint('=== TAPPING ON: ${destination.name} ===');
                         debugPrint('=== PASSING ID: ${destination.id} ===');
@@ -780,18 +927,31 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           destination: destination,
                         );
                       },
-                      child: Container(
+                      child: Ink(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
+                          horizontal: 20,
+                          vertical: 14,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.blue[600],
-                          borderRadius: BorderRadius.circular(25),
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFF1976D2),
+                              Color(0xFF03A9F4),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.withValues(alpha: 0.22),
+                              blurRadius: 16,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
                         ),
                         child: const Row(
-                          mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
@@ -799,14 +959,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.1,
                               ),
                             ),
                             SizedBox(width: 8),
                             Icon(
-                              Icons.arrow_forward_ios,
+                              Icons.arrow_forward_rounded,
                               color: Colors.white,
-                              size: 14,
+                              size: 17,
                             ),
                           ],
                         ),
