@@ -33,7 +33,7 @@ class DestinationService {
       coordinates: const LatLng(14.6536, 121.0334),
       imageUrl: '',
       category: DestinationCategory.malls,
-      rating: 4.5,
+      rating: 0.0,
       tags: ['shopping', 'dining', 'cinema', 'SM Supermalls'],
     ),
     Destination(
@@ -63,7 +63,7 @@ class DestinationService {
       coordinates: const LatLng(14.5842, 121.0564),
       imageUrl: '',
       category: DestinationCategory.malls,
-      rating: 4.5,
+      rating: 0.0,
       tags: ['shopping', 'dining', 'SM Supermalls'],
     ),
     Destination(
@@ -99,7 +99,7 @@ class DestinationService {
       coordinates: const LatLng(14.6554, 121.0289),
       imageUrl: '',
       category: DestinationCategory.malls,
-      rating: 4.5,
+      rating: 0.0,
       tags: ['shopping', 'dining', 'cinema', 'SM Supermalls'],
     ),
     Destination(
