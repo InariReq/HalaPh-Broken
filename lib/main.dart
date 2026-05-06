@@ -270,28 +270,32 @@ class _MainNavigationState extends State<MainNavigation> {
         ],
       ),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: const Color(0xFFE3ECF8)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black12,
-              blurRadius: 10,
-              offset: Offset(0, -2),
+              color: Colors.black.withValues(alpha: 0.10),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
         child: SafeArea(
+          top: false,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildNavItem(Icons.home, 'Home', 0),
-                _buildNavItem(Icons.explore, 'Explore', 1),
-                _buildNavItem(Icons.calendar_today, 'Plans', 2),
-                _buildNavItem(Icons.favorite, 'Favorites', 3),
-                _buildNavItem(Icons.people, 'Friends', 4),
-                _buildNavItem(Icons.person, 'Profile', 5),
+                _buildNavItem(Icons.home_rounded, 'Home', 0),
+                _buildNavItem(Icons.explore_rounded, 'Explore', 1),
+                _buildNavItem(Icons.calendar_month_rounded, 'Plans', 2),
+                _buildNavItem(Icons.favorite_rounded, 'Favorites', 3),
+                _buildNavItem(Icons.people_alt_rounded, 'Friends', 4),
+                _buildNavItem(Icons.person_rounded, 'Profile', 5),
               ],
             ),
           ),
@@ -302,26 +306,53 @@ class _MainNavigationState extends State<MainNavigation> {
 
   Widget _buildNavItem(IconData icon, String label, int index) {
     final isActive = _currentIndex == index;
-    return GestureDetector(
-      onTap: () => _onTabChanged(index),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 24,
-            color: isActive ? Colors.blue[600] : Colors.grey[400],
+    final activeColor = Colors.blue[700]!;
+    final inactiveColor = Colors.grey[500]!;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _onTabChanged(index),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFFEAF3FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isActive ? Colors.blue[600] : Colors.grey[400],
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedScale(
+                duration: const Duration(milliseconds: 180),
+                scale: isActive ? 1.08 : 1,
+                child: Icon(
+                  icon,
+                  size: 23,
+                  color: isActive ? activeColor : inactiveColor,
+                ),
+              ),
+              const SizedBox(height: 4),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 180),
+                style: TextStyle(
+                  fontSize: 10.5,
+                  height: 1,
+                  color: isActive ? activeColor : inactiveColor,
+                  fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                  letterSpacing: -0.1,
+                ),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
