@@ -5,6 +5,7 @@ import 'package:halaph/utils/firebase_modes.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:halaph/models/plan.dart';
+import 'package:halaph/services/plan_notification_service.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/firebase_app_service.dart';
 import 'package:halaph/services/friend_service.dart';
@@ -208,6 +209,7 @@ class SimplePlanService {
   }
 
   static Future<bool> deletePlan(String id) async {
+    await PlanNotificationService.cancelPlanReminders(id);
     final existing = _plans[id];
     if (existing == null) {
       debugPrint('Delete failed: Plan $id not found locally');
@@ -803,6 +805,7 @@ class SimplePlanService {
 
     _ownerUids[plan.id] = ownerUid;
     _participantUids[plan.id] = resolvedParticipantUids;
+    await PlanNotificationService.schedulePlanReminders(plan);
   }
 
   static void _saveRemotePlanInBackground(TravelPlan plan) {

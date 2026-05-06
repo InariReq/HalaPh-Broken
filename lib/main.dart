@@ -9,6 +9,7 @@ import 'models/destination.dart';
 import 'services/simple_plan_service.dart';
 import 'services/auth_service.dart';
 import 'services/firebase_app_service.dart';
+import 'services/plan_notification_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/favorites_screen.dart';
 
@@ -38,6 +39,7 @@ void main() async {
   // Allow time for env to be ready
   await Future.delayed(const Duration(milliseconds: 100));
   await FirebaseAppService.initialize();
+  await PlanNotificationService.initialize();
 
   runApp(const HalaPhApp());
 }
@@ -109,8 +111,7 @@ final GoRouter _router = GoRouter(
           state.uri.queryParameters['destination'],
         );
         return ExploreDetailsScreen(
-          destinationId:
-              state.uri.queryParameters['destinationId'] ??
+          destinationId: state.uri.queryParameters['destinationId'] ??
               destination?.id ??
               '',
           source: state.uri.queryParameters['source'],
@@ -168,12 +169,10 @@ final GoRouter _router = GoRouter(
           state.uri.queryParameters['destination'],
         );
         return RouteOptionsScreen(
-          destinationId:
-              state.uri.queryParameters['destinationId'] ??
+          destinationId: state.uri.queryParameters['destinationId'] ??
               destination?.id ??
               '',
-          destinationName:
-              state.uri.queryParameters['destinationName'] ??
+          destinationName: state.uri.queryParameters['destinationName'] ??
               destination?.name ??
               'Destination',
           source: state.uri.queryParameters['source'],
