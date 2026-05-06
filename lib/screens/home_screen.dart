@@ -21,6 +21,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Destination> _trendingDestinations = [];
   bool _isLoading = false;
+  bool _isTrendingLoadInProgress = false;
   final Set<String> _favoriteIds = {};
   final FavoritesService _favoritesService = FavoritesService();
   final FriendService _friendService = FriendService();
@@ -136,7 +137,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadTrendingDestinations() async {
-    if (!mounted) return;
+    if (!mounted || _isTrendingLoadInProgress) return;
+
+    _isTrendingLoadInProgress = true;
     setState(() {
       _isLoading = true;
       _trendingDestinations = []; // Clear cache first
@@ -170,6 +173,8 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _isLoading = false;
       });
+    } finally {
+      _isTrendingLoadInProgress = false;
     }
   }
 
