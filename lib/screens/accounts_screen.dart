@@ -174,18 +174,18 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final shouldRemove = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove saved account?'),
+        title: Text('Remove saved account?'),
         content: Text(
           '${account.email} will be removed from this device. This will not delete the Firebase account.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Remove'),
+            child: Text('Remove'),
           ),
         ],
       ),
@@ -240,13 +240,13 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final showingLogin = _showSignInForm || _user == null;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         title: Text(
           showingLogin ? 'Sign In' : 'Accounts',
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.black87,
             fontWeight: FontWeight.bold,
           ),
@@ -277,7 +277,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         children: [
           _buildCurrentAccountHeader(),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'Saved Accounts',
             style: TextStyle(
               fontSize: 18,
@@ -314,7 +314,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                     });
                   },
             icon: const Icon(Icons.person_add_alt_1),
-            label: const Text('Add another account'),
+            label: Text('Add another account'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
               foregroundColor: Colors.blue[700],
@@ -358,7 +358,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
                     color: Colors.black87,
@@ -378,7 +378,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
               color: Colors.blue[600],
               borderRadius: BorderRadius.circular(999),
             ),
-            child: const Text(
+            child: Text(
               'Current',
               style: TextStyle(color: Colors.white, fontSize: 11),
             ),
@@ -421,7 +421,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
               children: [
                 Text(
                   account.name.isEmpty ? account.email : account.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
@@ -440,14 +440,14 @@ class _AccountsScreenState extends State<AccountsScreen> {
             ),
           ),
           if (isCurrent)
-            const Text(
+            Text(
               'Active',
               style: TextStyle(fontSize: 12, color: Colors.blue),
             )
           else ...[
             TextButton(
               onPressed: _loading ? null : () => _switchToSavedAccount(account),
-              child: const Text('Switch'),
+              child: Text('Switch'),
             ),
             IconButton(
               onPressed: () => _removeSavedAccount(account),
@@ -463,7 +463,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE0E0E0)),
       ),
@@ -539,7 +539,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 : _isLogin
                     ? 'Sign In'
                     : 'Create Account',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: Colors.black87,
@@ -558,7 +558,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
@@ -621,7 +621,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                               : _isLogin
                                   ? 'Sign In'
                                   : 'Create Account',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -676,10 +676,10 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final email = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset Password'),
+        title: Text('Reset Password'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Email',
             hintText: 'Enter your email address',
           ),
@@ -688,11 +688,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('Send Reset Email'),
+            child: Text('Send Reset Email'),
           ),
         ],
       ),

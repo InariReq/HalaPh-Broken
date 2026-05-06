@@ -159,18 +159,18 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Add to Plan',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 12),
-                const Text('No plans yet. Create a plan first.'),
+                Text('No plans yet. Create a plan first.'),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Create Plan'),
+                    child: Text('Create Plan'),
                   ),
                 ),
               ],
@@ -191,7 +191,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
           shrinkWrap: true,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
-            const Text(
+            Text(
               'Add to Plan',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
@@ -239,7 +239,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
     }
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.black54,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(20),
@@ -247,8 +247,8 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
         ),
       ),
       child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(20),
             topRight: Radius.circular(20),
@@ -273,7 +273,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Explore Details',
                     style: TextStyle(
                       fontSize: 18,
@@ -338,7 +338,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
               backgroundColor: Colors.black,
               foregroundColor: Colors.white,
               elevation: 0,
-              title: const Text('Preview Image'),
+              title: Text('Preview Image'),
             ),
             body: Center(
               child: InteractiveViewer(
@@ -350,7 +350,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                   placeholder: (context, url) => const Center(
                     child: CircularProgressIndicator(color: Colors.white),
                   ),
-                  errorWidget: (context, url, error) => const Text(
+                  errorWidget: (context, url, error) => Text(
                     'Image unavailable',
                     style: TextStyle(color: Colors.white),
                   ),
@@ -373,7 +373,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: const Color(0xFFE5EAF3)),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.star_border_rounded, color: Color(0xFF6B7280), size: 17),
@@ -405,14 +405,14 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
           const SizedBox(width: 5),
           Text(
             rating.toStringAsFixed(1),
-            style: const TextStyle(
+            style: TextStyle(
               color: Color(0xFF7A5200),
               fontSize: 14,
               fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(width: 5),
-          const Text(
+          Text(
             'Rating',
             style: TextStyle(
               color: Color(0xFF7A5200),
@@ -486,7 +486,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                   color: Colors.black.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.zoom_out_map, color: Colors.white, size: 14),
@@ -549,7 +549,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                   children: [
                     Text(
                       _destination!.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -558,7 +558,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                     const SizedBox(height: 4),
                     Text(
                       _destination!.location,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
                       ),
@@ -574,7 +574,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
 
   Widget _buildFallbackImage() {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFF81D4FA), Color(0xFF29B6F6)],
           begin: Alignment.topLeft,
@@ -628,7 +628,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                 const SizedBox(width: 6),
                 Text(
                   DestinationService.getCategoryName(destination.category),
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -667,7 +667,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'About the destination',
             style: TextStyle(
               fontSize: 16,
@@ -678,7 +678,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
           const SizedBox(height: 12),
           Text(
             _destination!.description,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               color: Color(0xFF757575),
               height: 1.5,
@@ -714,7 +714,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
               child: const Icon(Icons.add, color: Colors.white, size: 16),
             ),
             const SizedBox(width: 12),
-            const Text(
+            Text(
               'Add to Plan',
               style: TextStyle(
                 color: Colors.green,
@@ -763,7 +763,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
           ),
           elevation: 0,
         ),
-        child: const Text(
+        child: Text(
           'View Routes',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),

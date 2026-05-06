@@ -53,7 +53,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Trip History',
           style: TextStyle(
             fontSize: 18,
@@ -72,7 +72,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(color: const Color(0xFFE5EAF3)),
                     boxShadow: [
@@ -100,7 +100,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Theme.of(context).cardColor,
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(color: const Color(0xFFE5EAF3)),
                           boxShadow: [
@@ -127,7 +127,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            const Text(
+                            Text(
                               'No trip history yet',
                               textAlign: TextAlign.center,
                               style: TextStyle(
@@ -138,7 +138,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
+                            Text(
                               'Plans you mark as finished will appear here. Old plans also appear here after their end date.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
@@ -236,7 +236,7 @@ class _TripHistoryCard extends StatelessWidget {
                     plan.title.isEmpty ? 'Untitled Trip' : plan.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFF111827),
@@ -353,7 +353,7 @@ class _TripHistoryCard extends StatelessWidget {
     return Container(
       height: 118,
       width: double.infinity,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             Color(0xFF1976D2),

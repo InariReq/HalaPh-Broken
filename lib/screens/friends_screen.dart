@@ -108,7 +108,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(color: const Color(0xFFE5EAF3)),
                     boxShadow: [
@@ -511,7 +511,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       vertical: 14,
                     ),
                     filled: true,
-                    fillColor: const Color(0xFFF8F9FA),
+                    fillColor:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
                   ),
                 ),
               ),
@@ -750,8 +751,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
           expand: false,
           builder: (context, scrollController) {
             return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.vertical(
                   top: Radius.circular(24),
                 ),
@@ -1012,7 +1013,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
+        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE0E0E0)),
       ),

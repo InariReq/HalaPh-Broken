@@ -44,14 +44,14 @@ class _SplashScreenState extends State<SplashScreen> {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(25),
               ),
               child:
                   const Icon(Icons.explore, size: 50, color: Color(0xFF0066FF)),
             ),
             const SizedBox(height: 20),
-            const Text('HalaPH',
+            Text('HalaPH',
                 style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,

@@ -309,7 +309,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        title: const Text(
+        title: Text(
           'Explore Philippines',
           style: TextStyle(
             color: Colors.black,
@@ -371,7 +371,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         child: TextField(
           controller: _searchController,
           onChanged: (_) => _queueSearchDestinations(),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
             letterSpacing: -0.1,
@@ -386,7 +386,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             prefixIcon: Container(
               margin: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFEAF3FF),
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(Icons.search_rounded, color: Colors.blue[700]),
@@ -510,7 +510,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: const Color(0xFFEAF3FF),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFD7E8FF)),
         ),
@@ -551,7 +551,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           children: [
             const Icon(Icons.search, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No destinations found',
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
@@ -562,7 +562,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 _selectedCategory = null;
                 _runDestinationSearch();
               },
-              child: const Text('Show All'),
+              child: Text('Show All'),
             ),
           ],
         ),
@@ -705,7 +705,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           ],
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.star_border_rounded, color: Color(0xFF6B7280), size: 15),
@@ -737,7 +737,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           const SizedBox(width: 3),
           Text(
             destination.rating.toStringAsFixed(1),
-            style: const TextStyle(
+            style: TextStyle(
               color: Color(0xFF7A5200),
               fontSize: 12,
               fontWeight: FontWeight.w900,
@@ -889,7 +889,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       const SizedBox(height: 8),
                       Text(
                         destination.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
@@ -910,7 +910,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           Expanded(
                             child: Text(
                               destination.location,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -982,7 +982,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             ),
                           ],
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(

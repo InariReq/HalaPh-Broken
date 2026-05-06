@@ -249,7 +249,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     decoration: BoxDecoration(
                       color: const Color(0xFF2196F3),
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 3),
+                      border: Border.all(
+                          color: Theme.of(context).cardColor, width: 3),
                     ),
                     child: const Icon(
                       Icons.edit,

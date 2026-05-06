@@ -76,18 +76,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final firstConfirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete account?'),
-        content: const Text(
+        title: Text('Delete account?'),
+        content: Text(
           'This permanently deletes your Firebase account access. This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Continue', style: TextStyle(color: Colors.red)),
+            child: Text('Continue', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -100,11 +100,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final password = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm delete account'),
+        title: Text('Confirm delete account'),
         content: TextField(
           controller: passwordController,
           obscureText: true,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Password',
             helperText: 'Enter your password to confirm deletion.',
           ),
@@ -112,11 +112,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, passwordController.text),
-            child: const Text(
+            child: Text(
               'Delete Account',
               style: TextStyle(color: Colors.red),
             ),
@@ -182,7 +182,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: scaffoldColor,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Settings',
           style: TextStyle(
             fontSize: 18,
@@ -315,7 +315,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -591,7 +591,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         icon: const Icon(Icons.delete_forever_rounded),
         label: Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.w900),
+          style: TextStyle(fontWeight: FontWeight.w900),
         ),
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.red,

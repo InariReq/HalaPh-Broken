@@ -73,7 +73,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => safeNavigateBack(context),
         ),
-        title: const Text(
+        title: Text(
           'My Plans',
           style: TextStyle(
             color: Colors.black,
@@ -189,7 +189,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFF111827),
@@ -257,7 +257,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                     destination.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Color(0xFF1565C0),
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
@@ -346,7 +346,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                             plan.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w900,
                               color: Color(0xFF111827),
@@ -497,18 +497,18 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     final shouldFinish = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Mark as finished?'),
+        title: Text('Mark as finished?'),
         content: Text(
           'Move "${plan.title}" to Trip History? You can still open it from Trip History.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Mark Finished'),
+            child: Text('Mark Finished'),
           ),
         ],
       ),
@@ -590,7 +590,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 color: Color(0xFF6B7280),
                 fontWeight: FontWeight.w700,
@@ -608,7 +608,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('Delete Plan'),
+          title: Text('Delete Plan'),
           content: Text(
             'Are you sure you want to delete "${plan.title}"? This action cannot be undone.',
           ),
@@ -617,7 +617,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
               onPressed: () {
                 Navigator.of(dialogContext).pop();
               },
-              child: const Text('Cancel'),
+              child: Text('Cancel'),
             ),
             TextButton(
               onPressed: () async {
@@ -640,7 +640,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                 }
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete'),
+              child: Text('Delete'),
             ),
           ],
         );
@@ -654,14 +654,14 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('Leave Plan'),
+          title: Text('Leave Plan'),
           content: Text('Are you sure you want to leave "${plan.title}"?'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop();
               },
-              child: const Text('Cancel'),
+              child: Text('Cancel'),
             ),
             TextButton(
               onPressed: () async {
@@ -680,7 +680,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                 }
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Leave'),
+              child: Text('Leave'),
             ),
           ],
         );
@@ -734,7 +734,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

@@ -163,9 +163,9 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Map View',
           style: TextStyle(
             color: Colors.black87,
@@ -208,7 +208,7 @@ class _MapScreenState extends State<MapScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showDestinationList,
         icon: const Icon(Icons.list),
-        label: const Text('Destinations'),
+        label: Text('Destinations'),
         backgroundColor: Colors.blue[600],
         foregroundColor: Colors.white,
       ),
@@ -245,7 +245,7 @@ class _MapScreenState extends State<MapScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            title: const Text('Filter by Category'),
+            title: Text('Filter by Category'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -275,11 +275,11 @@ class _MapScreenState extends State<MapScreen> {
                       ..addAll(DestinationCategory.values);
                   });
                 },
-                child: const Text('All'),
+                child: Text('All'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
+                child: Text('Cancel'),
               ),
               ElevatedButton(
                 onPressed: draftCategories.isEmpty
@@ -288,7 +288,7 @@ class _MapScreenState extends State<MapScreen> {
                         _applyCategoryFilter(draftCategories);
                         Navigator.of(context).pop();
                       },
-                child: const Text('Apply'),
+                child: Text('Apply'),
               ),
             ],
           );
@@ -306,8 +306,8 @@ class _MapScreenState extends State<MapScreen> {
         minChildSize: 0.3,
         maxChildSize: 0.9,
         builder: (context, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(

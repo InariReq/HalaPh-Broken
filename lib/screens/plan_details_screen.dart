@@ -328,7 +328,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               SimplePlanService.isPlanParticipant(_plan!.id))
             TextButton(
               onPressed: _leavePlan,
-              child: const Text('Leave', style: TextStyle(color: Colors.red)),
+              child: Text('Leave', style: TextStyle(color: Colors.red)),
             ),
           if (_isEditing)
             IconButton(
@@ -349,7 +349,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Save'),
+                  : Text('Save'),
             ),
         ],
       ),
@@ -423,7 +423,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'Back to My Plans',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
@@ -577,13 +577,13 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   if (_isEditing)
                     TextFormField(
                       controller: _titleController,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
                         letterSpacing: -0.5,
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: 'Plan Title',
                         hintStyle: TextStyle(
@@ -598,7 +598,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       _plan?.title ?? 'Untitled Plan',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
@@ -630,7 +630,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                         const SizedBox(width: 6),
                         Text(
                           _plan?.formattedDateRange ?? 'No dates set',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
@@ -666,7 +666,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.add, size: 20),
@@ -840,7 +840,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         child: Container(
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: const Color(0xFFE5EAF3)),
             boxShadow: [
@@ -906,7 +906,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFFE5EAF3)),
                   boxShadow: [
@@ -1040,7 +1040,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         child: Container(
           width: MediaQuery.of(context).size.width * 0.7,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
@@ -1145,7 +1145,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
             ),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
@@ -1213,7 +1213,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                             ),
                             child: Text(
                               actualTime,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -1266,7 +1266,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                           children: [
                             Text(
                               destination.name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -1277,7 +1277,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                             const SizedBox(height: 2),
                             Text(
                               destination.location,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 13,
                               ),
@@ -1313,7 +1313,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                               children: [
                                 const Icon(Icons.add, size: 16),
                                 const SizedBox(width: 6),
-                                const Text(
+                                Text(
                                   'Place After',
                                   style: TextStyle(
                                     fontSize: 12,
@@ -1412,7 +1412,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       children: [
                         Text(
                           actualTime,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -1436,7 +1436,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   children: [
                     Text(
                       destination.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -1447,7 +1447,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     const SizedBox(height: 2),
                     Text(
                       destination.location,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
                       ),
@@ -1482,7 +1482,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       children: [
                         const Icon(Icons.add, size: 16),
                         const SizedBox(width: 6),
-                        const Text(
+                        Text(
                           'Place After',
                           style: TextStyle(
                             fontSize: 12,
@@ -1613,13 +1613,13 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.play_arrow),
-                title: const Text('Start Time'),
+                title: Text('Start Time'),
                 subtitle: Text(start),
                 onTap: () => Navigator.of(context).pop('start'),
               ),
               ListTile(
                 leading: const Icon(Icons.stop),
-                title: const Text('End Time'),
+                title: Text('End Time'),
                 subtitle: Text(end),
                 onTap: () => Navigator.of(context).pop('end'),
               ),
@@ -1731,14 +1731,14 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Plan'),
+        title: Text('Delete Plan'),
         content: Text(
           'Are you sure you want to delete "${_plan?.title ?? 'Untitled Plan'}"? This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
@@ -1758,7 +1758,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                 );
               }
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -1773,18 +1773,18 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Leave Plan'),
+        title: Text('Leave Plan'),
         content: Text(
           'Are you sure you want to leave "${_plan?.title ?? 'Untitled Plan'}"?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Leave', style: TextStyle(color: Colors.red)),
+            child: Text('Leave', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

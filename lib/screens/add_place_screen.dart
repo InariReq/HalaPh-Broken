@@ -118,7 +118,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           widget.targetDay != null
               ? 'Add to Day ${widget.targetDay}'
               : 'Add Place',
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.black,
             fontSize: 18,
             fontWeight: FontWeight.w800,
@@ -142,7 +142,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(22),
                         border: Border.all(color: const Color(0xFFE5EAF3)),
                         boxShadow: [
@@ -322,7 +322,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         const SizedBox(width: 10),
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w900,
             color: Color(0xFF111827),
@@ -360,7 +360,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: const Color(0xFFE5EAF3)),
             boxShadow: [
@@ -392,7 +392,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                     ? 'No places found'
                     : 'Google Places is unavailable',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Color(0xFF6B7280),
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
@@ -433,7 +433,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       height: 292,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         border: Border.all(color: const Color(0xFFE8EEF8)),
         boxShadow: [
           BoxShadow(
@@ -489,7 +489,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                     children: [
                       Text(
                         destination.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
                           color: Color(0xFF111827),
@@ -544,7 +544,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
   Widget _buildDefaultImage() {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             Color(0xFF1976D2),

@@ -199,7 +199,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
-                  children: const [
+                  children: [
                     Icon(Icons.info_outline),
                     SizedBox(width: 8),
                     Expanded(
@@ -223,7 +223,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
               return Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(22),
                   ),
@@ -405,7 +405,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                               color: const Color(0xFFFFECB3),
                             ),
                           ),
-                          child: const Row(
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Icon(Icons.info_outline, color: Colors.orange),
@@ -763,7 +763,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: const Color(0xFFFFD699)),
                 ),
-                child: const Row(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(

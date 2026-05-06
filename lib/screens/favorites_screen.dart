@@ -89,7 +89,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
         backgroundColor: _background,
         surfaceTintColor: _background,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Favorites',
           style: TextStyle(
             color: _textPrimary,
@@ -118,7 +118,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                 child: _favorites.isEmpty
                     ? ListView(
                         padding: const EdgeInsets.fromLTRB(20, 24, 20, 110),
-                        children: const [
+                        children: [
                           _EmptyFavoritesCard(),
                         ],
                       )
@@ -190,7 +190,7 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -222,7 +222,7 @@ class _SectionHeader extends StatelessWidget {
           ),
           child: Text(
             '$count',
-            style: const TextStyle(
+            style: TextStyle(
               color: _FavoritesScreenState._primaryDark,
               fontWeight: FontWeight.w800,
             ),
@@ -241,7 +241,7 @@ class _EmptyFavoritesCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: _cardDecoration(shadow: false),
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
@@ -324,7 +324,7 @@ class _FavoriteCard extends StatelessWidget {
                           destination.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
                             color: _FavoritesScreenState._textPrimary,
@@ -337,7 +337,7 @@ class _FavoriteCard extends StatelessWidget {
                               : destination.location,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             color: _FavoritesScreenState._textSecondary,
                             height: 1.3,
@@ -408,7 +408,7 @@ class _FavoriteCard extends StatelessWidget {
 
 BoxDecoration _cardDecoration({bool shadow = true}) {
   return BoxDecoration(
-    color: Colors.white,
+    color: const Color(0xFF111827),
     borderRadius: BorderRadius.circular(18),
     border: Border.all(color: _FavoritesScreenState._border),
     boxShadow: shadow

@@ -41,7 +41,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
             foregroundColor: Theme.of(context).colorScheme.onSurface,
             elevation: 0,
             surfaceTintColor: Colors.transparent,
-            title: const Text(
+            title: Text(
               'Share Plan',
               style: TextStyle(
                 fontSize: 18,
@@ -124,7 +124,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
             ),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -170,7 +170,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
             ),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Text(
               'Preparing share link...',
               style: TextStyle(
@@ -209,7 +209,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               color: Color(0xFF111827),
               fontSize: 16,
               fontWeight: FontWeight.w900,
@@ -219,7 +219,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               color: Color(0xFF6B7280),
               fontSize: 13,
               height: 1.35,
@@ -254,7 +254,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Plan Link',
                   style: TextStyle(
@@ -277,7 +277,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
             ),
             child: SelectableText(
               shareUrl,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Color(0xFF1F2937),
                 fontSize: 13,
                 height: 1.35,
@@ -296,7 +296,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
       child: ElevatedButton.icon(
         onPressed: () => Share.share('Join my Halaph plan: $shareUrl'),
         icon: const Icon(Icons.ios_share_rounded, size: 19),
-        label: const Text(
+        label: Text(
           'Share Link',
           style: TextStyle(
             fontSize: 15,
@@ -319,7 +319,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
 
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
-      color: Colors.white,
+      color: Theme.of(context).cardColor,
       borderRadius: BorderRadius.circular(22),
       border: Border.all(color: const Color(0xFFE5EAF3)),
       boxShadow: [

@@ -562,13 +562,13 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.play_arrow),
-                title: const Text('Start Time'),
+                title: Text('Start Time'),
                 subtitle: Text(start),
                 onTap: () => Navigator.of(context).pop('start'),
               ),
               ListTile(
                 leading: const Icon(Icons.stop),
-                title: const Text('End Time'),
+                title: Text('End Time'),
                 subtitle: Text(end),
                 onTap: () => Navigator.of(context).pop('end'),
               ),
@@ -662,7 +662,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
           icon: const Icon(Icons.close, color: Colors.black),
           onPressed: () => safeNavigateBack(context),
         ),
-        title: const Text(
+        title: Text(
           'Blank Plan',
           style: TextStyle(
             color: Colors.black,
@@ -695,7 +695,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                         ),
                       ],
                     ),
-                    child: const Text(
+                    child: Text(
                       'Create',
                       style: TextStyle(
                         color: Colors.white,
@@ -786,12 +786,12 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                   // Editable Title
                   TextFormField(
                     controller: _titleController,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
                       hintText: 'Untitled',
                       hintStyle: TextStyle(
@@ -829,7 +829,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                           const SizedBox(width: 6),
                           Text(
                             _getDateRangeText(),
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
@@ -921,7 +921,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                       borderRadius: BorderRadius.circular(18),
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.add_location_alt_rounded, size: 18),
@@ -959,7 +959,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                         _selectedCollaboratorCodes.isEmpty
                             ? 'Add Friends'
                             : 'Friends (${_selectedCollaboratorCodes.length})',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w900,
                         ),
@@ -983,7 +983,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: const Color(0xFFE5EAF3)),
             boxShadow: [
@@ -1010,7 +1010,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Please select a date range to start planning',
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -1059,7 +1059,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                   children: [
                     Text(
                       'Itinerary Day $dayNumber',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.black,
                         fontWeight: FontWeight.w900,
                         fontSize: 19,
@@ -1132,7 +1132,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(color: const Color(0xFFE5EAF3)),
                     boxShadow: [
@@ -1243,7 +1243,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
               child: Container(
                 width: 16,
                 height: 16,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: Colors.blue,
                   shape: BoxShape.circle,
                 ),
@@ -1266,7 +1266,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                 child: Container(
                   width: MediaQuery.of(context).size.width * 0.7,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
@@ -1392,7 +1392,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                     ),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(18),
                         boxShadow: [
                           BoxShadow(
@@ -1505,7 +1505,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                                       children: [
                                         Text(
                                           time,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             color: Colors.white,
                                             fontSize: 14,
                                             fontWeight: FontWeight.w600,
@@ -1533,7 +1533,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                                   children: [
                                     Text(
                                       destination.name,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
@@ -1544,7 +1544,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                                     const SizedBox(height: 2),
                                     Text(
                                       destination.location,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: Colors.white70,
                                         fontSize: 13,
                                       ),
@@ -1575,7 +1575,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    child: const Text('+ Place After'),
+                                    child: Text('+ Place After'),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
