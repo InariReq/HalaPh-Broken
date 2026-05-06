@@ -417,17 +417,47 @@ class _HomeScreenState extends State<HomeScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 20),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFFFFFFFF),
+              Color(0xFFF3F8FF),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE1ECFF)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
+              color: Colors.blue.withValues(alpha: 0.10),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
             ),
           ],
         ),
-        child: const Center(child: CircularProgressIndicator()),
+        child: Row(
+          children: [
+            SizedBox(
+              height: 34,
+              width: 34,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                color: Colors.blue[700],
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Text(
+                'Loading your next plan...',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ],
+        ),
       );
     }
 
@@ -437,15 +467,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFFFFFFF),
+            Color(0xFFF3F8FF),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE1ECFF)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: Colors.blue.withValues(alpha: 0.10),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
@@ -454,13 +492,25 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.coffee, color: Colors.brown[600], size: 24),
-              const SizedBox(width: 8),
+              Container(
+                height: 42,
+                width: 42,
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  Icons.event_available_rounded,
+                  color: Colors.blue[700],
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
               const Text(
                 'Next Up',
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w800,
                   color: Colors.black87,
                 ),
               ),
@@ -468,15 +518,26 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'No current plans',
-            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            'No current plans yet. Start a trip plan when you are ready.',
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.35,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 12),
           Container(
             decoration: BoxDecoration(
-              color: Colors.blue[50],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue[200]!),
+              color: Colors.blue[700],
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withValues(alpha: 0.20),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
             child: Material(
               color: Colors.transparent,
@@ -485,7 +546,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   debugPrint('Create Plan tapped!');
                   GoRouter.of(context).push('/create-plan');
                 },
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(16),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -493,10 +554,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Text(
                     'Create Plan',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
-                      color: Colors.blue[600],
-                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
@@ -647,11 +708,17 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8EEF8)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 15,
+            color: Colors.blue.withValues(alpha: 0.10),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
@@ -678,7 +745,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         'Next Up',
                         style: TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w800,
                           color: Colors.grey,
                         ),
                       ),
@@ -762,8 +829,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.only(top: 10),
       child: Material(
-        color: const Color(0xFFF5F9FF),
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () => _openPlanDestinationDetails(destination),
@@ -851,9 +918,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Text(
                       'Nearby Trending Places',
                       style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
                         color: Colors.black87,
+                        letterSpacing: -0.3,
                       ),
                     ),
                     if (hasFewResults)
@@ -895,9 +963,23 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.orange[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange[200]!),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFFFFBEB),
+            Color(0xFFFFF4D8),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFFFDFA3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withValues(alpha: 0.10),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -956,8 +1038,15 @@ class _HomeScreenState extends State<HomeScreen> {
       height: 220,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE5EAF3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Center(
         child: Padding(
@@ -965,8 +1054,20 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.trending_up, size: 48, color: Colors.grey),
-              const SizedBox(height: 8),
+              Container(
+                height: 58,
+                width: 58,
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.travel_explore_rounded,
+                  size: 30,
+                  color: Colors.blue[700],
+                ),
+              ),
+              const SizedBox(height: 12),
               const Text(
                 'No nearby places found from your current location',
                 textAlign: TextAlign.center,
@@ -1037,15 +1138,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTrendingCard(Destination destination) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE8EEF8)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
+            color: Colors.blue.withValues(alpha: 0.10),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
           ),
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -1107,8 +1209,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.7),
+                          Colors.black.withValues(alpha: 0.04),
+                          Colors.black.withValues(alpha: 0.76),
                         ],
                       ),
                     ),
@@ -1137,6 +1239,47 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
+                if (destination.rating > 0)
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.14),
+                            blurRadius: 12,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.star_rounded,
+                            color: Color(0xFFFFB300),
+                            size: 15,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            destination.rating.toStringAsFixed(1),
+                            style: const TextStyle(
+                              color: Color(0xFF111827),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 // Heart icon overlay
                 Positioned(
                   top: 12,
@@ -1144,8 +1287,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: GestureDetector(
                     onTap: () => _toggleFavorite(destination),
                     child: Container(
-                      width: 32,
-                      height: 32,
+                      width: 38,
+                      height: 38,
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(16),
@@ -1164,7 +1307,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             // Content section
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1199,8 +1342,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.blue[600],
-                        borderRadius: BorderRadius.circular(20),
+                        color: Colors.blue[700],
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withValues(alpha: 0.20),
+                            blurRadius: 14,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
                       child: const Text(
                         'Explore More',
