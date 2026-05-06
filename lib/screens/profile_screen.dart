@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -217,8 +216,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 20),
               _buildProfileHeader(),
               const SizedBox(height: 20),
-              _buildUserCodeSection(),
-              const SizedBox(height: 20),
               _buildCommuterTypeSection(),
               const SizedBox(height: 20),
               _buildFavoritesSection(),
@@ -347,91 +344,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {
       // ignore and keep defaults
     }
-  }
-
-  Widget _buildUserCodeSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE3F2FD), // Light blue background
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFBBDEFB),
-        ), // Lighter blue border
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'YOUR CODE',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF1976D2), // Darker blue text
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F9FF), // Very light blue
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF90CAF9),
-                    ), // Medium blue border
-                  ),
-                  child: Text(
-                    _userProfile.userCode,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1565C0), // Dark blue text
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: _userProfile.userCode));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Code copied to clipboard!'),
-                      backgroundColor: Colors.green[600],
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2196F3),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 14,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Copy',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildCommuterTypeSection() {
