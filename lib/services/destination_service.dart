@@ -19,6 +19,7 @@ class DestinationService {
   static const _cacheValidity = Duration(minutes: 30);
   static bool _useTestLocation = false;
   static LatLng? _manualTestLocation;
+  static final Map<String, String> _imageUrlCache = {};
 
   // Popular malls in the Philippines with their coordinates
   static final List<Destination> _popularMalls = [
@@ -237,7 +238,8 @@ class DestinationService {
       });
     }
 
-    return _rankAndLimit(allDestinations, location, limit: 24);
+    final ranked = _rankAndLimit(allDestinations, location, limit: 24);
+    return _hydrateMissingImages(ranked, location, maxHydration: 8);
   }
 
   static Future<List<Destination>> getTrendingDestinations() async {
@@ -249,7 +251,8 @@ class DestinationService {
       final places = await _discoverPlaces(location);
       trending.addAll(places);
 
-      return _rankAndLimit(trending, location, limit: 20);
+      final ranked = _rankAndLimit(trending, location, limit: 20);
+      return _hydrateMissingImages(ranked, location, maxHydration: 8);
     } catch (e) {
       debugPrint('Error fetching trending destinations: $e');
       return _popularMalls; // Fallback to malls
@@ -592,6 +595,99 @@ class DestinationService {
       debugPrint('Error getting search location: $e');
       return _cachedLocation ?? _defaultSearchLocation;
     }
+  }
+
+  static Future<List<Destination>> _hydrateMissingImages(
+    List<Destination> destinations,
+    LatLng location, {
+    required int maxHydration,
+  }) async {
+    final hydrated = <Destination>[];
+    var requestsUsed = 0;
+
+    for (final destination in destinations) {
+      if (destination.imageUrl.trim().isNotEmpty) {
+        hydrated.add(destination);
+        continue;
+      }
+
+      final cacheKey = _normalizeDestinationName(destination.name);
+      final cachedUrl = _imageUrlCache[cacheKey];
+      if (cachedUrl != null && cachedUrl.isNotEmpty) {
+        hydrated.add(_copyDestinationWithImage(destination, cachedUrl));
+        continue;
+      }
+
+      if (requestsUsed >= maxHydration) {
+        hydrated.add(destination);
+        continue;
+      }
+
+      requestsUsed++;
+      final imageUrl = await _findGooglePhotoForDestination(
+        destination,
+        location,
+      );
+
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        _imageUrlCache[cacheKey] = imageUrl;
+        hydrated.add(_copyDestinationWithImage(destination, imageUrl));
+      } else {
+        hydrated.add(destination);
+      }
+    }
+
+    return hydrated;
+  }
+
+  static Future<String?> _findGooglePhotoForDestination(
+    Destination destination,
+    LatLng location,
+  ) async {
+    final query = destination.location.trim().isEmpty
+        ? destination.name
+        : '${destination.name} ${destination.location}';
+
+    final matches = await _searchPlaces(
+      query: query,
+      location: destination.coordinates ?? location,
+      limit: 3,
+    );
+
+    for (final match in matches) {
+      if (match.imageUrl.trim().isEmpty) continue;
+
+      final namesAreClose = _nameSimilarity(
+            _normalizeDestinationName(destination.name),
+            _normalizeDestinationName(match.name),
+          ) >=
+          0.45;
+
+      final locationsAreClose = _areCoordinatesClose(destination, match);
+
+      if (namesAreClose || locationsAreClose) {
+        return match.imageUrl;
+      }
+    }
+
+    return null;
+  }
+
+  static Destination _copyDestinationWithImage(
+    Destination destination,
+    String imageUrl,
+  ) {
+    return Destination(
+      id: destination.id,
+      name: destination.name,
+      description: destination.description,
+      location: destination.location,
+      coordinates: destination.coordinates,
+      imageUrl: imageUrl,
+      category: destination.category,
+      rating: destination.rating,
+      tags: destination.tags,
+    );
   }
 
   static String _queryFor(String query, DestinationCategory? category) {
