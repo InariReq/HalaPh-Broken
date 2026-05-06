@@ -192,6 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
             SliverToBoxAdapter(child: _buildCurrentPlan(context)),
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
             SliverToBoxAdapter(child: _buildTrendingSection(context)),
+            const SliverToBoxAdapter(child: SizedBox(height: 96)),
           ],
         ),
       ),
@@ -639,15 +640,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        height: _trendingDestinations.length * 310,
-                        child: ListView.builder(
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _trendingDestinations.length,
-                          itemBuilder: (context, index) =>
-                              _buildTrendingCard(_trendingDestinations[index]),
-                        ),
-                      ),
+                      ..._trendingDestinations.map(_buildTrendingCard),
                       if (hasFewResults) _buildSearchPrompt(),
                     ],
                   ),
