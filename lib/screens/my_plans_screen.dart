@@ -76,7 +76,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         title: Text(
           'My Plans',
           style: TextStyle(
-            color: Colors.black,
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -84,7 +84,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       ),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,7 +201,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                     subtitle,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey[600],
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -434,7 +434,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                     },
                     icon: Icon(
                       shouldLeave ? Icons.logout : Icons.delete_outline,
-                      color: Colors.grey[600],
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       size: 20,
                     ),
                     tooltip: shouldLeave ? 'Leave plan' : 'Delete plan',

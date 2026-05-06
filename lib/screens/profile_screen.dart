@@ -174,7 +174,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: Text(
           'My Profile',
           style: TextStyle(
-            color: Colors.black,
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w600,
           ),
@@ -357,7 +357,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             'This is used as your default fare type in route estimates.',
             style: TextStyle(
               fontSize: 13,
-              color: Colors.grey[600],
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               height: 1.25,
             ),
           ),

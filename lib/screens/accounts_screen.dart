@@ -247,7 +247,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         title: Text(
           showingLogin ? 'Sign In' : 'Accounts',
           style: TextStyle(
-            color: Colors.black87,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -255,7 +255,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
             ? IconButton(
                 icon: Icon(
                   showingLogin ? Icons.close : Icons.arrow_back,
-                  color: Colors.black87,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
                 onPressed: _handleClose,
               )
@@ -282,7 +282,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: Colors.black87,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),
@@ -361,7 +361,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black87,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -424,7 +424,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -499,7 +499,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   Expanded(
                     child: Text(
                       'Enter the password for ${switchTarget.email} to switch accounts.',
-                      style: TextStyle(color: Colors.grey[800], height: 1.35),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          height: 1.35),
                     ),
                   ),
                 ],
@@ -542,7 +544,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),

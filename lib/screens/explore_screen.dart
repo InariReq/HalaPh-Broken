@@ -312,7 +312,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         title: Text(
           'Explore Philippines',
           style: TextStyle(
-            color: Colors.black,
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w700,
           ),
@@ -338,7 +338,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildLoadingIndicator() {
-    return const Center(
+    return Center(
       child: CircularProgressIndicator(
         valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
       ),
@@ -669,7 +669,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           end: Alignment.bottomRight,
         ),
       ),
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -935,7 +935,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     destination.description,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[700],
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       height: 1.45,
                       fontWeight: FontWeight.w500,
                     ),

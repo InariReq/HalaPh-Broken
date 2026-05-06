@@ -87,7 +87,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         title: Text(
           'Friends',
           style: TextStyle(
-            color: Colors.black,
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 20,
             fontWeight: FontWeight.w900,
             letterSpacing: -0.3,
@@ -332,7 +332,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                         code,
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.grey[600],
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -666,7 +666,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                         friend.code,
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.grey[600],
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -902,7 +902,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildFavoritePlacesBox(
             title: 'Favorite Places',
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: LinearProgressIndicator(),
             ),
@@ -946,7 +946,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Material(
-        color: const Color(0xFFF8F9FA),
+        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
@@ -984,7 +984,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[600],
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],

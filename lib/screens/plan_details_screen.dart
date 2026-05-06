@@ -400,7 +400,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.grey[700],
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 12),
@@ -497,7 +497,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           width: double.infinity,
           height: double.infinity,
           color: Colors.grey[200],
-          child: const Center(child: CircularProgressIndicator()),
+          child: Center(child: CircularProgressIndicator()),
         );
       },
       errorBuilder: (context, error, stackTrace) {
@@ -873,7 +873,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
                 if (_isEditing)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 8),
                     child: Text(
                       'Tap "Add Locations" to get started',
@@ -1121,7 +1121,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'Move "${destination.name}"',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12),
                 ),
               ],
             ),
@@ -1514,7 +1516,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           if (loadingProgress == null) return child;
           return Container(
             color: Colors.grey[100],
-            child: const Center(child: CircularProgressIndicator()),
+            child: Center(child: CircularProgressIndicator()),
           );
         },
       );

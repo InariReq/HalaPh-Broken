@@ -269,7 +269,7 @@ class _TripHistoryCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 13,
                         height: 1.3,
-                        color: Colors.grey[800],
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

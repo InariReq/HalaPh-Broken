@@ -523,7 +523,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(
               fontSize: 14,
               height: 1.35,
-              color: Colors.grey[700],
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -769,7 +769,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Icon(
                         Icons.calendar_today,
                         size: 14,
-                        color: Colors.grey[600],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -1358,7 +1358,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     destination.description,
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey[600],
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       height: 1.3,
                     ),
                     maxLines: 2,

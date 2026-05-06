@@ -231,11 +231,11 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(child: CircularProgressIndicator());
     }
 
     if (_destination == null) {
-      return const Center(child: Text('Destination not found'));
+      return Center(child: Text('Destination not found'));
     }
 
     return Container(
@@ -278,7 +278,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   GestureDetector(
@@ -347,7 +347,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                 child: CachedNetworkImage(
                   imageUrl: imageUrl,
                   fit: BoxFit.contain,
-                  placeholder: (context, url) => const Center(
+                  placeholder: (context, url) => Center(
                     child: CircularProgressIndicator(color: Colors.white),
                   ),
                   errorWidget: (context, url, error) => Text(
@@ -581,7 +581,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
           end: Alignment.bottomRight,
         ),
       ),
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -672,7 +672,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 12),

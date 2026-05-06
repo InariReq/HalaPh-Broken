@@ -171,7 +171,7 @@ class _FavoritesLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: SizedBox(
         width: 28,
         height: 28,
@@ -216,7 +216,7 @@ class _SectionHeader extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: const Color(0xFFEAF5FF),
+            color: const Color(0xFF172033),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(color: const Color(0xFFBBDEFB)),
           ),
@@ -396,7 +396,7 @@ class _FavoriteCard extends StatelessWidget {
     return Container(
       width: 82,
       height: 92,
-      color: const Color(0xFFEAF5FF),
+      color: const Color(0xFF172033),
       child: const Icon(
         Icons.place_rounded,
         color: _FavoritesScreenState._primary,
