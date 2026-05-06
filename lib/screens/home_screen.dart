@@ -64,10 +64,8 @@ class _HomeScreenState extends State<HomeScreen> {
             : 'Location off • Showing popular destinations';
       });
 
-      // Reload destinations based on location
-      if (hasValidLocation) {
-        _loadTrendingDestinations();
-      }
+      // Trending destinations are loaded once from initState.
+      // Avoid triggering a second location/search request after status check.
     } catch (e) {
       debugPrint('Location check error: $e');
       if (!mounted) return;
