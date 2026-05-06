@@ -636,7 +636,36 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     );
   }
 
+  bool get _hasValidPlanDateRange {
+    final plan = _plan;
+    if (plan == null) return false;
+    return !plan.endDate.isBefore(plan.startDate);
+  }
+
+  void _showEditDateRequiredMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Set a valid plan date range before adding places.'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
+  String _defaultDestinationTimeLabel({int offsetHours = 0}) {
+    final time = DateTime.now().add(Duration(hours: offsetHours));
+    final hour = time.hour;
+    final hour12 = hour % 12 == 0 ? 12 : hour % 12;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'PM' : 'AM';
+    return '${hour12.toString().padLeft(2, '0')}:$minute $period';
+  }
+
   Future<void> _addLocations() async {
+    if (!_hasValidPlanDateRange) {
+      _showEditDateRequiredMessage();
+      return;
+    }
+
     if (_plan == null || !_canEditPlan) return;
     final dayNumber = 1;
     final result = await Navigator.push<Destination>(
@@ -651,8 +680,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       setState(() {
         _itinerary[dayNumber] ??= [];
         _itinerary[dayNumber]!.add(result);
-        _destinationStartTimes[result.id] = '10:30 AM';
-        _destinationEndTimes[result.id] = '11:30 AM';
+        _destinationStartTimes[result.id] = _defaultDestinationTimeLabel();
+        _destinationEndTimes[result.id] =
+            _defaultDestinationTimeLabel(offsetHours: 1);
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -853,7 +883,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Widget _buildDestinationCard(Destination destination, int day, int index) {
-    final time = '10:30 AM';
+    final time = _destinationStartTimes[destination.id] ??
+        _defaultDestinationTimeLabel();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1356,6 +1387,11 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     int day,
     int index,
   ) async {
+    if (!_hasValidPlanDateRange) {
+      _showEditDateRequiredMessage();
+      return;
+    }
+
     if (!_isEditing) return;
 
     final result = await Navigator.push<Destination>(
@@ -1370,8 +1406,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         // Insert the new destination after the specified index
         _itinerary[day]!.insert(index + 1, result);
         // Set a default time for the new destination
-        _destinationStartTimes[result.id] = '11:30 AM';
-        _destinationEndTimes[result.id] = '12:30 PM';
+        _destinationStartTimes[result.id] =
+            _defaultDestinationTimeLabel(offsetHours: 1);
+        _destinationEndTimes[result.id] =
+            _defaultDestinationTimeLabel(offsetHours: 2);
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1383,7 +1421,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   String _formatTimeRangeForDestination(Destination destination) {
-    final start = _destinationStartTimes[destination.id] ?? '10:30 AM';
+    final start = _destinationStartTimes[destination.id] ??
+        _defaultDestinationTimeLabel();
     final end =
         _destinationEndTimes[destination.id] ?? _defaultEndTimeFor(start);
     return '$start - $end';
@@ -1423,7 +1462,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     final selectedType = await showModalBottomSheet<String>(
       context: context,
       builder: (context) {
-        final start = _destinationStartTimes[destination.id] ?? '10:30 AM';
+        final start = _destinationStartTimes[destination.id] ??
+            _defaultDestinationTimeLabel();
         final end =
             _destinationEndTimes[destination.id] ?? _defaultEndTimeFor(start);
 
@@ -1452,7 +1492,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     if (selectedType == null || !mounted) return;
 
     final isStart = selectedType == 'start';
-    final start = _destinationStartTimes[destination.id] ?? '10:30 AM';
+    final start = _destinationStartTimes[destination.id] ??
+        _defaultDestinationTimeLabel();
     final currentTime = isStart
         ? start
         : (_destinationEndTimes[destination.id] ?? _defaultEndTimeFor(start));

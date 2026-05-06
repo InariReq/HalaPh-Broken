@@ -220,7 +220,35 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     }
   }
 
+  bool get _hasPlanDateRangeSelected =>
+      _startDate != null &&
+      _endDate != null &&
+      !_endDate!.isBefore(_startDate!);
+
+  void _showDateRequiredMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Set a start date and end date before adding places.'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
+  String _defaultDestinationTimeLabel({int offsetHours = 0}) {
+    final time = DateTime.now().add(Duration(hours: offsetHours));
+    final hour = time.hour;
+    final hour12 = hour % 12 == 0 ? 12 : hour % 12;
+    final minute = time.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'PM' : 'AM';
+    return '${hour12.toString().padLeft(2, '0')}:$minute $period';
+  }
+
   Future<void> _addPlace(int day) async {
+    if (!_hasPlanDateRangeSelected) {
+      _showDateRequiredMessage();
+      return;
+    }
+
     final result = await Navigator.push<Destination>(
       context,
       MaterialPageRoute(builder: (context) => AddPlaceScreen(targetDay: day)),
@@ -231,8 +259,9 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
       setState(() {
         _itinerary[day] ??= [];
         _itinerary[day]!.add(result);
-        _destinationStartTimes[result.id] = '10:30 AM';
-        _destinationEndTimes[result.id] = '11:30 AM';
+        _destinationStartTimes[result.id] = _defaultDestinationTimeLabel();
+        _destinationEndTimes[result.id] =
+            _defaultDestinationTimeLabel(offsetHours: 1);
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -260,6 +289,11 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   }
 
   Future<void> _addPlaceAfter(int day, int index) async {
+    if (!_hasPlanDateRangeSelected) {
+      _showDateRequiredMessage();
+      return;
+    }
+
     final result = await Navigator.push<Destination>(
       context,
       MaterialPageRoute(builder: (context) => AddPlaceScreen(targetDay: day)),
@@ -272,8 +306,10 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         // Insert the new destination after the specified index
         _itinerary[day]!.insert(index + 1, result);
         // Set a default time for the new destination
-        _destinationStartTimes[result.id] = '11:30 AM';
-        _destinationEndTimes[result.id] = '12:30 PM';
+        _destinationStartTimes[result.id] =
+            _defaultDestinationTimeLabel(offsetHours: 1);
+        _destinationEndTimes[result.id] =
+            _defaultDestinationTimeLabel(offsetHours: 2);
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -474,7 +510,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   }
 
   String _formatTimeRangeForDestination(Destination destination) {
-    final start = _destinationStartTimes[destination.id] ?? '10:30 AM';
+    final start = _destinationStartTimes[destination.id] ??
+        _defaultDestinationTimeLabel();
     final end =
         _destinationEndTimes[destination.id] ?? _defaultEndTimeFor(start);
     return '$start - $end';
@@ -514,7 +551,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     final selectedType = await showModalBottomSheet<String>(
       context: context,
       builder: (context) {
-        final start = _destinationStartTimes[destination.id] ?? '10:30 AM';
+        final start = _destinationStartTimes[destination.id] ??
+            _defaultDestinationTimeLabel();
         final end =
             _destinationEndTimes[destination.id] ?? _defaultEndTimeFor(start);
 
@@ -543,7 +581,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     if (selectedType == null || !mounted) return;
 
     final isStart = selectedType == 'start';
-    final start = _destinationStartTimes[destination.id] ?? '10:30 AM';
+    final start = _destinationStartTimes[destination.id] ??
+        _defaultDestinationTimeLabel();
     final currentTime = isStart
         ? start
         : (_destinationEndTimes[destination.id] ?? _defaultEndTimeFor(start));
@@ -812,7 +851,9 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () => _addPlace(1), // Default to Day 1
+                  onPressed: _hasPlanDateRangeSelected
+                      ? () => _addPlace(1)
+                      : _showDateRequiredMessage, // Default to Day 1
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -929,7 +970,9 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: IconButton(
-                  onPressed: () => _addPlace(dayNumber),
+                  onPressed: _hasPlanDateRangeSelected
+                      ? () => _addPlace(dayNumber)
+                      : _showDateRequiredMessage,
                   icon: const Icon(Icons.add, color: Colors.white),
                   iconSize: 18,
                   constraints: const BoxConstraints(
