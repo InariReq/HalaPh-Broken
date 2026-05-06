@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/simple_plan_service.dart';
@@ -295,6 +296,61 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     ).showSnackBar(SnackBar(content: Text('${destination.name} removed')));
   }
 
+  Future<String> _uploadBannerImageIfPossible({
+    required File bannerFile,
+    required String ownerId,
+  }) async {
+    try {
+      final cleanOwnerId = ownerId.trim().isEmpty ? 'unknown' : ownerId.trim();
+      final extension = bannerFile.path.split('.').last.toLowerCase();
+      final safeExtension =
+          extension.isEmpty || extension.length > 5 ? 'jpg' : extension;
+      final fileName =
+          'plan_banner_${DateTime.now().microsecondsSinceEpoch}.$safeExtension';
+
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('plan_banners')
+          .child(cleanOwnerId)
+          .child(fileName);
+
+      final metadata = SettableMetadata(
+        contentType: _contentTypeForExtension(safeExtension),
+        customMetadata: {
+          'ownerId': cleanOwnerId,
+          'source': 'plan_banner',
+        },
+      );
+
+      final uploadTask = await ref
+          .putFile(bannerFile, metadata)
+          .timeout(const Duration(seconds: 20));
+
+      final downloadUrl = await uploadTask.ref.getDownloadURL();
+      debugPrint('Plan banner uploaded to Firebase Storage.');
+      return downloadUrl;
+    } catch (error) {
+      debugPrint('Plan banner upload failed, using local file path: $error');
+      return bannerFile.path;
+    }
+  }
+
+  String _contentTypeForExtension(String extension) {
+    switch (extension.toLowerCase()) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'heic':
+      case 'heif':
+        return 'image/heif';
+      case 'jpg':
+      case 'jpeg':
+      default:
+        return 'image/jpeg';
+    }
+  }
+
   Future<void> _savePlan() async {
     // Validate dates
     if (_startDate == null || _endDate == null) {
@@ -332,11 +388,18 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     });
 
     try {
-      final bannerImagePath = _bannerImage?.path ?? _firstDestinationImageUrl();
-
       final currentUserId =
           _currentUserCode ?? await _friendService.getMyCode();
       final fallbackUserId = await _authService.getCurrentUserIdentifier();
+      final creatorId =
+          currentUserId.isNotEmpty ? currentUserId : fallbackUserId;
+
+      final bannerImagePath = _bannerImage == null
+          ? _firstDestinationImageUrl()
+          : await _uploadBannerImageIfPossible(
+              bannerFile: _bannerImage!,
+              ownerId: creatorId,
+            );
 
       // Save with timeout to prevent hanging
       final savedPlan = await SimplePlanService.savePlan(
@@ -346,7 +409,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         itinerary: _itinerary,
         destinationTimes: _destinationStartTimes,
         destinationEndTimes: _destinationEndTimes,
-        createdBy: currentUserId.isNotEmpty ? currentUserId : fallbackUserId,
+        createdBy: creatorId,
         participantUids: _selectedCollaboratorCodes.toList(),
         bannerImage: bannerImagePath,
       ).timeout(
