@@ -193,6 +193,7 @@ class SimplePlanService {
       itinerary: newItinerary,
       isShared: existing.isShared,
       bannerImage: bannerImage ?? existing.bannerImage,
+      collaboratorUids: existing.collaboratorUids,
     );
 
     try {
