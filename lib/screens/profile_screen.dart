@@ -162,7 +162,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         centerTitle: true,
         leading: Navigator.of(context).canPop()
@@ -171,7 +171,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onPressed: () => safeNavigateBack(context),
               )
             : null,
-        title: const Text(
+        title: Text(
           'My Profile',
           style: TextStyle(
             color: Colors.black,
@@ -264,16 +264,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           Text(
             _userProfile.name,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             _userProfile.email,
-            style: const TextStyle(fontSize: 14, color: Colors.grey),
+            style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
         ],
       ),
@@ -292,7 +292,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE0E0E0)),
         boxShadow: [
@@ -314,13 +314,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 size: 22,
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Commuter Type',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: Colors.black87,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -342,7 +342,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   child: Text(
                     CommuterTypeService.labelFor(_commuterType),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Color(0xFF1565C0),
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
@@ -406,8 +406,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               GoRouter.of(context).push('/trip-history');
             },
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black87,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          foregroundColor: Theme.of(context).colorScheme.onSurface,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -426,12 +426,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   size: 18,
                 ),
                 const SizedBox(width: 12),
-                const Text(
+                Text(
                   'Trip History',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -452,16 +452,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final shouldLogout = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Logout'),
-              content: const Text('Are you sure you want to logout?'),
+              title: Text('Logout'),
+              content: Text('Are you sure you want to logout?'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel'),
+                  child: Text('Cancel'),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(context, true),
-                  child: const Text(
+                  child: Text(
                     'Logout',
                     style: TextStyle(color: Colors.red),
                   ),
@@ -481,7 +481,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
         },
         icon: const Icon(Icons.logout, size: 18),
-        label: const Text(
+        label: Text(
           'Logout Account',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
@@ -506,7 +506,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           GoRouter.of(context).push('/accounts');
         },
         icon: const Icon(Icons.account_circle),
-        label: const Text('Accounts'),
+        label: Text('Accounts'),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.blue,
           foregroundColor: Colors.white,

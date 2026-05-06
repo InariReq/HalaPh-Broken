@@ -35,10 +35,10 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
         final shareUrl = snapshot.data ?? '';
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF8F9FA),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black87,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
             elevation: 0,
             surfaceTintColor: Colors.transparent,
             title: const Text(
@@ -271,7 +271,7 @@ class _SharePlanScreenState extends State<SharePlanScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F8FF),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFD9E8FF)),
             ),

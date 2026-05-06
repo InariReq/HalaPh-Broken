@@ -200,7 +200,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(child: CircularProgressIndicator());
     }
 
     if (_errorMessage != null) {
@@ -220,7 +220,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loadFares,
-                child: const Text('Retry'),
+                child: Text('Retry'),
               ),
             ],
           ),
@@ -242,13 +242,14 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             color: Colors.amber[100],
             padding: const EdgeInsets.all(12),
             child: Row(
-              children: const [
+              children: [
                 Icon(Icons.info_outline),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Google Maps Directions API key not configured. Route estimates are based on distance. Enable MAPS_API_KEY for live directions.',
-                    style: TextStyle(color: Colors.black87),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface),
                   ),
                 ),
               ],
@@ -494,7 +495,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                           child: Text(
                             fare.modeName,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 15,
                             ),
@@ -696,7 +697,7 @@ class _RouteOptionPressableCardState extends State<_RouteOptionPressableCard> {
         curve: Curves.easeOutCubic,
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: widget.isCheapest

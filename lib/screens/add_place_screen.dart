@@ -105,9 +105,9 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
@@ -210,7 +210,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: const Color(0xFFE5EAF3)),
           boxShadow: [
@@ -275,7 +275,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                 selected: isSelected,
                 onSelected: (selected) =>
                     _filterByCategory(selected ? category : null),
-                backgroundColor: Colors.white,
+                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                 selectedColor: Colors.blue[50],
                 showCheckmark: false,
                 labelStyle: TextStyle(

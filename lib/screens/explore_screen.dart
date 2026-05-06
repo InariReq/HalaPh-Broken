@@ -304,9 +304,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         title: const Text(
@@ -465,7 +465,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       size: 17,
                       color: isSelected ? Colors.white : Colors.grey[600],
                     ),
-              backgroundColor: Colors.white,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               selectedColor: Colors.blue[700],
               surfaceTintColor: Colors.transparent,
               labelStyle: TextStyle(
@@ -755,7 +755,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFE9EEF6)),
         boxShadow: [

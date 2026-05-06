@@ -282,10 +282,12 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                     children: [
                                       Text(
                                         '${widget.modeName} instructions',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 18,
                                           fontWeight: FontWeight.w800,
-                                          color: Colors.black87,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
                                         ),
                                       ),
                                       const SizedBox(height: 3),
@@ -313,7 +315,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: const Color(0xFFE8E8E8),
@@ -332,7 +336,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                       widget.fare > 0
                                           ? 'Estimated total fare: ₱${widget.fare.toStringAsFixed(0)}'
                                           : 'No fare estimate available',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -543,7 +547,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                         fontWeight: isCurrentStep
                                             ? FontWeight.w700
                                             : FontWeight.w500,
-                                        color: Colors.black87,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
                                       ),
                                     ),
                                     if (transitInfo.isNotEmpty)
@@ -728,10 +734,10 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                         : hasHistoricalReference
                             ? 'Historical GTFS clue'
                             : 'Route direction to look for',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
-                      color: Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ),
@@ -740,11 +746,11 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
             const SizedBox(height: 8),
             Text(
               instruction,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 height: 1.35,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             if (hasHistoricalReference && !hasExactLine) ...[

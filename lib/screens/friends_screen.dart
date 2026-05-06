@@ -69,9 +69,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
@@ -84,7 +84,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
             }
           },
         ),
-        title: const Text(
+        title: Text(
           'Friends',
           style: TextStyle(
             color: Colors.black,
@@ -98,7 +98,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
             TextButton(
               onPressed: () =>
                   safePopWithResult(context, _selectedCodes.toList()),
-              child: const Text('Done'),
+              child: Text('Done'),
             ),
         ],
       ),
@@ -156,7 +156,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFE5EAF3)),
         boxShadow: [
@@ -232,7 +232,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       children: [
         Text(
           'Pending Requests (${_pendingRequests.length})',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w900,
             color: Color(0xFF111827),
@@ -245,7 +245,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(22),
               border: Border.all(color: const Color(0xFFE5EAF3)),
               boxShadow: [
@@ -256,7 +256,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 ),
               ],
             ),
-            child: const Text(
+            child: Text(
               'No pending friend requests.',
               textAlign: TextAlign.center,
             ),
@@ -266,7 +266,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(22),
               border: Border.all(color: const Color(0xFFE5EAF3)),
               boxShadow: [
@@ -321,10 +321,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     children: [
                       Text(
                         name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w900,
-                          color: Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -428,7 +428,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFE5EAF3)),
         boxShadow: [
@@ -447,7 +447,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Your Friend Code',
             style: TextStyle(
               fontSize: 18,
@@ -461,13 +461,13 @@ class _FriendsScreenState extends State<FriendsScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F8FF),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: const Color(0xFFD9E8FF)),
             ),
             child: Text(
               _myCode,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.4,
@@ -476,7 +476,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Add Friend by Code',
             style: TextStyle(
               fontSize: 14,
@@ -490,7 +490,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
               Expanded(
                 child: TextField(
                   controller: _profileCodeController,
-                  style: const TextStyle(fontSize: 16),
+                  style: TextStyle(fontSize: 16),
                   decoration: InputDecoration(
                     hintText: 'Enter profile code',
                     hintStyle: TextStyle(color: Colors.grey[400]),
@@ -540,7 +540,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text(
+                    : Text(
                         'Invite',
                         style: TextStyle(
                           fontSize: 16,
@@ -561,7 +561,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       children: [
         Text(
           widget.selectionMode ? 'Select Collaborators' : 'Members',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w900,
             color: Color(0xFF111827),
@@ -574,7 +574,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(22),
               border: Border.all(color: const Color(0xFFE5EAF3)),
               boxShadow: [
@@ -585,7 +585,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 ),
               ],
             ),
-            child: const Text(
+            child: Text(
               'No friends yet. Add one using their code.',
               textAlign: TextAlign.center,
             ),
@@ -595,7 +595,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(22),
               border: Border.all(color: const Color(0xFFE5EAF3)),
               boxShadow: [
@@ -654,7 +654,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     children: [
                       Text(
                         friend.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
                           color: Color(0xFF111827),
@@ -783,10 +783,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   Text(
                     friend.name,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
-                      color: Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -832,7 +832,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.close),
-                      label: const Text('Close'),
+                      label: Text('Close'),
                       onPressed: () => Navigator.of(sheetContext).pop(),
                     ),
                   ),
@@ -866,9 +866,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 snapshot.connectionState == ConnectionState.waiting
                     ? 'Loading...'
                     : label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  color: Colors.black87,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ],
@@ -970,9 +970,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     children: [
                       Text(
                         place.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: Colors.black87,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       if (place.location.trim().isNotEmpty) ...[
@@ -1021,10 +1021,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
-              color: Colors.black87,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),

@@ -263,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Rect.fromLTWH(0, 0, bounds.width, bounds.height),
                     );
                   },
-                  child: const Text(
+                  child: Text(
                     'Where Every Trip\nFinds Its Line',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -286,7 +286,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Text(
+                    Text(
                       'Discover Philippines',
                       style: TextStyle(fontSize: 18, color: Colors.grey),
                     ),
@@ -360,7 +360,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       child: CircleAvatar(
                         radius: 20,
-                        backgroundColor: Colors.white,
+                        backgroundColor:
+                            Theme.of(context).scaffoldBackgroundColor,
                         backgroundImage: hasAvatar
                             ? CachedNetworkImageProvider(avatarUrl)
                             : null,
@@ -446,13 +447,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(width: 14),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Loading your next plan...',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black87,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ),
@@ -506,12 +507,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
+              Text(
                 'Next Up',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
-                  color: Colors.black87,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ],
@@ -554,7 +555,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Text(
                     'Create Plan',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -707,7 +708,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFE8EEF8)),
         boxShadow: [
@@ -741,7 +742,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Icon(Icons.coffee, color: Colors.brown[600], size: 20),
                       const SizedBox(width: 8),
-                      const Text(
+                      Text(
                         'Next Up',
                         style: TextStyle(
                           fontSize: 14,
@@ -754,10 +755,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 8),
                   Text(
                     plan.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -915,12 +916,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Nearby Trending Places',
                       style: TextStyle(
                         fontSize: 21,
                         fontWeight: FontWeight.w900,
-                        color: Colors.black87,
+                        color: Theme.of(context).colorScheme.onSurface,
                         letterSpacing: -0.3,
                       ),
                     ),
@@ -941,7 +942,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 16),
         _isLoading
-            ? const Padding(
+            ? Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
                 child: Center(child: CircularProgressIndicator()),
               )
@@ -1017,7 +1018,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Colors.orange[600],
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Text(
+              child: Text(
                 'Search Destinations',
                 style: TextStyle(
                   color: Colors.white,
@@ -1037,7 +1038,7 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       height: 220,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE5EAF3)),
         boxShadow: [
@@ -1068,7 +1069,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'No nearby places found from your current location',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey),
@@ -1116,7 +1117,7 @@ class _HomeScreenState extends State<HomeScreen> {
           end: Alignment.bottomRight,
         ),
       ),
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -1140,7 +1141,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE8EEF8)),
         boxShadow: [
@@ -1219,7 +1220,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text(
                           destination.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -1228,7 +1229,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 4),
                         Text(
                           destination.location,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white70,
                             fontSize: 13,
                           ),
@@ -1259,7 +1260,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
@@ -1311,7 +1312,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(width: 3),
                           Text(
                             destination.rating.toStringAsFixed(1),
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Color(0xFF111827),
                               fontSize: 12,
                               fontWeight: FontWeight.w900,
@@ -1393,7 +1394,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      child: const Text(
+                      child: Text(
                         'Explore More',
                         style: TextStyle(
                           color: Colors.white,
