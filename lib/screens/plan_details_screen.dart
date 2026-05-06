@@ -464,6 +464,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                 children: [
                   _buildHeroSection(),
                   _buildActionButtons(),
+                  _buildBudgetSummaryCard(),
                   _buildItinerarySection(),
                   const SizedBox(height: 20),
                 ],
@@ -736,6 +737,266 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  int _budgetParticipantCount() {
+    final plan = _plan;
+    if (plan == null) return 1;
+
+    final participants = <String>{};
+    for (final uid in plan.participantUids) {
+      final trimmed = uid.trim();
+      if (trimmed.isNotEmpty) participants.add(trimmed);
+    }
+    for (final uid in plan.collaboratorUids) {
+      final trimmed = uid.trim();
+      if (trimmed.isNotEmpty) participants.add(trimmed);
+    }
+    final owner = plan.createdBy.trim();
+    if (owner.isNotEmpty) participants.add(owner);
+
+    return participants.isEmpty ? 1 : participants.length;
+  }
+
+  int _budgetStopCount() {
+    return _itinerary.values.fold<int>(
+      0,
+      (total, destinations) => total + destinations.length,
+    );
+  }
+
+  int _budgetDayCountWithStops() {
+    return _itinerary.values
+        .where((destinations) => destinations.isNotEmpty)
+        .length;
+  }
+
+  double _estimatedTransportTotal() {
+    const minimumLocalFarePerStop = 15.0;
+    return _budgetStopCount() * minimumLocalFarePerStop;
+  }
+
+  String _formatBudgetAmount(double value) {
+    return '₱${value.toStringAsFixed(0)}';
+  }
+
+  Widget _buildBudgetSummaryCard() {
+    final stopCount = _budgetStopCount();
+    final participantCount = _budgetParticipantCount();
+    final dayCount = _budgetDayCountWithStops();
+    final totalEstimate = _estimatedTransportTotal();
+    final perPersonEstimate = participantCount <= 0
+        ? totalEstimate
+        : totalEstimate / participantCount;
+    final hasStops = stopCount > 0;
+    final splitLabel = participantCount == 1
+        ? '1 participant'
+        : '$participantCount participants';
+    final stopLabel =
+        stopCount == 1 ? '1 itinerary stop' : '$stopCount itinerary stops';
+    final dayLabel = dayCount == 1 ? '1 day' : '$dayCount days';
+
+    return _buildItineraryEntrance(
+      order: 0,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.28),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withValues(alpha: 0.10),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  height: 42,
+                  width: 42,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.account_balance_wallet_rounded,
+                    color: Colors.blue[700],
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Estimated Trip Budget',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Transport fares only',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildBudgetMetric(
+                    label: 'Estimated total',
+                    value: hasStops
+                        ? _formatBudgetAmount(totalEstimate)
+                        : 'Add destinations',
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildBudgetMetric(
+                    label: 'Per person',
+                    value: hasStops
+                        ? _formatBudgetAmount(perPersonEstimate)
+                        : 'Pending',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .outlineVariant
+                      .withValues(alpha: 0.24),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildBudgetDetailLine(
+                    icon: Icons.groups_rounded,
+                    text: 'Split across $splitLabel.',
+                  ),
+                  const SizedBox(height: 7),
+                  _buildBudgetDetailLine(
+                    icon: Icons.route_rounded,
+                    text: hasStops
+                        ? 'Based on $stopLabel across $dayLabel using a conservative local commute estimate.'
+                        : 'Add destinations to estimate transport cost.',
+                  ),
+                  const SizedBox(height: 7),
+                  _buildBudgetDetailLine(
+                    icon: Icons.info_outline_rounded,
+                    text:
+                        'Actual fares may change by route, transfers, discounts, and live transport availability.',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBudgetMetric({
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: Colors.blue.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBudgetDetailLine({
+    required IconData icon,
+    required String text,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 15,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.3,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
