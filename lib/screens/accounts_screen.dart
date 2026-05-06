@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:halaph/services/auth_service.dart';
 import 'package:halaph/models/user.dart';
-import 'package:halaph/services/plan_notification_service.dart';
+import 'package:halaph/services/auth_service.dart';
+import 'package:halaph/services/saved_accounts_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 
 class AccountsScreen extends StatefulWidget {
@@ -18,16 +18,19 @@ class _AccountsScreenState extends State<AccountsScreen> {
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _auth = AuthService();
+  final _savedAccountsService = SavedAccountsService();
+
   User? _user;
+  List<SavedAccount> _savedAccounts = [];
   bool _loading = false;
   bool _isLogin = true;
-  bool _notificationsEnabled = false;
+  bool _showSignInForm = false;
+  SavedAccount? _switchTargetAccount;
 
   @override
   void initState() {
     super.initState();
-    _loadUser();
-    _loadPlanReminderSetting();
+    _loadUserAndSavedAccounts();
   }
 
   @override
@@ -38,11 +41,17 @@ class _AccountsScreenState extends State<AccountsScreen> {
     super.dispose();
   }
 
-  Future<void> _loadUser() async {
-    final u = await _auth.getCurrentUser();
+  Future<void> _loadUserAndSavedAccounts() async {
+    final user = await _auth.getCurrentUser();
+    if (user != null) {
+      await _savedAccountsService.saveCurrentFirebaseUser();
+    }
+    final saved = await _savedAccountsService.getSavedAccounts();
     if (!mounted) return;
     setState(() {
-      _user = u;
+      _user = user;
+      _savedAccounts = saved;
+      _showSignInForm = user == null;
     });
   }
 
@@ -50,92 +59,158 @@ class _AccountsScreenState extends State<AccountsScreen> {
     setState(() {
       _loading = true;
     });
+
     final email = _emailController.text.trim();
-    final pass = _passwordController.text.trim();
-    final user = await _auth.login(email, pass);
+    final password = _passwordController.text.trim();
+    final user = await _auth.login(email, password);
+
     if (!mounted) return;
-    setState(() {
-      _loading = false;
-      _user = user;
-    });
-    if (user != null) {
-      widget.onLoginSuccess?.call();
-    } else {
+
+    if (user == null) {
+      setState(() {
+        _loading = false;
+      });
       _showAuthError(
         _auth.lastAuthError ??
             'Could not log in. Check your email and password.',
       );
+      return;
     }
+
+    await SimplePlanService.initialize(forceRefresh: true);
+    await _loadUserAndSavedAccounts();
+
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _showSignInForm = false;
+      _switchTargetAccount = null;
+      _passwordController.clear();
+      _nameController.clear();
+    });
+
+    widget.onLoginSuccess?.call();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Signed in as ${user.email}')),
+    );
   }
 
   Future<void> _register() async {
     setState(() {
       _loading = true;
     });
+
     final email = _emailController.text.trim();
-    final pass = _passwordController.text.trim();
+    final password = _passwordController.text.trim();
     final name = _nameController.text.trim();
+
     final user = await _auth.register(
       email,
-      pass,
+      password,
       name: name.isNotEmpty ? name : null,
     );
+
     if (!mounted) return;
-    setState(() {
-      _loading = false;
-      _user = user;
-    });
-    if (user != null) {
-      widget.onLoginSuccess?.call();
-    } else {
+
+    if (user == null) {
+      setState(() {
+        _loading = false;
+      });
       _showAuthError(
         _auth.lastAuthError ??
             'Could not create the account. Try another email.',
       );
+      return;
     }
-  }
 
-  Future<void> _logout() async {
-    await _auth.logout();
+    await SimplePlanService.initialize(forceRefresh: true);
+    await _loadUserAndSavedAccounts();
+
     if (!mounted) return;
     setState(() {
-      _user = null;
+      _loading = false;
+      _showSignInForm = false;
+      _switchTargetAccount = null;
+      _passwordController.clear();
+      _nameController.clear();
     });
+
+    widget.onLoginSuccess?.call();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Signed in as ${user.email}')),
+    );
   }
 
-  Future<void> _loadPlanReminderSetting() async {
-    final enabled = await PlanNotificationService.arePlanRemindersEnabled();
-    if (!mounted) return;
-    setState(() {
-      _notificationsEnabled = enabled;
-    });
-  }
-
-  Future<void> _toggleNotifications(bool value) async {
-    setState(() {
-      _notificationsEnabled = value;
-    });
-
-    await PlanNotificationService.setPlanRemindersEnabled(value);
-
-    if (value) {
-      await SimplePlanService.refreshPlanReminders();
-      if (!mounted) return;
+  Future<void> _switchToSavedAccount(SavedAccount account) async {
+    final activeEmail = _user?.email.trim().toLowerCase();
+    if (activeEmail == account.email.trim().toLowerCase()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Plan reminders turned on')),
+        const SnackBar(content: Text('This account is already active.')),
       );
-    } else {
-      await SimplePlanService.cancelAllPlanReminders();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Plan reminders turned off')),
-      );
+      return;
     }
+
+    setState(() {
+      _switchTargetAccount = account;
+      _showSignInForm = true;
+      _isLogin = true;
+      _emailController.text = account.email;
+      _passwordController.clear();
+      _nameController.clear();
+    });
+  }
+
+  Future<void> _removeSavedAccount(SavedAccount account) async {
+    final activeEmail = _user?.email.trim().toLowerCase();
+    if (activeEmail == account.email.trim().toLowerCase()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You cannot remove the active account.')),
+      );
+      return;
+    }
+
+    final shouldRemove = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove saved account?'),
+        content: Text(
+          '${account.email} will be removed from this device. This will not delete the Firebase account.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldRemove != true) return;
+
+    await _savedAccountsService.removeSavedAccount(account.uid);
+    await _loadUserAndSavedAccounts();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${account.email} removed from saved accounts.')),
+    );
+  }
+
+  void _showAuthError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
   }
 
   bool get _canLeaveAccountScreen {
-    if (!_isLogin) return true;
     if (_user != null) return true;
+    if (!_isLogin) return true;
     if (widget.onLoginSuccess == null) return true;
     return false;
   }
@@ -145,6 +220,14 @@ class _AccountsScreenState extends State<AccountsScreen> {
       setState(() => _isLogin = true);
       return;
     }
+    if (_showSignInForm && _user != null) {
+      setState(() {
+        _showSignInForm = false;
+        _switchTargetAccount = null;
+        _passwordController.clear();
+      });
+      return;
+    }
     if (context.canPop()) {
       context.pop();
     } else {
@@ -152,21 +235,17 @@ class _AccountsScreenState extends State<AccountsScreen> {
     }
   }
 
-  void _showAuthError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final showingLogin = _showSignInForm || _user == null;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF8F9FA),
         elevation: 0,
         title: Text(
-          _user == null ? 'Accounts' : 'Account',
+          showingLogin ? 'Sign In' : 'Accounts',
           style: const TextStyle(
             color: Colors.black87,
             fontWeight: FontWeight.bold,
@@ -175,27 +254,273 @@ class _AccountsScreenState extends State<AccountsScreen> {
         leading: _canLeaveAccountScreen
             ? IconButton(
                 icon: Icon(
-                  _isLogin ? Icons.arrow_back : Icons.close,
+                  showingLogin ? Icons.close : Icons.arrow_back,
                   color: Colors.black87,
                 ),
                 onPressed: _handleClose,
-                tooltip: _isLogin ? 'Back' : 'Close',
               )
             : null,
       ),
       body: SafeArea(
-        child: _user == null ? _buildLogin() : _buildAccountDetails(),
+        child: showingLogin ? _buildLogin() : _buildAccountSwitcher(),
+      ),
+    );
+  }
+
+  Widget _buildAccountSwitcher() {
+    final currentEmail = _user?.email.trim().toLowerCase();
+
+    return RefreshIndicator(
+      onRefresh: _loadUserAndSavedAccounts,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        children: [
+          _buildCurrentAccountHeader(),
+          const SizedBox(height: 24),
+          const Text(
+            'Saved Accounts',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Switch accounts saved on this device. Passwords are never saved.',
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 16),
+          if (_savedAccounts.isEmpty)
+            _buildEmptySavedAccounts()
+          else
+            ..._savedAccounts.map((account) {
+              final isCurrent =
+                  currentEmail == account.email.trim().toLowerCase();
+              return _buildSavedAccountCard(account, isCurrent: isCurrent);
+            }),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _loading
+                ? null
+                : () {
+                    setState(() {
+                      _showSignInForm = true;
+                      _switchTargetAccount = null;
+                      _isLogin = true;
+                      _emailController.clear();
+                      _passwordController.clear();
+                      _nameController.clear();
+                    });
+                  },
+            icon: const Icon(Icons.person_add_alt_1),
+            label: const Text('Add another account'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              foregroundColor: Colors.blue[700],
+              side: BorderSide(color: Colors.blue.shade200),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentAccountHeader() {
+    final name = _user?.name ?? 'User';
+    final email = _user?.email ?? '';
+    final avatarUrl = _user?.avatarUrl?.trim();
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFBBDEFB)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: Colors.blue[100],
+            backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
+            child:
+                hasAvatar ? null : Icon(Icons.person, color: Colors.blue[600]),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  email,
+                  style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.blue[600],
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: const Text(
+              'Current',
+              style: TextStyle(color: Colors.white, fontSize: 11),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSavedAccountCard(
+    SavedAccount account, {
+    required bool isCurrent,
+  }) {
+    final avatarUrl = account.avatarUrl?.trim();
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isCurrent ? Colors.blue[50] : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isCurrent ? const Color(0xFFBBDEFB) : const Color(0xFFE0E0E0),
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: Colors.blue[100],
+            backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
+            child:
+                hasAvatar ? null : Icon(Icons.person, color: Colors.blue[600]),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  account.name.isEmpty ? account.email : account.name,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  account.email,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (isCurrent)
+            const Text(
+              'Active',
+              style: TextStyle(fontSize: 12, color: Colors.blue),
+            )
+          else ...[
+            TextButton(
+              onPressed: _loading ? null : () => _switchToSavedAccount(account),
+              child: const Text('Switch'),
+            ),
+            IconButton(
+              onPressed: () => _removeSavedAccount(account),
+              icon: Icon(Icons.close, size: 18, color: Colors.grey[600]),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptySavedAccounts() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+      ),
+      child: Text(
+        'No saved accounts yet.',
+        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
       ),
     );
   }
 
   Widget _buildLogin() {
+    final switchTarget = _switchTargetAccount;
+    final isSwitchMode = switchTarget != null;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 20),
+          if (isSwitchMode) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFBBDEFB)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.swap_horiz, color: Colors.blue),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Enter the password for ${switchTarget.email} to switch accounts.',
+                      style: TextStyle(color: Colors.grey[800], height: 1.35),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ] else if (_user != null) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                'Your current account stays active until another sign-in succeeds.',
+                style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           Center(
             child: Container(
               width: 80,
@@ -204,16 +529,16 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 color: Colors.blue[50],
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Icon(
-                Icons.person,
-                size: 40,
-                color: Colors.blue[600],
-              ),
+              child: Icon(Icons.person, size: 40, color: Colors.blue[600]),
             ),
           ),
           const SizedBox(height: 24),
           Text(
-            _isLogin ? 'Welcome Back!' : 'Create Account',
+            isSwitchMode
+                ? 'Switch Account'
+                : _isLogin
+                    ? 'Sign In'
+                    : 'Create Account',
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -222,9 +547,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            _isLogin
-                ? 'Sign in to continue planning your trips'
-                : 'Register to start planning your trips',
+            isSwitchMode
+                ? 'Confirm the password. HalaPH does not save passwords.'
+                : _isLogin
+                    ? 'Sign in to switch or continue using HalaPH.'
+                    : 'Create another account for this device.',
             style: TextStyle(fontSize: 16, color: Colors.grey[600]),
           ),
           const SizedBox(height: 32),
@@ -257,6 +584,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   label: 'Email',
                   icon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
+                  enabled: !isSwitchMode,
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
@@ -288,7 +616,11 @@ class _AccountsScreenState extends State<AccountsScreen> {
                           ),
                         )
                       : Text(
-                          _isLogin ? 'Sign In' : 'Create Account',
+                          isSwitchMode
+                              ? 'Switch Account'
+                              : _isLogin
+                                  ? 'Sign In'
+                                  : 'Create Account',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -299,42 +631,41 @@ class _AccountsScreenState extends State<AccountsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Center(
-            child: TextButton(
-              onPressed: () => setState(() => _isLogin = !_isLogin),
-              child: RichText(
-                text: TextSpan(
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  children: [
-                    TextSpan(
-                      text: _isLogin
-                          ? "Don't have an account? "
-                          : 'Already have an account? ',
-                    ),
-                    TextSpan(
-                      text: _isLogin ? 'Register' : 'Sign In',
-                      style: TextStyle(
-                        color: Colors.blue[600],
-                        fontWeight: FontWeight.w600,
+          if (!isSwitchMode)
+            Center(
+              child: TextButton(
+                onPressed: () => setState(() => _isLogin = !_isLogin),
+                child: RichText(
+                  text: TextSpan(
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    children: [
+                      TextSpan(
+                        text: _isLogin
+                            ? "Don't have an account? "
+                            : 'Already have an account? ',
                       ),
-                    ),
-                  ],
+                      TextSpan(
+                        text: _isLogin ? 'Register' : 'Sign In',
+                        style: TextStyle(
+                          color: Colors.blue[600],
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          if (_isLogin) ...[
-            TextButton(
-              onPressed: _showResetPasswordDialog,
-              child: Text(
-                'Forgot Password?',
-                style: TextStyle(
-                  color: Colors.blue[600],
-                  fontSize: 14,
+          if (_isLogin && !isSwitchMode)
+            Center(
+              child: TextButton(
+                onPressed: _showResetPasswordDialog,
+                child: Text(
+                  'Forgot Password?',
+                  style: TextStyle(color: Colors.blue[600], fontSize: 14),
                 ),
               ),
             ),
-          ],
         ],
       ),
     );
@@ -366,6 +697,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         ],
       ),
     );
+    controller.dispose();
 
     if (email != null && email.trim().isNotEmpty) {
       final success = await _auth.sendPasswordResetEmail(email.trim());
@@ -389,160 +721,19 @@ class _AccountsScreenState extends State<AccountsScreen> {
     required IconData icon,
     bool obscureText = false,
     TextInputType? keyboardType,
+    bool enabled = true,
   }) {
     return TextField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      enabled: enabled,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
         fillColor: Colors.grey[50],
-      ),
-    );
-  }
-
-  Widget _buildAccountDetails() {
-    final name = _user?.name ?? '';
-    final email = _user?.email ?? '';
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Builder(
-              builder: (context) {
-                final avatarUrl = _user?.avatarUrl?.trim();
-                final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
-
-                return CircleAvatar(
-                  radius: 40,
-                  backgroundColor: Colors.blue[100],
-                  backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
-                  child: hasAvatar
-                      ? null
-                      : Icon(
-                          Icons.person,
-                          size: 40,
-                          color: Colors.blue[600],
-                        ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: Text(
-              'Welcome, $name',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Center(
-            child: Text(
-              email,
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            ),
-          ),
-          const SizedBox(height: 32),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Notification Settings',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.notifications_outlined,
-                            color: Colors.grey[600]),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Plan Reminder',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Switch(
-                      value: _notificationsEnabled,
-                      onChanged: _toggleNotifications,
-                      activeThumbColor: Colors.blue[600],
-                      activeTrackColor:
-                          Colors.blue[600]?.withValues(alpha: 0.5),
-                    ),
-                  ],
-                ),
-                if (_notificationsEnabled) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    'Plan reminders will notify you 1 hour before the first stop and 30 minutes before each next stop.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey[600],
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _logout,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[50],
-                foregroundColor: Colors.red,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Logout',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

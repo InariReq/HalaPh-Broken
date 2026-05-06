@@ -148,7 +148,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: const Icon(Icons.settings, color: Colors.black54, size: 24),
             onPressed: widget.onSettingsTap ??
                 () {
-                  GoRouter.of(context).push('/accounts');
+                  GoRouter.of(context).push('/settings');
                 },
           ),
         ],

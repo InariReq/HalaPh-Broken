@@ -5,6 +5,7 @@ import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/firebase_app_service.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
+import 'package:halaph/services/saved_accounts_service.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -34,7 +35,10 @@ class AuthService {
 
     final firebaseUser = await _signInWithFirebase(email, password);
     if (firebaseUser != null) {
+      SimplePlanService.resetCache();
+      FavoritesService().clearCache();
       await _ensureFriendIdentity();
+      await SavedAccountsService().saveFirebaseUser(firebaseUser);
       return _toAppUser(firebaseUser);
     }
     return null;
@@ -49,7 +53,10 @@ class AuthService {
 
     final firebaseUser = await _registerWithFirebase(email, password, name);
     if (firebaseUser != null) {
+      SimplePlanService.resetCache();
+      FavoritesService().clearCache();
       await _ensureFriendIdentity();
+      await SavedAccountsService().saveFirebaseUser(firebaseUser);
       return _toAppUser(firebaseUser, fallbackName: name);
     }
     return null;
@@ -195,20 +202,68 @@ class AuthService {
     try {
       final user = firebase_auth.FirebaseAuth.instance.currentUser;
       if (user == null) return null;
-      
+
       if (name != null && name.trim().isNotEmpty) {
         await user.updateDisplayName(name.trim());
       }
-      
+
       if (avatarUrl != null && avatarUrl.isNotEmpty) {
         await user.updatePhotoURL(avatarUrl);
       }
-      
+
       await user.reload();
-      return _toAppUser(firebase_auth.FirebaseAuth.instance.currentUser ?? user);
+      final refreshedUser =
+          firebase_auth.FirebaseAuth.instance.currentUser ?? user;
+      await SavedAccountsService().saveFirebaseUser(refreshedUser);
+      return _toAppUser(refreshedUser);
     } catch (e) {
       debugPrint('Failed to update profile: $e');
       return null;
+    }
+  }
+
+  Future<bool> deleteCurrentAccount({required String password}) async {
+    _lastAuthError = null;
+
+    if (!await FirebaseAppService.initialize(forceRetry: true)) {
+      _lastAuthError = 'Firebase is not configured for this platform.';
+      return false;
+    }
+
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    final email = user?.email;
+    if (user == null || email == null || email.trim().isEmpty) {
+      _lastAuthError = 'No signed-in account found.';
+      return false;
+    }
+
+    if (password.trim().isEmpty) {
+      _lastAuthError = 'Enter your password to delete this account.';
+      return false;
+    }
+
+    try {
+      final credential = firebase_auth.EmailAuthProvider.credential(
+        email: email,
+        password: password.trim(),
+      );
+      await user.reauthenticateWithCredential(credential);
+      await user.delete();
+      SimplePlanService.resetCache();
+      FavoritesService().clearCache();
+      return true;
+    } on firebase_auth.FirebaseAuthException catch (error) {
+      if (error.code == 'requires-recent-login') {
+        _lastAuthError = 'Please log in again before deleting your account.';
+      } else {
+        _lastAuthError = _messageForAuthException(error, isRegistration: false);
+      }
+      debugPrint('Delete account failed: ${error.code} ${error.message ?? ''}');
+      return false;
+    } catch (error) {
+      _lastAuthError = 'Could not delete account. Check your connection.';
+      debugPrint('Delete account failed: $error');
+      return false;
     }
   }
 

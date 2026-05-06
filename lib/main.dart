@@ -28,6 +28,7 @@ import 'screens/trip_history_screen.dart';
 
 import 'screens/map_screen.dart';
 import 'screens/accounts_screen.dart';
+import 'screens/settings_screen.dart';
 import 'screens/share_plan_screen.dart';
 import 'screens/route_options_screen.dart';
 import 'screens/splash_screen.dart';
@@ -143,6 +144,10 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/trip-history',
       builder: (context, state) => const TripHistoryScreen(),
+    ),
+    GoRoute(
+      path: '/settings',
+      builder: (context, state) => const SettingsScreen(),
     ),
     GoRoute(
       path: '/accounts',
