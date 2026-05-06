@@ -1,14 +1,14 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-
-enum _ExploreSort { ratingHigh, nameAZ, nameZA }
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -25,8 +25,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
   StreamSubscription? _subscription;
   Timer? _searchDebounce;
   int _searchGeneration = 0;
-  _ExploreSort _sortMode = _ExploreSort.ratingHigh;
-  double _minimumRating = 0;
   final TextEditingController _searchController = TextEditingController();
   DestinationCategory? _selectedCategory;
 
@@ -102,19 +100,35 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Future<void> _runDestinationSearch() async {
     final generation = ++_searchGeneration;
+    final query = _searchController.text.trim();
+
     if (!mounted) return;
     setState(() => _isLoading = true);
+
     try {
-      final destinations = await DestinationService.searchDestinations(
-        _searchController.text,
-      );
-      final filteredDestinations = _applyAdvancedFilters(
-        DestinationService.deduplicateDestinationsById(destinations),
-      );
-      if (!mounted || generation != _searchGeneration) return;
-      setState(() {
-        _destinations = filteredDestinations;
-      });
+      if (query.isEmpty) {
+        final destinations = await DestinationService.getTrendingDestinations();
+        final deduped =
+            DestinationService.deduplicateDestinationsById(destinations);
+
+        if (!mounted || generation != _searchGeneration) return;
+
+        setState(() {
+          _selectedCategory = null;
+          _destinations = deduped;
+        });
+      } else {
+        final destinations = await DestinationService.searchDestinations(query);
+        final deduped =
+            DestinationService.deduplicateDestinationsById(destinations);
+
+        if (!mounted || generation != _searchGeneration) return;
+
+        setState(() {
+          _selectedCategory = null;
+          _destinations = deduped;
+        });
+      }
     } catch (e) {
       debugPrint('Search error: $e');
     } finally {
@@ -124,127 +138,108 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
-  List<Destination> _applyAdvancedFilters(List<Destination> destinations) {
-    final filtered = destinations
-        .where((destination) => destination.rating >= _minimumRating)
-        .toList();
-    switch (_sortMode) {
-      case _ExploreSort.ratingHigh:
-        filtered.sort((a, b) => b.rating.compareTo(a.rating));
-        break;
-      case _ExploreSort.nameAZ:
-        filtered.sort((a, b) => a.name.compareTo(b.name));
-        break;
-      case _ExploreSort.nameZA:
-        filtered.sort((a, b) => b.name.compareTo(a.name));
-        break;
-    }
-    return filtered;
+  double _distanceKm(LatLng a, LatLng b) {
+    const earthRadiusKm = 6371.0;
+    final dLat = _degreesToRadians(b.latitude - a.latitude);
+    final dLon = _degreesToRadians(b.longitude - a.longitude);
+    final lat1 = _degreesToRadians(a.latitude);
+    final lat2 = _degreesToRadians(b.latitude);
+
+    final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1) *
+            math.cos(lat2) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+
+    return earthRadiusKm * 2 * math.atan2(math.sqrt(h), math.sqrt(1 - h));
   }
 
-  Future<void> _showAdvancedFilters() async {
-    var draftSort = _sortMode;
-    var draftMinimumRating = _minimumRating;
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Filters',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<_ExploreSort>(
-                      initialValue: draftSort,
-                      decoration: const InputDecoration(labelText: 'Sort by'),
-                      items: const [
-                        DropdownMenuItem(
-                          value: _ExploreSort.ratingHigh,
-                          child: Text('Highest rated'),
-                        ),
-                        DropdownMenuItem(
-                          value: _ExploreSort.nameAZ,
-                          child: Text('Name A-Z'),
-                        ),
-                        DropdownMenuItem(
-                          value: _ExploreSort.nameZA,
-                          child: Text('Name Z-A'),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setSheetState(() => draftSort = value);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Minimum rating: ${draftMinimumRating.toStringAsFixed(1)}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    Slider(
-                      value: draftMinimumRating,
-                      min: 0,
-                      max: 5,
-                      divisions: 10,
-                      label: draftMinimumRating.toStringAsFixed(1),
-                      onChanged: (value) {
-                        setSheetState(() => draftMinimumRating = value);
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            setSheetState(() {
-                              draftSort = _ExploreSort.ratingHigh;
-                              draftMinimumRating = 0;
-                            });
-                          },
-                          child: const Text('Reset'),
-                        ),
-                        const Spacer(),
-                        ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              _sortMode = draftSort;
-                              _minimumRating = draftMinimumRating;
-                            });
-                            Navigator.of(context).pop();
-                            unawaited(_runDestinationSearch());
-                          },
-                          child: const Text('Apply'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
+  double _degreesToRadians(double degrees) => degrees * math.pi / 180;
+
+  List<Destination> _nearbyPlacesForCategory(
+    List<Destination> destinations,
+    LatLng location,
+    DestinationCategory category, {
+    required double radiusKm,
+    required int limit,
+  }) {
+    final nearby = destinations.where((destination) {
+      if (destination.category != category) return false;
+
+      final coordinates = destination.coordinates;
+      if (coordinates == null) return true;
+
+      return _distanceKm(location, coordinates) <= radiusKm;
+    }).toList()
+      ..sort((a, b) {
+        final aDistance = a.coordinates == null
+            ? double.infinity
+            : _distanceKm(location, a.coordinates!);
+        final bDistance = b.coordinates == null
+            ? double.infinity
+            : _distanceKm(location, b.coordinates!);
+        final distanceCompare = aDistance.compareTo(bDistance);
+        if (distanceCompare != 0) return distanceCompare;
+
+        final ratingCompare = b.rating.compareTo(a.rating);
+        if (ratingCompare != 0) return ratingCompare;
+
+        return a.name.compareTo(b.name);
+      });
+
+    return nearby.take(limit).toList();
   }
 
   Future<void> _filterByCategory(DestinationCategory? category) async {
+    final generation = ++_searchGeneration;
+
     _searchDebounce?.cancel();
+    if (!mounted) return;
+
     setState(() {
+      _isLoading = true;
       _selectedCategory = category;
+      _searchController.clear();
     });
-    await _runDestinationSearch();
+
+    try {
+      if (category == null) {
+        final destinations = await DestinationService.getTrendingDestinations();
+        final deduped =
+            DestinationService.deduplicateDestinationsById(destinations);
+
+        if (!mounted || generation != _searchGeneration) return;
+
+        setState(() {
+          _destinations = deduped;
+        });
+        return;
+      }
+
+      final location = await DestinationService.getCurrentLocation();
+      final destinations = await DestinationService.searchDestinations('');
+      final deduped =
+          DestinationService.deduplicateDestinationsById(destinations);
+      final filtered = _nearbyPlacesForCategory(
+        deduped,
+        location,
+        category,
+        radiusKm: 5,
+        limit: 5,
+      );
+
+      if (!mounted || generation != _searchGeneration) return;
+
+      setState(() {
+        _destinations = filtered;
+      });
+    } catch (e) {
+      debugPrint('Category filter error: $e');
+    } finally {
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -263,12 +258,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
             fontWeight: FontWeight.w700,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.tune, color: Colors.grey[700]),
-            onPressed: _showAdvancedFilters,
-          ),
-        ],
       ),
       body: SafeArea(
         child: Column(
@@ -276,6 +265,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
             _buildSearchBar(),
             const SizedBox(height: 16),
             _buildFilterChips(),
+            const SizedBox(height: 12),
+            _buildExploreSummary(),
             const SizedBox(height: 16),
             Expanded(
               child:
@@ -341,20 +332,28 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildFilterChips() {
+    final categories = <DestinationCategory?>[
+      null,
+      ..._categories,
+    ];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
-          children: _categories.map((category) {
+          children: categories.map((category) {
             final isSelected = _selectedCategory == category;
+            final label = category == null
+                ? 'All'
+                : DestinationService.getCategoryName(category);
+
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: FilterChip(
-                label: Text(DestinationService.getCategoryName(category)),
+                label: Text(label),
                 selected: isSelected,
-                onSelected: (selected) =>
-                    _filterByCategory(selected ? category : null),
+                onSelected: (_) => _filterByCategory(category),
                 backgroundColor: Colors.white,
                 selectedColor: Colors.blue[50],
                 labelStyle: TextStyle(
@@ -373,6 +372,43 @@ class _ExploreScreenState extends State<ExploreScreen> {
             );
           }).toList(),
         ),
+      ),
+    );
+  }
+
+  Widget _buildExploreSummary() {
+    final isSearching = _searchController.text.trim().isNotEmpty;
+    final summary = isSearching
+        ? 'Showing search results'
+        : _selectedCategory == null
+            ? 'Showing nearby trending places'
+            : 'Showing up to 5 nearby places within 5 km for this category';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          Icon(
+            isSearching
+                ? Icons.search_rounded
+                : _selectedCategory == null
+                    ? Icons.trending_up_rounded
+                    : Icons.near_me_rounded,
+            size: 18,
+            color: Colors.blue[700],
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              summary,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -396,7 +432,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 _selectedCategory = null;
                 _runDestinationSearch();
               },
-              child: const Text('Clear Filters'),
+              child: const Text('Show All'),
             ),
           ],
         ),
