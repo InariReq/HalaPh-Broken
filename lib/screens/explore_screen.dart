@@ -690,7 +690,38 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildRatingBadge(Destination destination) {
-    if (destination.rating <= 0) return const SizedBox.shrink();
+    if (destination.rating <= 0) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.94),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.10),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.star_border_rounded, color: Color(0xFF6B7280), size: 15),
+            SizedBox(width: 4),
+            Text(
+              'Unrated',
+              style: TextStyle(
+                color: Color(0xFF374151),
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),

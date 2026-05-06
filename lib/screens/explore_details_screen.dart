@@ -365,7 +365,31 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
 
   Widget _buildRatingChip(Destination destination) {
     final rating = destination.rating;
-    if (rating <= 0) return const SizedBox.shrink();
+    if (rating <= 0) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE5EAF3)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.star_border_rounded, color: Color(0xFF6B7280), size: 17),
+            SizedBox(width: 6),
+            Text(
+              'No rating yet',
+              style: TextStyle(
+                color: Color(0xFF374151),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
