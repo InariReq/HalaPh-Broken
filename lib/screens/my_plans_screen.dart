@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/models/plan.dart';
+import 'package:halaph/models/destination.dart';
+import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/utils/navigation_utils.dart';
 
 class MyPlansScreen extends StatefulWidget {
@@ -155,8 +157,73 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     );
   }
 
+  Destination? _firstPlanDestination(TravelPlan plan) {
+    for (final day in plan.itinerary) {
+      for (final item in day.items) {
+        return item.destination;
+      }
+    }
+    return null;
+  }
+
+  void _openPlanDestinationDetails(Destination destination) {
+    ExploreDetailsScreen.showAsBottomSheet(
+      context,
+      destinationId: destination.id,
+      source: 'my_plans',
+      destination: destination,
+    );
+  }
+
+  Widget _buildPlanDestinationShortcut(Destination destination) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Material(
+        color: const Color(0xFFE3F2FD),
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: () => _openPlanDestinationDetails(destination),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.place_rounded,
+                  size: 14,
+                  color: Color(0xFF1565C0),
+                ),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    destination.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF1565C0),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 5),
+                const Icon(
+                  Icons.open_in_new_rounded,
+                  size: 13,
+                  color: Color(0xFF1565C0),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPlanCard(TravelPlan plan, {bool isSharedPlan = false}) {
     final shouldLeave = isSharedPlan && !SimplePlanService.isPlanOwner(plan.id);
+    final firstDestination = _firstPlanDestination(plan);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -225,6 +292,8 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                         ),
                       ],
                     ),
+                    if (firstDestination != null)
+                      _buildPlanDestinationShortcut(firstDestination),
                   ],
                 ),
               ),

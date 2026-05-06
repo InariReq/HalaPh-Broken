@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:halaph/models/friend.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:halaph/models/destination.dart';
+import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/screens/add_place_screen.dart';
@@ -710,6 +711,15 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     );
   }
 
+  void _openDestinationDetails(Destination destination) {
+    ExploreDetailsScreen.showAsBottomSheet(
+      context,
+      destinationId: destination.id,
+      source: 'plan_details',
+      destination: destination,
+    );
+  }
+
   Widget _buildItinerarySection() {
     if (_itinerary.isEmpty) {
       return Padding(
@@ -843,11 +853,19 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Widget _buildDestinationCard(Destination destination, int day, int index) {
-    final time = _formatTimeRangeForDestination(destination);
+    final time = '10:30 AM';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: _buildDestinationCardContent(destination, day, index, time),
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _openDestinationDetails(destination),
+          child: _buildDestinationCardContent(destination, day, index, time),
+        ),
+      ),
     );
   }
 

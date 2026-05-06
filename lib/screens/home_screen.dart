@@ -571,6 +571,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 : 'In $daysUntil days';
     final destinationCount = _destinationCount(plan);
     final heroImagePath = _bestPlanImagePath(plan);
+    final firstDestination = _firstPlanDestination(plan);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -657,11 +658,72 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ],
                     ),
+                    if (firstDestination != null)
+                      _buildNextPlanStopShortcut(firstDestination),
                   ],
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Destination? _firstPlanDestination(TravelPlan plan) {
+    for (final day in plan.itinerary) {
+      for (final item in day.items) {
+        return item.destination;
+      }
+    }
+    return null;
+  }
+
+  void _openPlanDestinationDetails(Destination destination) {
+    ExploreDetailsScreen.showAsBottomSheet(
+      context,
+      destinationId: destination.id,
+      source: 'home_up_next',
+      destination: destination,
+    );
+  }
+
+  Widget _buildNextPlanStopShortcut(Destination destination) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Material(
+        color: const Color(0xFFF5F9FF),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _openPlanDestinationDetails(destination),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Icon(Icons.place_rounded, size: 18, color: Colors.blue[700]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    destination.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.blue[700],
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.open_in_new_rounded,
+                  size: 16,
+                  color: Colors.blue[600],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
