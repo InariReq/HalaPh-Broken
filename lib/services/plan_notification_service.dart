@@ -162,6 +162,10 @@ class PlanNotificationService {
           index == 0 ? const Duration(hours: 1) : const Duration(minutes: 30);
       final triggerAt = stop.startsAt.subtract(reminderOffset);
 
+      debugPrint(
+        'Plan reminder check: ${stop.destinationName} startsAt=$stop.startsAt reminderAt=$triggerAt now=$now status=${triggerAt.isAfter(now) ? 'scheduled' : 'skipped'}',
+      );
+
       if (!triggerAt.isAfter(now)) continue;
 
       final title = index == 0

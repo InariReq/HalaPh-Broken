@@ -448,11 +448,27 @@ class SimplePlanService {
       for (int i = 0; i < dests.length; i++) {
         final dest = dests[i];
         final timeStr = destinationTimes?[dest.id] ?? '10:00 AM';
-        final (hour, minute) = _parseTime(timeStr);
+        final (rawHour, rawMinute) = _parseTime(timeStr);
+        final (hour, minute) = _normalizeStartTimeForDate(
+          date,
+          rawHour,
+          rawMinute,
+        );
+
         final endTimeStr = destinationEndTimes?[dest.id];
-        final (endHour, endMinute) = endTimeStr == null
+        final (rawEndHour, rawEndMinute) = endTimeStr == null
             ? (((hour + 1) % 24), minute)
             : _parseTime(endTimeStr);
+        final (endHour, endMinute) = _normalizeEndTimeForDate(
+          date,
+          (hour, minute),
+          rawEndHour,
+          rawEndMinute,
+        );
+
+        debugPrint(
+          'Plan time save: ${dest.name} start=$hour:${minute.toString().padLeft(2, '0')} end=$endHour:${endMinute.toString().padLeft(2, '0')}',
+        );
 
         items.add(
           ItineraryItem(
@@ -600,12 +616,27 @@ class SimplePlanService {
       for (int index = 0; index < destinations.length; index++) {
         final destination = destinations[index];
         final startText = destinationTimes?[destination.id] ?? '10:00 AM';
-        final (startHour, startMinute) = _parseTime(startText);
+        final (rawStartHour, rawStartMinute) = _parseTime(startText);
+        final (startHour, startMinute) = _normalizeStartTimeForDate(
+          date,
+          rawStartHour,
+          rawStartMinute,
+        );
 
         final endText = destinationEndTimes?[destination.id];
-        final (endHour, endMinute) = endText == null
+        final (rawEndHour, rawEndMinute) = endText == null
             ? (((startHour + 1) % 24), startMinute)
             : _parseTime(endText);
+        final (endHour, endMinute) = _normalizeEndTimeForDate(
+          date,
+          (startHour, startMinute),
+          rawEndHour,
+          rawEndMinute,
+        );
+
+        debugPrint(
+          'Plan time update: ${destination.name} start=$startHour:${startMinute.toString().padLeft(2, '0')} end=$endHour:${endMinute.toString().padLeft(2, '0')}',
+        );
 
         items.add(
           ItineraryItem(
@@ -661,6 +692,58 @@ class SimplePlanService {
     }
 
     return itineraries;
+  }
+
+  static (int, int) _normalizeStartTimeForDate(
+    DateTime date,
+    int hour,
+    int minute,
+  ) {
+    final now = DateTime.now();
+    final planDate = DateTime(date.year, date.month, date.day);
+    final today = DateTime(now.year, now.month, now.day);
+
+    if (planDate == today && hour < 12) {
+      final candidate = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        hour,
+        minute,
+      );
+      final pmCandidate = candidate.add(const Duration(hours: 12));
+
+      if (!candidate.isAfter(now) && pmCandidate.isAfter(now)) {
+        return (hour + 12, minute);
+      }
+    }
+
+    return (hour, minute);
+  }
+
+  static (int, int) _normalizeEndTimeForDate(
+    DateTime date,
+    (int, int) startTime,
+    int hour,
+    int minute,
+  ) {
+    final startAt = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      startTime.$1,
+      startTime.$2,
+    );
+    final endAt = DateTime(date.year, date.month, date.day, hour, minute);
+
+    if (!endAt.isAfter(startAt) && hour < 12) {
+      final pmEndAt = endAt.add(const Duration(hours: 12));
+      if (pmEndAt.isAfter(startAt)) {
+        return (hour + 12, minute);
+      }
+    }
+
+    return (hour, minute);
   }
 
   static (int, int) _parseTime(String timeStr) {
@@ -1310,7 +1393,28 @@ class SimplePlanService {
     final bActive = !_dayOnly(b.startDate).isAfter(today) &&
         !_dayOnly(b.endDate).isBefore(today);
     if (aActive != bActive) return aActive ? -1 : 1;
-    return a.startDate.compareTo(b.startDate);
+
+    final dateCompare = a.startDate.compareTo(b.startDate);
+    if (dateCompare != 0) return dateCompare;
+
+    final aHasBanner = _hasPlanBanner(a);
+    final bHasBanner = _hasPlanBanner(b);
+    if (aHasBanner != bHasBanner) return aHasBanner ? -1 : 1;
+
+    return _planSortStamp(b).compareTo(_planSortStamp(a));
+  }
+
+  static bool _hasPlanBanner(TravelPlan plan) {
+    final banner = plan.bannerImage?.trim();
+    return banner != null && banner.isNotEmpty;
+  }
+
+  static int _planSortStamp(TravelPlan plan) {
+    final parts = plan.id.split('_');
+    if (parts.length >= 2 && parts.first == 'plan') {
+      return int.tryParse(parts[1]) ?? 0;
+    }
+    return plan.startDate.millisecondsSinceEpoch;
   }
 
   static DateTime _today() {
