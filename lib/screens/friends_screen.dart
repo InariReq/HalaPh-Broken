@@ -5,6 +5,7 @@ import 'package:halaph/models/friend.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/utils/navigation_utils.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
+import 'package:halaph/widgets/demo_safe_panel.dart';
 
 class FriendsScreen extends StatefulWidget {
   final bool selectionMode;

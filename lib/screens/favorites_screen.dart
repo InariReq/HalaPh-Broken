@@ -7,6 +7,7 @@ import 'package:halaph/screens/route_options_screen.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
+import 'package:halaph/widgets/demo_safe_panel.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
