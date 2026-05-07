@@ -268,6 +268,19 @@ service cloud.firestore {
          request.auth.uid in request.resource.data.participantUids) ||
         // Participant can leave by removing only their own UID.
         isParticipantLeavingPlan() ||
+        // Any participant can update participant start locations only.
+        // App code must only write the current user's own start location entry.
+        (isPlanParticipant(resource.data) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantStartLocations', 'updatedAt']) &&
+         request.resource.data.createdBy == resource.data.createdBy &&
+         request.resource.data.ownerUid == resource.data.ownerUid &&
+         request.resource.data.ownerId == resource.data.ownerId &&
+         request.resource.data.participantUids == resource.data.participantUids &&
+         request.resource.data.collaboratorUids == resource.data.collaboratorUids &&
+         request.resource.data.title == resource.data.title &&
+         request.resource.data.startDate == resource.data.startDate &&
+         request.resource.data.endDate == resource.data.endDate &&
+         request.resource.data.itinerary == resource.data.itinerary) ||
         // Editor collaborator can update plan content but cannot change ownership or access lists
         (isPlanParticipant(resource.data) &&
          resource.data.collaboratorUids is list &&
