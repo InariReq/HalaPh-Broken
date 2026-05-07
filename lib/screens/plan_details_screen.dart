@@ -1269,70 +1269,74 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       return const SizedBox.shrink();
     }
 
+    final addButton = ElevatedButton.icon(
+      onPressed: _isEditing ? _addLocations : null,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _isEditing ? Colors.blue[600] : Colors.grey,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      icon: const Icon(Icons.add, size: 20),
+      label: const Text(
+        'Add Locations',
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      ),
+    );
+
+    final friendsButton = OutlinedButton.icon(
+      onPressed:
+          _isEditing && canManageCollaborators ? _manageCollaborators : null,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: _isEditing && canManageCollaborators
+            ? Colors.blue[700]
+            : Colors.grey,
+        side: BorderSide(
+          color: _isEditing && canManageCollaborators
+              ? Colors.blue.shade300
+              : Colors.grey,
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      icon: const Icon(Icons.group_add, size: 20),
+      label: Text(
+        _plan == null
+            ? 'Add Friends'
+            : 'Friends (${(_plan!.participantUids.toSet().length - 1).clamp(0, 99)})',
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      ),
+    );
+
     return Padding(
       padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton(
-              onPressed: _isEditing ? _addLocations : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isEditing ? Colors.blue[600] : Colors.grey,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Add Locations',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton(
-              onPressed: _isEditing && canManageCollaborators
-                  ? _manageCollaborators
-                  : null,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _isEditing && canManageCollaborators
-                    ? Colors.blue[700]
-                    : Colors.grey,
-                side: BorderSide(
-                  color: _isEditing && canManageCollaborators
-                      ? Colors.blue.shade300
-                      : Colors.grey,
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.group_add, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    _plan == null
-                        ? 'Add Friends'
-                        : 'Friends (${(_plan!.participantUids.toSet().length - 1).clamp(0, 99)})',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 360) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                addButton,
+                const SizedBox(height: 10),
+                friendsButton,
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: addButton),
+              const SizedBox(width: 12),
+              Expanded(child: friendsButton),
+            ],
+          );
+        },
       ),
     );
   }

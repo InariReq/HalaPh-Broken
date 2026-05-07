@@ -65,18 +65,28 @@ class FullscreenImagePreview extends StatelessWidget {
           children: [
             Positioned.fill(
               child: SafeArea(
-                child: Center(
-                  child: InteractiveViewer(
-                    minScale: 0.8,
-                    maxScale: 5.0,
-                    boundaryMargin: const EdgeInsets.all(96),
-                    panEnabled: true,
-                    scaleEnabled: true,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: _buildImage(),
-                    ),
-                  ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: constraints.maxWidth,
+                          maxHeight: constraints.maxHeight,
+                        ),
+                        child: InteractiveViewer(
+                          minScale: 0.8,
+                          maxScale: 5.0,
+                          boundaryMargin: const EdgeInsets.all(96),
+                          panEnabled: true,
+                          scaleEnabled: true,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: _buildImage(),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

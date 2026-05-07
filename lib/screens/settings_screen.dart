@@ -447,9 +447,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final icon = Container(
             height: 58,
             width: 58,
             decoration: BoxDecoration(
@@ -461,35 +461,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
               color: Colors.white,
               size: 30,
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
+          );
+
+          final copy = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text(
+                'App Settings',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              SizedBox(height: 5),
+              Text(
+                'Manage reminders, appearance, permissions, and account controls.',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  height: 1.3,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          );
+
+          if (constraints.maxWidth < 310) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'App Settings',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                SizedBox(height: 5),
-                Text(
-                  'Manage reminders, appearance, permissions, and account controls.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    height: 1.3,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                icon,
+                const SizedBox(height: 12),
+                copy,
               ],
-            ),
-          ),
-        ],
+            );
+          }
+
+          return Row(
+            children: [
+              icon,
+              const SizedBox(width: 14),
+              Expanded(child: copy),
+            ],
+          );
+        },
       ),
     );
   }
