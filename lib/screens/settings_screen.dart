@@ -76,6 +76,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _deleteAccount() async {
     final firstConfirm = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete account?'),
         content: const Text(
@@ -83,11 +84,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () {
+              debugPrint('Delete account: first dialog cancelled');
+              Navigator.of(dialogContext).pop(false);
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text(
               'Continue',
               style: TextStyle(color: Colors.red),
@@ -100,127 +104,154 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (firstConfirm != true) return;
     if (!mounted) return;
 
-    final passwordController = TextEditingController();
+    final deleted = await _showDeletePasswordDialog();
 
-    try {
-      final deleted = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) {
-          var isDeleting = false;
-          String? passwordError;
+    if (!mounted) return;
 
-          Future<void> submit(StateSetter setDialogState) async {
-            final enteredPassword = passwordController.text.trim();
+    if (deleted == true) {
+      context.go('/accounts');
+    }
+  }
 
-            if (enteredPassword.isEmpty) {
+  Future<bool> _showDeletePasswordDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        var isDeleting = false;
+        var enteredPassword = '';
+        String? passwordError;
+
+        Future<void> submit(StateSetter setDialogState) async {
+          final password = enteredPassword.trim();
+
+          if (password.isEmpty) {
+            setDialogState(() {
+              passwordError = 'Enter your password to delete this account.';
+            });
+            return;
+          }
+
+          debugPrint('Delete account: password submitted');
+
+          setDialogState(() {
+            isDeleting = true;
+            passwordError = null;
+          });
+
+          if (mounted && !_deletingAccount) {
+            setState(() {
+              _deletingAccount = true;
+            });
+          }
+
+          try {
+            debugPrint('Delete account: cleanup/auth delete starting');
+            final success = await _auth.deleteCurrentAccount(
+              password: password,
+            );
+
+            if (!dialogContext.mounted) return;
+
+            if (!success) {
+              if (mounted) {
+                setState(() {
+                  _deletingAccount = false;
+                });
+              }
+
               setDialogState(() {
-                passwordError = 'Enter your password to delete this account.';
+                isDeleting = false;
+                passwordError = _deleteAccountErrorMessage(
+                  _auth.lastAuthError,
+                );
               });
               return;
             }
 
-            setDialogState(() {
-              isDeleting = true;
-              passwordError = null;
-            });
+            Navigator.of(dialogContext).pop(true);
+          } catch (error) {
+            debugPrint('SettingsScreen: delete account failed: $error');
 
-            try {
-              final success = await _auth.deleteCurrentAccount(
-                password: enteredPassword,
-              );
-
-              if (!dialogContext.mounted) return;
-
-              if (!success) {
-                setDialogState(() {
-                  isDeleting = false;
-                  passwordError = _deleteAccountErrorMessage(
-                    _auth.lastAuthError,
-                  );
-                });
-                return;
-              }
-
-              Navigator.of(dialogContext, rootNavigator: true).pop(true);
-            } catch (error) {
-              debugPrint('SettingsScreen: delete account failed: $error');
-              if (!dialogContext.mounted) return;
-
-              setDialogState(() {
-                isDeleting = false;
-                passwordError = _deleteAccountErrorMessage(error);
+            if (mounted) {
+              setState(() {
+                _deletingAccount = false;
               });
             }
+
+            if (!dialogContext.mounted) return;
+
+            setDialogState(() {
+              isDeleting = false;
+              passwordError = _deleteAccountErrorMessage(error);
+            });
           }
+        }
 
-          return StatefulBuilder(
-            builder: (context, setDialogState) {
-              final hasPassword =
-                  passwordController.text.trim().isNotEmpty && !isDeleting;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final canSubmit = enteredPassword.trim().isNotEmpty && !isDeleting;
 
-              return AlertDialog(
-                title: const Text('Confirm delete account'),
-                content: TextField(
-                  controller: passwordController,
-                  enabled: !isDeleting,
-                  autofocus: true,
-                  obscureText: true,
-                  textInputAction: TextInputAction.done,
-                  onChanged: (_) {
-                    setDialogState(() {
-                      passwordError = null;
-                    });
-                  },
-                  onSubmitted: (_) {
-                    if (!isDeleting) {
-                      submit(setDialogState);
-                    }
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    helperText:
-                        'Enter your password to permanently delete this account.',
-                    errorText: passwordError,
+            return AlertDialog(
+              title: const Text('Confirm delete account'),
+              content: TextField(
+                enabled: !isDeleting,
+                autofocus: true,
+                obscureText: true,
+                textInputAction: TextInputAction.done,
+                onChanged: (value) {
+                  setDialogState(() {
+                    enteredPassword = value;
+                    passwordError = null;
+                  });
+                },
+                onSubmitted: (_) {
+                  if (!isDeleting) {
+                    submit(setDialogState);
+                  }
+                },
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  helperText:
+                      'Enter your password to permanently delete this account.',
+                  errorText: passwordError,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting
+                      ? null
+                      : () {
+                          debugPrint(
+                            'Delete account: password dialog cancelled',
+                          );
+                          Navigator.of(dialogContext).pop(false);
+                        },
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: canSubmit ? () => submit(setDialogState) : null,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                  ),
+                  child: Text(
+                    isDeleting ? 'Deleting...' : 'Delete Account',
                   ),
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: isDeleting
-                        ? null
-                        : () => Navigator.pop(dialogContext, false),
-                    child: const Text('Cancel'),
-                  ),
-                  TextButton(
-                    onPressed:
-                        hasPassword ? () => submit(setDialogState) : null,
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.red,
-                    ),
-                    child: Text(
-                      isDeleting ? 'Deleting...' : 'Delete Account',
-                    ),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      );
+              ],
+            );
+          },
+        );
+      },
+    );
 
-      if (!mounted) return;
-
-      if (deleted == true) {
-        context.go('/accounts');
-      }
-    } finally {
-      passwordController.dispose();
-      if (mounted && _deletingAccount) {
-        setState(() {
-          _deletingAccount = false;
-        });
-      }
+    if (mounted && _deletingAccount && result != true) {
+      setState(() {
+        _deletingAccount = false;
+      });
     }
+
+    return result == true;
   }
 
   String _deleteAccountErrorMessage(Object? error) {
@@ -236,6 +267,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (lower.contains('requires-recent-login')) {
       return 'Please log in again before deleting your account.';
+    }
+
+    if (lower.contains('permission-denied') ||
+        lower.contains('insufficient permissions')) {
+      return 'Account cleanup is blocked by Firebase rules. Try again after rules are updated.';
     }
 
     if (lower.contains('network') ||
