@@ -187,6 +187,10 @@ class SimplePlanService {
     Map<String, String>? destinationEndTimes,
     String? bannerImage,
     String? meetingPointName,
+    String? meetingPointAddress,
+    double? meetingPointLatitude,
+    double? meetingPointLongitude,
+    bool replaceMeetingPoint = false,
     String? status,
   }) async {
     final existing = _plans[planId];
@@ -217,7 +221,17 @@ class SimplePlanService {
       itinerary: newItinerary,
       isShared: existing.isShared,
       bannerImage: bannerImage ?? existing.bannerImage,
-      meetingPointName: meetingPointName ?? existing.meetingPointName,
+      meetingPointName:
+          replaceMeetingPoint ? meetingPointName : existing.meetingPointName,
+      meetingPointAddress: replaceMeetingPoint
+          ? meetingPointAddress
+          : existing.meetingPointAddress,
+      meetingPointLatitude: replaceMeetingPoint
+          ? meetingPointLatitude
+          : existing.meetingPointLatitude,
+      meetingPointLongitude: replaceMeetingPoint
+          ? meetingPointLongitude
+          : existing.meetingPointLongitude,
       collaboratorUids: existing.collaboratorUids,
       status: status ?? existing.status,
     );
@@ -330,6 +344,9 @@ class SimplePlanService {
         isShared: true,
         bannerImage: plan.bannerImage,
         meetingPointName: plan.meetingPointName,
+        meetingPointAddress: plan.meetingPointAddress,
+        meetingPointLatitude: plan.meetingPointLatitude,
+        meetingPointLongitude: plan.meetingPointLongitude,
         collaboratorUids: plan.collaboratorUids,
       );
 
@@ -402,6 +419,9 @@ class SimplePlanService {
       isShared: selectedParticipants.isNotEmpty,
       bannerImage: existing.bannerImage,
       meetingPointName: existing.meetingPointName,
+      meetingPointAddress: existing.meetingPointAddress,
+      meetingPointLatitude: existing.meetingPointLatitude,
+      meetingPointLongitude: existing.meetingPointLongitude,
       collaboratorUids: collaboratorIds,
     );
 
@@ -422,6 +442,9 @@ class SimplePlanService {
       isShared: resolvedParticipantUids.length > 1,
       bannerImage: existing.bannerImage,
       meetingPointName: existing.meetingPointName,
+      meetingPointAddress: existing.meetingPointAddress,
+      meetingPointLatitude: existing.meetingPointLatitude,
+      meetingPointLongitude: existing.meetingPointLongitude,
       collaboratorUids: collaboratorIds,
     );
 
@@ -440,6 +463,9 @@ class SimplePlanService {
         isShared: remoteParticipantUids.length > 1,
         bannerImage: updated.bannerImage,
         meetingPointName: updated.meetingPointName,
+        meetingPointAddress: updated.meetingPointAddress,
+        meetingPointLatitude: updated.meetingPointLatitude,
+        meetingPointLongitude: updated.meetingPointLongitude,
         collaboratorUids: collaboratorIds,
       );
       _notifyChanged();
@@ -614,6 +640,9 @@ class SimplePlanService {
       isShared: existing.isShared,
       bannerImage: existing.bannerImage,
       meetingPointName: existing.meetingPointName,
+      meetingPointAddress: existing.meetingPointAddress,
+      meetingPointLatitude: existing.meetingPointLatitude,
+      meetingPointLongitude: existing.meetingPointLongitude,
       collaboratorUids: existing.collaboratorUids,
     );
 
@@ -957,6 +986,9 @@ class SimplePlanService {
       'bannerImage',
       'bannerImageUrl',
       'meetingPointName',
+      'meetingPointAddress',
+      'meetingPointLatitude',
+      'meetingPointLongitude',
       'isShared',
       'isPublic',
       'status',
@@ -978,8 +1010,18 @@ class SimplePlanService {
         'itinerary': data['itinerary'],
         'isShared': data['isShared'],
         'bannerImage': data['bannerImage'],
-        if (plan.meetingPointName != null)
-          'meetingPointName': plan.meetingPointName!.trim(),
+        'meetingPointName': data.containsKey('meetingPointName')
+            ? data['meetingPointName']
+            : FieldValue.delete(),
+        'meetingPointAddress': data.containsKey('meetingPointAddress')
+            ? data['meetingPointAddress']
+            : FieldValue.delete(),
+        'meetingPointLatitude': data.containsKey('meetingPointLatitude')
+            ? data['meetingPointLatitude']
+            : FieldValue.delete(),
+        'meetingPointLongitude': data.containsKey('meetingPointLongitude')
+            ? data['meetingPointLongitude']
+            : FieldValue.delete(),
         'updatedAt': data['updatedAt'],
       };
 

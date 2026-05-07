@@ -77,7 +77,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   bool _isEditing = false;
   bool _isSaving = false;
   final _titleController = TextEditingController();
-  final _meetingPointController = TextEditingController();
+  String? _meetingPointName;
+  String? _meetingPointAddress;
+  double? _meetingPointLatitude;
+  double? _meetingPointLongitude;
   DateTime? _startDate;
   DateTime? _endDate;
   Map<int, List<Destination>> _itinerary = {};
@@ -101,7 +104,6 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   @override
   void dispose() {
     _titleController.dispose();
-    _meetingPointController.dispose();
     super.dispose();
   }
 
@@ -147,7 +149,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
       if (_plan != null) {
         _titleController.text = _plan!.title;
-        _meetingPointController.text = _plan!.meetingPointName ?? '';
+        _meetingPointName = _plan!.meetingPointName;
+        _meetingPointAddress = _plan!.meetingPointAddress;
+        _meetingPointLatitude = _plan!.meetingPointLatitude;
+        _meetingPointLongitude = _plan!.meetingPointLongitude;
         _startDate = _plan!.startDate;
         _endDate = _plan!.endDate;
 
@@ -267,7 +272,11 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         destinationTimes: _destinationStartTimes,
         destinationEndTimes: _destinationEndTimes,
         bannerImage: _plan!.bannerImage,
-        meetingPointName: _meetingPointController.text.trim(),
+        meetingPointName: _meetingPointName?.trim() ?? '',
+        meetingPointAddress: _meetingPointAddress?.trim(),
+        meetingPointLatitude: _meetingPointLatitude,
+        meetingPointLongitude: _meetingPointLongitude,
+        replaceMeetingPoint: true,
       );
 
       if (success) {
@@ -700,8 +709,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Widget _buildMeetingPointSection() {
-    final meetingPoint = _meetingPointController.text.trim();
-    if (!_isEditing && meetingPoint.isEmpty) {
+    final meetingPoint = _meetingPointName?.trim() ?? '';
+    final meetingAddress = _meetingPointAddress?.trim() ?? '';
+    final hasMeetingPoint = meetingPoint.isNotEmpty;
+    if (!_isEditing && !hasMeetingPoint) {
       return const SizedBox.shrink();
     }
 
@@ -738,55 +749,98 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _isEditing
-                  ? TextField(
-                      controller: _meetingPointController,
-                      textInputAction: TextInputAction.done,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Meeting Point',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasMeetingPoint
+                        ? meetingPoint
+                        : 'No meeting point selected',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  if (meetingAddress.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      meetingAddress,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurfaceVariant,
                       ),
-                      decoration: InputDecoration(
-                        labelText: 'Optional meeting point',
-                        hintText: 'Example: Ayala Center Cebu',
-                        labelStyle: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        hintStyle: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        isDense: true,
-                        border: const UnderlineInputBorder(),
-                      ),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    ),
+                  ],
+                  if (_isEditing) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        Text(
-                          'Meeting Point',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: colorScheme.onSurfaceVariant,
+                        OutlinedButton.icon(
+                          onPressed: _selectMeetingPoint,
+                          icon: const Icon(Icons.add_location_alt_rounded),
+                          label: Text(
+                            hasMeetingPoint
+                                ? 'Change Meeting Point'
+                                : 'Select Meeting Point',
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          meetingPoint,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: colorScheme.onSurface,
+                        if (hasMeetingPoint)
+                          TextButton.icon(
+                            onPressed: _clearMeetingPoint,
+                            icon: const Icon(Icons.clear_rounded),
+                            label: const Text('Clear Meeting Point'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
                           ),
-                        ),
                       ],
                     ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _selectMeetingPoint() async {
+    final destination = await Navigator.push<Destination>(
+      context,
+      MaterialPageRoute(builder: (context) => const AddPlaceScreen()),
+    );
+    if (!mounted || destination == null) return;
+    setState(() {
+      _meetingPointName = destination.name;
+      _meetingPointAddress = destination.location;
+      _meetingPointLatitude = destination.coordinates?.latitude;
+      _meetingPointLongitude = destination.coordinates?.longitude;
+    });
+  }
+
+  void _clearMeetingPoint() {
+    setState(() {
+      _meetingPointName = null;
+      _meetingPointAddress = null;
+      _meetingPointLatitude = null;
+      _meetingPointLongitude = null;
+    });
   }
 
   Widget _buildActionButtons() {
@@ -1051,7 +1105,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     final stopLabel =
         stopCount == 1 ? '1 itinerary stop' : '$stopCount itinerary stops';
     final dayLabel = dayCount == 1 ? '1 day' : '$dayCount days';
-    final meetingPoint = _plan?.meetingPointName?.trim() ?? '';
+    final meetingPoint = _meetingPointName?.trim() ?? '';
+    final meetingAddress = _meetingPointAddress?.trim() ?? '';
 
     return _buildItineraryEntrance(
       order: 0,
@@ -1173,8 +1228,15 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     icon: Icons.place_rounded,
                     text: meetingPoint.isNotEmpty
                         ? 'Meeting point: $meetingPoint'
-                        : 'No meeting point set.',
+                        : 'No meeting point set',
                   ),
+                  if (meetingAddress.isNotEmpty) ...[
+                    const SizedBox(height: 7),
+                    _buildBudgetDetailLine(
+                      icon: Icons.location_on_outlined,
+                      text: 'Address: $meetingAddress',
+                    ),
+                  ],
                   if (hasStops && passengerEstimates.isNotEmpty) ...[
                     const SizedBox(height: 7),
                     ...passengerEstimates.take(4).map(

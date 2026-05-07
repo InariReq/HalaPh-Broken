@@ -13,6 +13,9 @@ class TravelPlan {
   final bool isShared;
   final String? bannerImage;
   final String? meetingPointName;
+  final String? meetingPointAddress;
+  final double? meetingPointLatitude;
+  final double? meetingPointLongitude;
   final List<String> collaboratorUids;
   final String status;
 
@@ -27,6 +30,9 @@ class TravelPlan {
     this.isShared = false,
     this.bannerImage,
     this.meetingPointName,
+    this.meetingPointAddress,
+    this.meetingPointLatitude,
+    this.meetingPointLongitude,
     this.collaboratorUids = const [],
     this.status = 'active',
   });
@@ -39,6 +45,12 @@ class TravelPlan {
   bool get isFinished => status == 'finished' || status == 'completed';
 
   bool get isActive => !isFinished;
+
+  static double? _parseDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value.trim());
+    return null;
+  }
 
   factory TravelPlan.fromJson(Map<String, dynamic> json) {
     DateTime parseDate(dynamic value) {
@@ -64,6 +76,9 @@ class TravelPlan {
       isShared: json['isShared'] ?? false,
       bannerImage: (json['bannerImage'] as String?)?.trim(),
       meetingPointName: (json['meetingPointName'] as String?)?.trim(),
+      meetingPointAddress: (json['meetingPointAddress'] as String?)?.trim(),
+      meetingPointLatitude: _parseDouble(json['meetingPointLatitude']),
+      meetingPointLongitude: _parseDouble(json['meetingPointLongitude']),
       collaboratorUids: List<String>.from(json['collaboratorUids'] ?? []),
       status: _parseStatus(json['status']),
     );
@@ -98,6 +113,9 @@ class TravelPlan {
       isShared: data['isShared'] ?? false,
       bannerImage: (data['bannerImage'] as String?)?.trim(),
       meetingPointName: (data['meetingPointName'] as String?)?.trim(),
+      meetingPointAddress: (data['meetingPointAddress'] as String?)?.trim(),
+      meetingPointLatitude: _parseDouble(data['meetingPointLatitude']),
+      meetingPointLongitude: _parseDouble(data['meetingPointLongitude']),
       collaboratorUids: List<String>.from(data['collaboratorUids'] ?? []),
       status: _parseStatus(data['status']),
     );
@@ -127,6 +145,12 @@ class TravelPlan {
       if (bannerImage?.isNotEmpty == true) 'bannerImage': bannerImage!.trim(),
       if (meetingPointName?.trim().isNotEmpty == true)
         'meetingPointName': meetingPointName!.trim(),
+      if (meetingPointAddress?.trim().isNotEmpty == true)
+        'meetingPointAddress': meetingPointAddress!.trim(),
+      if (meetingPointLatitude != null)
+        'meetingPointLatitude': meetingPointLatitude,
+      if (meetingPointLongitude != null)
+        'meetingPointLongitude': meetingPointLongitude,
     };
     return data;
   }
