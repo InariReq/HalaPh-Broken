@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -14,11 +16,21 @@ class TripHistoryScreen extends StatefulWidget {
 class _TripHistoryScreenState extends State<TripHistoryScreen> {
   bool _loading = true;
   List<TravelPlan> _pastPlans = [];
+  StreamSubscription<void>? _plansSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadTripHistory();
+    _plansSubscription = SimplePlanService.changes.listen((_) {
+      _syncTripHistoryFromCache();
+    });
+  }
+
+  @override
+  void dispose() {
+    _plansSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadTripHistory() async {
@@ -28,10 +40,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
 
     try {
       await SimplePlanService.initialize(forceRefresh: true);
-      final plans = SimplePlanService.getAllPlans()
-          .where(SimplePlanService.isPlanInTripHistory)
-          .toList()
-        ..sort((a, b) => b.endDate.compareTo(a.endDate));
+      final plans = _tripHistoryPlansFromCache();
 
       if (!mounted) return;
       setState(() {
@@ -46,6 +55,24 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
         _loading = false;
       });
     }
+  }
+
+  void _syncTripHistoryFromCache() {
+    if (!mounted) return;
+
+    setState(() {
+      _pastPlans = _tripHistoryPlansFromCache();
+      _loading = false;
+    });
+  }
+
+  List<TravelPlan> _tripHistoryPlansFromCache() {
+    final plans = List<TravelPlan>.from(
+      SimplePlanService.getAllPlans().where(
+        SimplePlanService.isPlanInTripHistory,
+      ),
+    )..sort((a, b) => b.endDate.compareTo(a.endDate));
+    return plans;
   }
 
   @override
@@ -170,7 +197,10 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 14),
                     itemBuilder: (context, index) {
                       final plan = _pastPlans[index];
-                      return _TripHistoryCard(plan: plan);
+                      return _TripHistoryCard(
+                        plan: plan,
+                        onReturnFromDetails: _syncTripHistoryFromCache,
+                      );
                     },
                   ),
       ),
@@ -180,8 +210,12 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
 
 class _TripHistoryCard extends StatelessWidget {
   final TravelPlan plan;
+  final VoidCallback onReturnFromDetails;
 
-  const _TripHistoryCard({required this.plan});
+  const _TripHistoryCard({
+    required this.plan,
+    required this.onReturnFromDetails,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -200,10 +234,11 @@ class _TripHistoryCard extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(22),
-      onTap: () {
-        GoRouter.of(context).push(
+      onTap: () async {
+        await GoRouter.of(context).push(
           '/plan-details?planId=${Uri.encodeComponent(plan.id)}',
         );
+        onReturnFromDetails();
       },
       child: Container(
         decoration: BoxDecoration(
