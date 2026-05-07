@@ -934,8 +934,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   int _budgetParticipantCount() {
-    final participants = _budgetParticipantIds();
-    return participants.isEmpty ? 1 : participants.length;
+    final estimates = _budgetPassengerEstimates(_estimatedTransportTotal());
+    return estimates.isEmpty ? 1 : estimates.length;
   }
 
   Future<void> _loadBudgetPassengerTypes() async {
@@ -1059,14 +1059,36 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       ];
     }
 
-    return participantIds.map((id) {
+    final estimatesByPerson = <String, _BudgetPassengerEstimate>{};
+
+    for (final id in participantIds) {
       final type = _budgetPassengerTypes[id] ?? PassengerType.regular;
-      return _BudgetPassengerEstimate(
-        name: _budgetPassengerNames[id] ?? 'Participant',
-        type: type,
-        estimate: _estimateForPassengerType(regularPassengerEstimate, type),
+      final name = (_budgetPassengerNames[id] ?? 'Participant').trim();
+      final normalizedName = name.toLowerCase();
+      final typeKey = CommuterTypeService.keyFor(type);
+
+      final personKey = normalizedName == 'you'
+          ? 'me'
+          : normalizedName.isNotEmpty && normalizedName != 'participant'
+              ? 'name:$normalizedName|type:$typeKey'
+              : 'id:$id';
+
+      estimatesByPerson.putIfAbsent(
+        personKey,
+        () => _BudgetPassengerEstimate(
+          name: name.isNotEmpty ? name : 'Participant',
+          type: type,
+          estimate: _estimateForPassengerType(regularPassengerEstimate, type),
+        ),
       );
-    }).toList();
+    }
+
+    return estimatesByPerson.values.toList()
+      ..sort((a, b) {
+        if (a.name == 'You') return -1;
+        if (b.name == 'You') return 1;
+        return a.name.compareTo(b.name);
+      });
   }
 
   String _formatPerPassengerRange(List<_BudgetPassengerEstimate> estimates) {
