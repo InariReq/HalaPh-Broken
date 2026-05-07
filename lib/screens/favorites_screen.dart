@@ -76,7 +76,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
       setState(() {
         _favorites = destinations
             .where((destination) => !_busyFavoriteIds.contains(destination.id))
-            .toList(growable: false);
+            .toList();
         _loading = false;
       });
     } catch (_) {
