@@ -189,6 +189,20 @@ service cloud.firestore {
 
     // Friend requests - top-level collection
     match /friendRequests/{requestId} {
+
+      // terminal-account-cleanup-friendRequests-delete
+      allow delete: if request.auth != null && (
+        requestId.matches(request.auth.uid + '_.*') ||
+        requestId.matches('.*_' + request.auth.uid) ||
+        resource.data.get('fromUid', '') == request.auth.uid ||
+        resource.data.get('toUid', '') == request.auth.uid ||
+        resource.data.get('senderUid', '') == request.auth.uid ||
+        resource.data.get('receiverUid', '') == request.auth.uid ||
+        resource.data.get('requesterUid', '') == request.auth.uid ||
+        resource.data.get('targetUid', '') == request.auth.uid ||
+        resource.data.get('uid', '') == request.auth.uid
+      );
+
       // No get rule - client should not need to read individual request docs
       // Writes are controlled by create/update/delete rules below
       allow list: if signedIn()
