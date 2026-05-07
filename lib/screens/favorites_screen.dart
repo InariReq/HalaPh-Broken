@@ -6,7 +6,6 @@ import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/screens/route_options_screen.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/favorites_service.dart';
-import 'package:halaph/utils/navigation_utils.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -93,15 +92,6 @@ class _FavoritesScreenState extends State<FavoritesScreen>
             fontWeight: FontWeight.w700,
           ),
         ),
-        leading: Navigator.of(context).canPop()
-            ? IconButton(
-                icon: Icon(
-                  Icons.arrow_back_rounded,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-                onPressed: () => safeNavigateBack(context),
-              )
-            : null,
         actions: [
           IconButton(
             icon: Icon(

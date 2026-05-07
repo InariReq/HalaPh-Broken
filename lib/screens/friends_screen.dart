@@ -74,19 +74,17 @@ class _FriendsScreenState extends State<FriendsScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-          onPressed: () {
-            if (widget.selectionMode) {
-              safePopWithResult(context, _selectedCodes.toList());
-            } else {
-              safeNavigateBack(context);
-            }
-          },
-        ),
+        leading: widget.selectionMode
+            ? IconButton(
+                icon: Icon(
+                  Icons.arrow_back,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+                onPressed: () {
+                  safePopWithResult(context, _selectedCodes.toList());
+                },
+              )
+            : null,
         title: Text(
           'Friends',
           style: TextStyle(

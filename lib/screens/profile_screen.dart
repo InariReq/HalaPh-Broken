@@ -11,7 +11,6 @@ import 'package:halaph/services/commuter_type_service.dart';
 import 'package:halaph/services/fare_service.dart';
 import 'package:halaph/models/user.dart';
 import 'package:halaph/models/destination.dart';
-import 'package:halaph/utils/navigation_utils.dart';
 
 // Data models for easier implementation
 class UserProfile {
@@ -165,13 +164,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         centerTitle: true,
-        leading: Navigator.of(context).canPop()
-            ? IconButton(
-                icon: Icon(Icons.arrow_back,
-                    color: Theme.of(context).colorScheme.onSurface),
-                onPressed: () => safeNavigateBack(context),
-              )
-            : null,
         title: Text(
           'My Profile',
           style: TextStyle(
