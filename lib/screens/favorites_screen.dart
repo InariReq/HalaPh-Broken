@@ -6,6 +6,7 @@ import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/screens/route_options_screen.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/favorites_service.dart';
+import 'package:halaph/widgets/motion_widgets.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -199,13 +200,7 @@ class _FavoritesLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: SizedBox(
-        width: 28,
-        height: 28,
-        child: CircularProgressIndicator(strokeWidth: 3),
-      ),
-    );
+    return const LoadingStatePanel(label: 'Loading favorites...');
   }
 }
 
@@ -271,39 +266,10 @@ class _EmptyFavoritesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: _cardDecoration(context, shadow: false),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.favorite_border_rounded,
-            size: 58,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          SizedBox(height: 14),
-          Text(
-            'No favorites yet',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Tap the heart icon on places to save them here.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              height: 1.35,
-            ),
-          ),
-        ],
-      ),
+    return const EmptyStatePanel(
+      icon: Icons.favorite_border_rounded,
+      title: 'No favorites yet',
+      message: 'Tap the heart icon on places to save them here.',
     );
   }
 }

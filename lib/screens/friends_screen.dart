@@ -4,6 +4,7 @@ import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/models/friend.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/utils/navigation_utils.dart';
+import 'package:halaph/widgets/motion_widgets.dart';
 
 class FriendsScreen extends StatefulWidget {
   final bool selectionMode;
@@ -105,36 +106,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       ),
       body: SafeArea(
         child: _isLoading
-            ? Center(
-                child: Container(
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainer,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .outlineVariant
-                          .withValues(alpha: 0.28),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.18),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: SizedBox(
-                    height: 36,
-                    width: 36,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      color: Colors.blue[700],
-                    ),
-                  ),
-                ),
-              )
+            ? const LoadingStatePanel(label: 'Loading friends...')
             : Column(
                 children: [
                   Padding(
@@ -274,33 +246,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
         ),
         const SizedBox(height: 16),
         if (_pendingRequests.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: Theme.of(context)
-                    .colorScheme
-                    .outlineVariant
-                    .withValues(alpha: 0.28),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Text(
-              'No pending friend requests.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
+          const EmptyStatePanel(
+            icon: Icons.mark_email_read_rounded,
+            title: 'No pending requests',
+            message: 'Friend requests will appear here when someone adds you.',
           )
         else
           Container(
@@ -648,33 +597,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
         ),
         const SizedBox(height: 16),
         if (_members.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: Theme.of(context)
-                    .colorScheme
-                    .outlineVariant
-                    .withValues(alpha: 0.28),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Text(
-              'No friends yet. Add one using their code.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
+          const EmptyStatePanel(
+            icon: Icons.person_add_alt_1_rounded,
+            title: 'No friends yet',
+            message: 'Add a friend using their code to plan trips together.',
           )
         else
           Container(

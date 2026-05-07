@@ -15,6 +15,7 @@ import 'package:halaph/services/budget_routing_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/screens/add_place_screen.dart';
 import 'package:halaph/screens/friends_screen.dart';
+import 'package:halaph/widgets/motion_widgets.dart';
 
 class DestinationData {
   final Destination destination;
@@ -426,36 +427,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Widget _buildLoadingState() {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: Theme.of(context)
-                .colorScheme
-                .outlineVariant
-                .withValues(alpha: 0.28),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.18),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: SizedBox(
-          height: 36,
-          width: 36,
-          child: CircularProgressIndicator(
-            strokeWidth: 3,
-            color: Colors.blue[700],
-          ),
-        ),
-      ),
-    );
+    return const LoadingStatePanel(label: 'Loading plan...');
   }
 
   Widget _buildContent() {

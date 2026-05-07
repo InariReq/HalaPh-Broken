@@ -8,6 +8,7 @@ import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
+import 'package:halaph/widgets/motion_widgets.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class ExploreScreen extends StatefulWidget {
@@ -319,30 +320,29 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildSearchBar(),
-            const SizedBox(height: 16),
-            _buildFilterChips(),
-            const SizedBox(height: 12),
-            _buildExploreSummary(),
-            const SizedBox(height: 16),
-            Expanded(
-              child:
-                  _isLoading ? _buildLoadingIndicator() : _buildSearchResults(),
-            ),
-          ],
+        child: FadeInPage(
+          child: Column(
+            children: [
+              _buildSearchBar(),
+              const SizedBox(height: 16),
+              _buildFilterChips(),
+              const SizedBox(height: 12),
+              _buildExploreSummary(),
+              const SizedBox(height: 16),
+              Expanded(
+                child: _isLoading
+                    ? _buildLoadingIndicator()
+                    : _buildSearchResults(),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildLoadingIndicator() {
-    return Center(
-      child: CircularProgressIndicator(
-        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-      ),
-    );
+    return const LoadingStatePanel(label: 'Finding places...');
   }
 
   Widget _buildSearchBar() {
@@ -581,25 +581,21 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget _buildSearchResults() {
     if (_destinations.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              'No destinations found',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: EmptyStatePanel(
+            icon: Icons.search_rounded,
+            title: 'No destinations found',
+            message: 'Try another keyword or return to nearby places.',
+            action: ElevatedButton(
               onPressed: () {
                 _searchController.clear();
                 _selectedCategory = null;
                 _runDestinationSearch();
               },
-              child: Text('Show All'),
+              child: const Text('Show All'),
             ),
-          ],
+          ),
         ),
       );
     }

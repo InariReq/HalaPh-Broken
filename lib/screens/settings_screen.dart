@@ -4,6 +4,7 @@ import 'package:halaph/services/auth_service.dart';
 import 'package:halaph/services/plan_notification_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/services/theme_mode_service.dart';
+import 'package:halaph/widgets/motion_widgets.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -195,78 +196,94 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
           children: [
-            _buildHeroCard(),
+            SlideFadeIn(order: 0, child: _buildHeroCard()),
             const SizedBox(height: 18),
-            _section(
-              title: 'Appearance',
-              icon: Icons.dark_mode_outlined,
-              iconColor: const Color(0xFF1976D2),
-              children: [
-                _themeOption(ThemeMode.system, Icons.phone_iphone_rounded),
-                const SizedBox(height: 10),
-                _themeOption(ThemeMode.light, Icons.light_mode_rounded),
-                const SizedBox(height: 10),
-                _themeOption(ThemeMode.dark, Icons.dark_mode_rounded),
-              ],
+            SlideFadeIn(
+              order: 1,
+              child: _section(
+                title: 'Appearance',
+                icon: Icons.dark_mode_outlined,
+                iconColor: const Color(0xFF1976D2),
+                children: [
+                  _themeOption(ThemeMode.system, Icons.phone_iphone_rounded),
+                  const SizedBox(height: 10),
+                  _themeOption(ThemeMode.light, Icons.light_mode_rounded),
+                  const SizedBox(height: 10),
+                  _themeOption(ThemeMode.dark, Icons.dark_mode_rounded),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
-            _section(
-              title: 'Permissions',
-              icon: Icons.privacy_tip_outlined,
-              iconColor: const Color(0xFF1976D2),
-              children: [
-                _infoRow(
-                  icon: Icons.location_on_outlined,
-                  title: 'Location',
-                  subtitle:
-                      'Used to show nearby places and improve route planning. You can change this in iOS Settings.',
-                ),
-                const SizedBox(height: 12),
-                Divider(height: 1, color: _borderColor),
-                const SizedBox(height: 12),
-                _infoRow(
-                  icon: Icons.notifications_outlined,
-                  title: 'Notifications',
-                  subtitle:
-                      'Used for local plan reminders. Remote push notifications are separate.',
-                ),
-              ],
+            SlideFadeIn(
+              order: 2,
+              child: _section(
+                title: 'Permissions',
+                icon: Icons.privacy_tip_outlined,
+                iconColor: const Color(0xFF1976D2),
+                children: [
+                  _infoRow(
+                    icon: Icons.location_on_outlined,
+                    title: 'Location',
+                    subtitle:
+                        'Used to show nearby places and improve route planning. You can change this in iOS Settings.',
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(height: 1, color: _borderColor),
+                  const SizedBox(height: 12),
+                  _infoRow(
+                    icon: Icons.notifications_outlined,
+                    title: 'Notifications',
+                    subtitle:
+                        'Used for local plan reminders. Remote push notifications are separate.',
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
-            _section(
-              title: 'Plan Reminder',
-              icon: Icons.alarm_rounded,
-              iconColor: const Color(0xFF1976D2),
-              children: [
-                _reminderToggle(),
-              ],
+            SlideFadeIn(
+              order: 3,
+              child: _section(
+                title: 'Plan Reminder',
+                icon: Icons.alarm_rounded,
+                iconColor: const Color(0xFF1976D2),
+                children: [
+                  _reminderToggle(),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
-            _section(
-              title: 'Privacy and Account',
-              icon: Icons.lock_outline_rounded,
-              iconColor: Colors.red,
-              children: [
-                _dangerButton(
-                  label: _deletingAccount
-                      ? 'Deleting account...'
-                      : 'Delete Account',
-                  onPressed: _deletingAccount ? null : _deleteAccount,
-                ),
-              ],
+            SlideFadeIn(
+              order: 4,
+              child: _section(
+                title: 'Privacy and Account',
+                icon: Icons.lock_outline_rounded,
+                iconColor: Colors.red,
+                children: [
+                  _dangerButton(
+                    label: _deletingAccount
+                        ? 'Deleting account...'
+                        : 'Delete Account',
+                    onPressed: _deletingAccount ? null : _deleteAccount,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
-            _section(
-              title: 'App',
-              icon: Icons.info_outline_rounded,
-              iconColor: const Color(0xFF1976D2),
-              children: [
-                _infoRow(
-                  icon: Icons.directions_bus_filled_outlined,
-                  title: 'HalaPH',
-                  subtitle: 'Account settings, permissions, and app controls.',
-                ),
-              ],
+            SlideFadeIn(
+              order: 5,
+              child: _section(
+                title: 'App',
+                icon: Icons.info_outline_rounded,
+                iconColor: const Color(0xFF1976D2),
+                children: [
+                  _infoRow(
+                    icon: Icons.directions_bus_filled_outlined,
+                    title: 'HalaPH',
+                    subtitle:
+                        'Account settings, permissions, and app controls.',
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -400,7 +417,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _themeOption(ThemeMode mode, IconData icon) {
     final selected = _themeMode == mode;
 
-    return InkWell(
+    return PressableCard(
       borderRadius: BorderRadius.circular(18),
       onTap: () => _setThemeMode(mode),
       child: Container(
