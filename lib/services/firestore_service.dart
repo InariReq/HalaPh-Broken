@@ -296,6 +296,111 @@ class FirestoreService {
     }
   }
 
+  static Future<void> cleanupAccountData({
+    required String uid,
+    required String? friendCode,
+  }) async {
+    final code = friendCode?.trim().toUpperCase();
+    final batch = _AccountCleanupBatch(_db);
+
+    try {
+      final friendDocs =
+          await _db.collection('users').doc(uid).collection('friends').get();
+      final friendUids = <String>{};
+      for (final doc in friendDocs.docs) {
+        final data = doc.data();
+        final friendUid = (data['friendUid'] as String? ??
+                data['uid'] as String? ??
+                data['friendId'] as String? ??
+                doc.id)
+            .trim();
+        if (friendUid.isNotEmpty) friendUids.add(friendUid);
+        batch.delete(doc.reference);
+      }
+
+      for (final friendUid in friendUids) {
+        batch.delete(
+          _db.collection('users').doc(friendUid).collection('friends').doc(uid),
+        );
+        batch.delete(_db.collection('friendRequests').doc('${uid}_$friendUid'));
+        batch.delete(_db.collection('friendRequests').doc('${friendUid}_$uid'));
+        batch.delete(
+          _db
+              .collection('users')
+              .doc(friendUid)
+              .collection('friend_requests')
+              .doc(uid),
+        );
+      }
+
+      final incomingRequests = await _db
+          .collection('users')
+          .doc(uid)
+          .collection('friend_requests')
+          .get();
+      for (final doc in incomingRequests.docs) {
+        final data = doc.data();
+        final fromUid = (data['fromUid'] as String? ?? doc.id).trim();
+        final toUid = (data['toUid'] as String? ?? uid).trim();
+        batch.delete(doc.reference);
+        if (fromUid.isNotEmpty && toUid.isNotEmpty) {
+          batch.delete(
+              _db.collection('friendRequests').doc('${fromUid}_$toUid'));
+        }
+      }
+
+      final sentRequests = await _db
+          .collection('friendRequests')
+          .where('fromUid', isEqualTo: uid)
+          .get();
+      for (final doc in sentRequests.docs) {
+        final data = doc.data();
+        final toUid = (data['toUid'] as String? ?? '').trim();
+        batch.delete(doc.reference);
+        if (toUid.isNotEmpty) {
+          batch.delete(
+            _db
+                .collection('users')
+                .doc(toUid)
+                .collection('friend_requests')
+                .doc(uid),
+          );
+        }
+      }
+
+      final receivedRequests = await _db
+          .collection('friendRequests')
+          .where('toUid', isEqualTo: uid)
+          .get();
+      for (final doc in receivedRequests.docs) {
+        batch.delete(doc.reference);
+      }
+
+      final syncDocs =
+          await _db.collection('users').doc(uid).collection('sync').get();
+      for (final doc in syncDocs.docs) {
+        batch.delete(doc.reference);
+      }
+
+      final favoriteDocs =
+          await _db.collection('users').doc(uid).collection('favorites').get();
+      for (final doc in favoriteDocs.docs) {
+        batch.delete(doc.reference);
+      }
+
+      if (code != null && code.isNotEmpty) {
+        batch.delete(_db.collection('publicProfiles').doc(code));
+        batch.delete(_db.collection('friendCodes').doc(code));
+      }
+
+      batch.delete(_db.collection('users').doc(uid));
+      await batch.commit();
+    } catch (error) {
+      developer.log('FirestoreService: Account cleanup failed: $error');
+      rethrow;
+    }
+  }
+
   // ===== FRIENDS (READ-ONLY) =====
 
   /// Get user's friends (read-only from client perspective)
@@ -1218,5 +1323,25 @@ class FirestoreService {
       developer.log('FirestoreService: Error removing favorite: $e');
       rethrow;
     }
+  }
+}
+
+class _AccountCleanupBatch {
+  final FirebaseFirestore _db;
+  WriteBatch _batch;
+  int _count = 0;
+
+  _AccountCleanupBatch(this._db) : _batch = _db.batch();
+
+  void delete(DocumentReference<Map<String, dynamic>> ref) {
+    _batch.delete(ref);
+    _count++;
+  }
+
+  Future<void> commit() async {
+    if (_count == 0) return;
+    await _batch.commit();
+    _batch = _db.batch();
+    _count = 0;
   }
 }

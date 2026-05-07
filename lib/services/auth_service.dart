@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:halaph/models/user.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/firebase_app_service.dart';
+import 'package:halaph/services/firestore_service.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/commuter_type_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
@@ -252,13 +253,43 @@ class AuthService {
         password: password.trim(),
       );
       await user.reauthenticateWithCredential(credential);
+
+      final uid = user.uid;
+      String? friendCode;
+      try {
+        friendCode = await FriendService().getMyCode();
+      } catch (error) {
+        debugPrint('Could not load friend code before account cleanup: $error');
+      }
+
+      try {
+        await SimplePlanService.cleanupAccountPlans(
+          uid: uid,
+          friendCode: friendCode,
+        );
+        await FirestoreService.cleanupAccountData(
+          uid: uid,
+          friendCode: friendCode,
+        );
+      } catch (error) {
+        _lastAuthError =
+            'Could not clean up account data. Please check your connection and try again.';
+        debugPrint('Delete account cleanup failed: $error');
+        return false;
+      }
+
       await user.delete();
+      await SavedAccountsService().removeSavedAccount(uid);
+      await firebase_auth.FirebaseAuth.instance.signOut();
       SimplePlanService.resetCache();
       FavoritesService().clearCache();
+      FriendService().clearCache();
+      CommuterTypeService().clearCache();
       return true;
     } on firebase_auth.FirebaseAuthException catch (error) {
       if (error.code == 'requires-recent-login') {
-        _lastAuthError = 'Please log in again before deleting your account.';
+        _lastAuthError =
+            'Please sign in again, then retry deleting your account.';
       } else {
         _lastAuthError = _messageForAuthException(error, isRegistration: false);
       }

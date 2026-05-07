@@ -78,7 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => AlertDialog(
         title: Text('Delete account?'),
         content: Text(
-          'This permanently deletes your Firebase account access. This action cannot be undone.',
+          'This permanently deletes your account, removes you from friends lists, removes friend requests, removes your public profile, and removes or leaves shared plans where needed. This action cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -106,7 +106,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           obscureText: true,
           decoration: InputDecoration(
             labelText: 'Password',
-            helperText: 'Enter your password to confirm deletion.',
+            helperText:
+                'Enter your password to permanently delete this account.',
           ),
         ),
         actions: [

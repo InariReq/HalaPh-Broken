@@ -1371,6 +1371,93 @@ class SimplePlanService {
     }
   }
 
+  static Future<void> cleanupAccountPlans({
+    required String uid,
+    String? friendCode,
+  }) async {
+    if (FirebaseModes.offline) {
+      _plans.removeWhere(
+        (_, plan) =>
+            plan.createdBy == uid ||
+            plan.participantUids.contains(uid) ||
+            plan.collaboratorUids.contains(uid),
+      );
+      _ownerUids.removeWhere((_, ownerUid) => ownerUid == uid);
+      _participantUids.clear();
+      _notifyChanged();
+      return;
+    }
+
+    final code = _normalizeCode(friendCode ?? '');
+    final identifiers = <String>{uid};
+    if (code.isNotEmpty && code != uid) identifiers.add(code);
+
+    try {
+      final byUid = await _plansCollection
+          .where('participantUids', arrayContains: uid)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      QuerySnapshot<Map<String, dynamic>>? byCode;
+      if (code.isNotEmpty && code != uid) {
+        try {
+          byCode = await _plansCollection
+              .where('participantUids', arrayContains: code)
+              .get()
+              .timeout(const Duration(seconds: 8));
+        } catch (error) {
+          debugPrint('Account cleanup code-based plan lookup skipped: $error');
+        }
+      }
+
+      final docs = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
+      for (final doc in byUid.docs) {
+        docs[doc.id] = doc;
+      }
+      for (final doc in byCode?.docs ?? const []) {
+        docs[doc.id] = doc;
+      }
+
+      for (final doc in docs.values) {
+        final data = doc.data();
+        final createdBy = data['createdBy'] as String? ?? '';
+        final ownerUid = data['ownerUid'] as String? ?? '';
+        final ownerId = data['ownerId'] as String? ?? '';
+        final isOwner = createdBy == uid || ownerUid == uid || ownerId == uid;
+
+        if (isOwner) {
+          await doc.reference.delete().timeout(const Duration(seconds: 8));
+          _plans.remove(doc.id);
+          _ownerUids.remove(doc.id);
+          _participantUids.remove(doc.id);
+          continue;
+        }
+
+        final startLocations = Map<String, dynamic>.from(
+          data['participantStartLocations'] as Map? ?? const {},
+        );
+        for (final id in identifiers) {
+          startLocations.remove(id);
+        }
+
+        await doc.reference.update({
+          'participantUids': FieldValue.arrayRemove(identifiers.toList()),
+          'collaboratorUids': FieldValue.arrayRemove(identifiers.toList()),
+          'participantStartLocations': startLocations,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }).timeout(const Duration(seconds: 8));
+
+        _plans.remove(doc.id);
+        _ownerUids.remove(doc.id);
+        _participantUids.remove(doc.id);
+      }
+
+      _notifyChanged();
+    } catch (error) {
+      debugPrint('Failed to clean up account plans: $error');
+      rethrow;
+    }
+  }
+
   static String shareLink(String planId) =>
       'https://halaph.app/plan-details?planId=${Uri.encodeComponent(planId)}';
 

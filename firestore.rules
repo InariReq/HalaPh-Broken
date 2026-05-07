@@ -87,7 +87,7 @@ service cloud.firestore {
           'updatedAt'
         ]);
 
-      allow delete: if false;
+      allow delete: if isOwner(userId);
     }
 
     // User private sync data (profile, friends, plans, etc.)
@@ -168,14 +168,17 @@ service cloud.firestore {
          request.resource.data.keys().hasOnly(['fromUid', 'toUid', 'fromCode', 'toCode', 'fromName', 'toName', 'fromAvatarUrl', 'toAvatarUrl', 'status', 'createdAt', 'updatedAt']))
       );
 
-      allow delete: if false;
+      allow delete: if signedIn()
+        && resource.data.uid == request.auth.uid;
     }
 
     // Friend requests - top-level collection
     match /friendRequests/{requestId} {
       // No get rule - client should not need to read individual request docs
       // Writes are controlled by create/update/delete rules below
-      allow list: if false;
+      allow list: if signedIn()
+        && (resource.data.fromUid == request.auth.uid ||
+            resource.data.toUid == request.auth.uid);
 
       allow create: if signedIn()
         && request.auth.uid == request.resource.data.fromUid
@@ -268,6 +271,23 @@ service cloud.firestore {
          request.auth.uid in request.resource.data.participantUids) ||
         // Participant can leave by removing only their own UID.
         isParticipantLeavingPlan() ||
+        // Account cleanup: a participant can remove only their own access
+        // identifiers and participant start-location entries.
+        (isPlanParticipant(resource.data) &&
+         authIsNotPlanOwner(resource.data) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participantUids', 'collaboratorUids', 'participantStartLocations', 'updatedAt']) &&
+         request.resource.data.createdBy == resource.data.createdBy &&
+         ownerUidUnchangedIfPresent() &&
+         ownerIdUnchangedIfPresent() &&
+         request.resource.data.participantUids is list &&
+         resource.data.createdBy in request.resource.data.participantUids &&
+         ownerUidRemainsParticipantIfPresent() &&
+         ownerIdRemainsParticipantIfPresent() &&
+         request.resource.data.participantUids.toSet().difference(resource.data.participantUids.toSet()).size() == 0 &&
+         request.resource.data.collaboratorUids.toSet().difference(resource.data.collaboratorUids.toSet()).size() == 0 &&
+         !(request.auth.uid in request.resource.data.participantUids) &&
+         !(request.auth.uid in request.resource.data.collaboratorUids) &&
+         !request.resource.data.participantStartLocations.keys().hasAny([request.auth.uid])) ||
         // Any participant can update participant start locations only.
         // App code must only write the current user's own start location entry.
         (isPlanParticipant(resource.data) &&
