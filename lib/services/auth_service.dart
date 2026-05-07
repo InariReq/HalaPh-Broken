@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/foundation.dart';
 import 'package:halaph/models/user.dart';
@@ -310,23 +312,56 @@ class AuthService {
   }
 
   Future<bool> sendPasswordResetEmail(String email) async {
-    if (email.isEmpty) {
+    _lastAuthError = null;
+    final trimmedEmail = email.trim();
+
+    if (trimmedEmail.isEmpty) {
       _lastAuthError = 'Enter your email address.';
+      return false;
+    }
+
+    if (!await FirebaseAppService.initialize(forceRetry: true)) {
+      _lastAuthError = 'Firebase is not configured for this platform.';
       return false;
     }
 
     try {
       await firebase_auth.FirebaseAuth.instance
-          .sendPasswordResetEmail(email: email);
+          .sendPasswordResetEmail(email: trimmedEmail)
+          .timeout(const Duration(seconds: 12));
       return true;
     } on firebase_auth.FirebaseAuthException catch (error) {
-      _lastAuthError = _messageForAuthException(error, isRegistration: false);
+      _lastAuthError = _messageForPasswordResetException(error);
       debugPrint('Password reset failed: ${error.code} ${error.message ?? ''}');
       return false;
+    } on TimeoutException catch (error) {
+      _lastAuthError =
+          'Could not send reset email. Check your connection and try again.';
+      debugPrint('Password reset timed out: $error');
+      return false;
     } catch (error) {
-      _lastAuthError = 'Failed to send reset email. Check your connection.';
+      _lastAuthError =
+          'Could not send reset email. Check your connection and try again.';
       debugPrint('Password reset failed: $error');
       return false;
+    }
+  }
+
+  String _messageForPasswordResetException(
+    firebase_auth.FirebaseAuthException error,
+  ) {
+    switch (error.code) {
+      case 'invalid-email':
+        return 'Enter a valid email address.';
+      case 'user-not-found':
+      case 'invalid-recipient-email':
+      case 'missing-email':
+        return 'If this email exists, a reset link has been sent.';
+      case 'network-request-failed':
+      case 'too-many-requests':
+        return 'Could not send reset email. Check your connection and try again.';
+      default:
+        return 'Could not send reset email. Check your connection and try again.';
     }
   }
 }
