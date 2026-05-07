@@ -376,7 +376,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
             );
             return;
           }
-          context.go('/plan-details?planId=${Uri.encodeComponent(planId)}');
+          context.push('/plan-details?planId=${Uri.encodeComponent(planId)}');
         },
         borderRadius: BorderRadius.circular(20),
         child: Padding(

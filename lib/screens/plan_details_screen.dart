@@ -3483,7 +3483,11 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                 messenger.showSnackBar(
                   const SnackBar(content: Text('Plan deleted successfully')),
                 );
-                router.go('/my-plans'); // Navigate to My Plans after delete
+                if (router.canPop()) {
+                  router.pop();
+                } else {
+                  context.go('/');
+                }
               } else {
                 messenger.showSnackBar(
                   const SnackBar(content: Text('Failed to delete plan')),
@@ -3530,7 +3534,11 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       messenger.showSnackBar(
         const SnackBar(content: Text('Left plan successfully')),
       );
-      router.go('/my-plans');
+      if (router.canPop()) {
+        router.pop();
+      } else {
+        context.go('/');
+      }
     } else {
       messenger.showSnackBar(
         const SnackBar(content: Text('Failed to leave plan')),
