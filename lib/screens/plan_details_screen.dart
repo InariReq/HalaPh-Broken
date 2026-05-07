@@ -917,7 +917,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       return const SizedBox.shrink();
     }
 
-    final participantIds = _budgetParticipantIds().toList()..sort();
+    final participantStarts = _budgetPassengerEstimates(
+      _estimatedTransportTotal(),
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
@@ -1017,7 +1019,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       ],
                     ),
                   ],
-                  if (participantIds.isNotEmpty) ...[
+                  if (participantStarts.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     Text(
                       'Participant starting points',
@@ -1028,27 +1030,28 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    ...participantIds.take(6).map((id) {
-                      final label = _budgetPassengerNames[id] ?? 'Participant';
-                      final start = _participantStartLocations[id];
-                      final isMe = myKey != null && id == myKey;
+                    ...participantStarts.take(6).map((estimate) {
+                      final hasStart = !estimate.isStartMissing;
+                      final label = estimate.name.trim().isNotEmpty
+                          ? estimate.name.trim()
+                          : 'Participant';
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Row(
                           children: [
                             Icon(
-                              start == null
-                                  ? Icons.radio_button_unchecked_rounded
-                                  : Icons.check_circle_rounded,
+                              hasStart
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
                               size: 15,
-                              color: start == null
-                                  ? colorScheme.onSurfaceVariant
-                                  : Colors.green[700],
+                              color: hasStart
+                                  ? Colors.green[700]
+                                  : colorScheme.onSurfaceVariant,
                             ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                '${isMe ? 'You' : label}: ${start == null ? 'Not set' : 'Set'}',
+                                '$label: ${hasStart ? 'Set' : 'Not set'}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -1062,9 +1065,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                         ),
                       );
                     }),
-                    if (participantIds.length > 6)
+                    if (participantStarts.length > 6)
                       Text(
-                        '+${participantIds.length - 6} more participants',
+                        '+${participantStarts.length - 6} more participants',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
