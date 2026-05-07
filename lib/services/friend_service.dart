@@ -755,7 +755,6 @@ class FriendService {
       try {
         final profileRef =
             FirebaseFirestore.instance.collection('publicProfiles').doc(code);
-        final existingProfile = await profileRef.get();
 
         final fallbackData = <String, dynamic>{
           'uid': firebaseUser.uid,
@@ -766,6 +765,7 @@ class FriendService {
               ) ??
               'Traveler',
           'email': firebaseUser.email,
+          'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         };
 
@@ -773,16 +773,9 @@ class FriendService {
           fallbackData['avatarUrl'] = firebaseUser.photoURL!;
         }
 
-        if (existingProfile.exists) {
-          await profileRef
-              .update(fallbackData)
-              .timeout(const Duration(seconds: 5));
-        } else {
-          fallbackData['createdAt'] = FieldValue.serverTimestamp();
-          await profileRef
-              .set(fallbackData)
-              .timeout(const Duration(seconds: 5));
-        }
+        await profileRef
+            .set(fallbackData, SetOptions(merge: true))
+            .timeout(const Duration(seconds: 5));
       } catch (_) {}
     }
   }
