@@ -86,11 +86,11 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 24),
+                    _buildCreateNewPlan(context),
+                    const SizedBox(height: 24),
                     _buildPersonalPlans(personalPlans),
                     const SizedBox(height: 24),
                     _buildSharedPlans(sharedPlans),
-                    const SizedBox(height: 24),
-                    _buildCreateNewPlan(context),
                     const SizedBox(height: 20),
                   ],
                 ),

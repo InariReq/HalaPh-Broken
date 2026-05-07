@@ -1371,6 +1371,198 @@ class SimplePlanService {
     }
   }
 
+  static Future<bool> updateMyParticipantStartLocation({
+    required String planId,
+    required String participantId,
+    required ParticipantStartLocation? startLocation,
+  }) async {
+    final existing = _plans[planId];
+    if (existing == null) return false;
+
+    final key = participantId.trim();
+    if (key.isEmpty) return false;
+
+    final updatedLocations = Map<String, ParticipantStartLocation>.from(
+      existing.participantStartLocations,
+    );
+    if (startLocation == null) {
+      updatedLocations.remove(key);
+    } else {
+      updatedLocations[key] = startLocation;
+    }
+
+    if (FirebaseModes.offline) {
+      _plans[planId] = TravelPlan(
+        id: existing.id,
+        title: existing.title,
+        startDate: existing.startDate,
+        endDate: existing.endDate,
+        participantUids: existing.participantUids,
+        createdBy: existing.createdBy,
+        itinerary: existing.itinerary,
+        isShared: existing.isShared,
+        bannerImage: existing.bannerImage,
+        meetingPointName: existing.meetingPointName,
+        meetingPointAddress: existing.meetingPointAddress,
+        meetingPointLatitude: existing.meetingPointLatitude,
+        meetingPointLongitude: existing.meetingPointLongitude,
+        participantStartLocations: updatedLocations,
+        collaboratorUids: existing.collaboratorUids,
+        status: existing.status,
+      );
+      _notifyChanged();
+      return true;
+    }
+
+    try {
+      await _plansCollection.doc(planId).update({
+        'participantStartLocations': updatedLocations.map(
+          (entryKey, value) => MapEntry(entryKey, value.toJson()),
+        ),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }).timeout(const Duration(seconds: 8));
+
+      _plans[planId] = TravelPlan(
+        id: existing.id,
+        title: existing.title,
+        startDate: existing.startDate,
+        endDate: existing.endDate,
+        participantUids: existing.participantUids,
+        createdBy: existing.createdBy,
+        itinerary: existing.itinerary,
+        isShared: existing.isShared,
+        bannerImage: existing.bannerImage,
+        meetingPointName: existing.meetingPointName,
+        meetingPointAddress: existing.meetingPointAddress,
+        meetingPointLatitude: existing.meetingPointLatitude,
+        meetingPointLongitude: existing.meetingPointLongitude,
+        participantStartLocations: updatedLocations,
+        collaboratorUids: existing.collaboratorUids,
+        status: existing.status,
+      );
+      _notifyChanged();
+      return true;
+    } catch (error) {
+      debugPrint('Failed to update participant start location: $error');
+      return false;
+    }
+  }
+
+  static Future<void> removeParticipantFromOwnedActivePlans({
+    required String ownerUid,
+    required Set<String> participantIdentifiers,
+  }) async {
+    final owner = ownerUid.trim();
+    final identifiers = participantIdentifiers
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (owner.isEmpty || identifiers.isEmpty || FirebaseModes.offline) return;
+
+    try {
+      final snapshot = await _plansCollection
+          .where('ownerUid', isEqualTo: owner)
+          .get()
+          .timeout(const Duration(seconds: 8));
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        try {
+          final plan = TravelPlan.fromJson({...data, 'id': doc.id});
+          if (isPlanInTripHistory(plan)) {
+            continue;
+          }
+        } catch (error) {
+          debugPrint('Skipping unfriend plan cleanup for ${doc.id}: $error');
+          continue;
+        }
+
+        final participantUids = (data['participantUids'] as List? ?? const [])
+            .whereType<String>()
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toList();
+        final collaboratorUids = (data['collaboratorUids'] as List? ?? const [])
+            .whereType<String>()
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toList();
+        final startLocations = Map<String, dynamic>.from(
+          data['participantStartLocations'] as Map? ?? const {},
+        );
+
+        final nextParticipants = participantUids
+            .where((id) => !identifiers.contains(id))
+            .toSet()
+            .toList();
+        final nextCollaborators = collaboratorUids
+            .where((id) => !identifiers.contains(id))
+            .toSet()
+            .toList();
+        for (final id in identifiers) {
+          startLocations.remove(id);
+        }
+
+        final participantChanged =
+            nextParticipants.length != participantUids.toSet().length;
+        final collaboratorChanged =
+            nextCollaborators.length != collaboratorUids.toSet().length;
+        final startChanged = startLocations.length !=
+            (data['participantStartLocations'] as Map? ?? const {}).length;
+
+        if (!participantChanged && !collaboratorChanged && !startChanged) {
+          continue;
+        }
+
+        if (nextParticipants.isEmpty || !nextParticipants.contains(owner)) {
+          // Keep plan ownership consistent.
+          continue;
+        }
+
+        await doc.reference.update({
+          'participantUids': nextParticipants,
+          'collaboratorUids': nextCollaborators,
+          'participantStartLocations': startLocations,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }).timeout(const Duration(seconds: 8));
+
+        final local = _plans[doc.id];
+        if (local != null) {
+          _plans[doc.id] = TravelPlan(
+            id: local.id,
+            title: local.title,
+            startDate: local.startDate,
+            endDate: local.endDate,
+            participantUids: nextParticipants,
+            createdBy: local.createdBy,
+            itinerary: local.itinerary,
+            isShared: nextParticipants.length > 1,
+            bannerImage: local.bannerImage,
+            meetingPointName: local.meetingPointName,
+            meetingPointAddress: local.meetingPointAddress,
+            meetingPointLatitude: local.meetingPointLatitude,
+            meetingPointLongitude: local.meetingPointLongitude,
+            participantStartLocations: startLocations.map(
+              (entryKey, value) => MapEntry(
+                entryKey,
+                value is ParticipantStartLocation
+                    ? value
+                    : ParticipantStartLocation.fromJson(
+                        Map<String, dynamic>.from(value as Map),
+                      ),
+              ),
+            ),
+            collaboratorUids: nextCollaborators,
+            status: local.status,
+          );
+        }
+      }
+      _notifyChanged();
+    } catch (error) {
+      debugPrint('Failed to remove participant from active plans: $error');
+    }
+  }
+
   static Future<void> cleanupAccountPlans({
     required String uid,
     String? friendCode,

@@ -9,6 +9,7 @@ import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/screens/route_options_screen.dart';
 import 'package:halaph/utils/navigation_utils.dart';
+import 'package:halaph/widgets/fullscreen_image_preview.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class ExploreDetailsScreen extends StatefulWidget {
@@ -381,39 +382,10 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
 
   void _showImagePreview(String imageUrl) {
     if (imageUrl.trim().isEmpty) return;
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (context) {
-          return Scaffold(
-            backgroundColor: Colors.black,
-            appBar: AppBar(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              title: Text('Preview Image'),
-            ),
-            body: Center(
-              child: InteractiveViewer(
-                minScale: 0.8,
-                maxScale: 5,
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.contain,
-                  placeholder: (context, url) => Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
-                  errorWidget: (context, url, error) => Text(
-                    'Image unavailable',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+    FullscreenImagePreview.open(
+      context,
+      imagePath: imageUrl.trim(),
+      semanticLabel: _destination?.name,
     );
   }
 

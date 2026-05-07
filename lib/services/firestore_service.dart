@@ -119,6 +119,20 @@ class FirestoreService {
     }
   }
 
+  static Future<String?> _publicProfileAvatarByCode(String? code) async {
+    final trimmed = code?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+
+    try {
+      final doc = await _db.collection('publicProfiles').doc(trimmed).get();
+      final avatar = (doc.data()?['avatarUrl'] as String?)?.trim();
+      if (avatar == null || avatar.isEmpty) return null;
+      return avatar;
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Future<String?> _currentUserBestEffortName({String? code}) async {
     final user = firebase_auth.FirebaseAuth.instance.currentUser;
     final publicProfileName = await _publicProfileNameByCode(code);
@@ -301,6 +315,8 @@ class FirestoreService {
     required String? friendCode,
   }) async {
     final code = friendCode?.trim().toUpperCase();
+    final cleanupCodes = <String>{};
+    if (code != null && code.isNotEmpty) cleanupCodes.add(code);
     final batch = _AccountCleanupBatch(_db);
 
     try {
@@ -388,9 +404,28 @@ class FirestoreService {
         batch.delete(doc.reference);
       }
 
-      if (code != null && code.isNotEmpty) {
-        batch.delete(_db.collection('publicProfiles').doc(code));
-        batch.delete(_db.collection('friendCodes').doc(code));
+      try {
+        final mappedCodes = await _db
+            .collection('friendCodes')
+            .where('uid', isEqualTo: uid)
+            .get();
+        for (final doc in mappedCodes.docs) {
+          cleanupCodes.add(doc.id.trim().toUpperCase());
+          final mappedCode =
+              (doc.data()['code'] as String?)?.trim().toUpperCase();
+          if (mappedCode != null && mappedCode.isNotEmpty) {
+            cleanupCodes.add(mappedCode);
+          }
+          batch.delete(doc.reference);
+        }
+      } catch (error) {
+        developer
+            .log('FirestoreService: Friend code query cleanup skipped: $error');
+      }
+
+      for (final friendCodeValue in cleanupCodes) {
+        batch.delete(_db.collection('publicProfiles').doc(friendCodeValue));
+        batch.delete(_db.collection('friendCodes').doc(friendCodeValue));
       }
 
       batch.delete(_db.collection('users').doc(uid));
@@ -596,18 +631,25 @@ class FirestoreService {
             await _publicProfileNameByCode(fromCode);
         final toName = _usableName(data?['toName'] as String?) ??
             await _currentUserBestEffortName(code: toCode);
-        final fromAvatarUrl = data?['fromAvatarUrl'] as String?;
+        final fromAvatarUrl = (data?['fromAvatarUrl'] as String?)?.trim();
+        final resolvedFromAvatar =
+            (fromAvatarUrl != null && fromAvatarUrl.isNotEmpty)
+                ? fromAvatarUrl
+                : await _publicProfileAvatarByCode(fromCode);
         final toAvatarUrl =
-            firebase_auth.FirebaseAuth.instance.currentUser?.photoURL;
+            firebase_auth.FirebaseAuth.instance.currentUser?.photoURL?.trim();
+        final resolvedToAvatar = (toAvatarUrl != null && toAvatarUrl.isNotEmpty)
+            ? toAvatarUrl
+            : await _publicProfileAvatarByCode(toCode);
         await ensureFriendDocs(
           uidA: fromUid,
           uidB: toUid,
           nameA: fromName,
           codeA: fromCode,
-          avatarA: fromAvatarUrl,
+          avatarA: resolvedFromAvatar,
           nameB: toName,
           codeB: toCode,
-          avatarB: toAvatarUrl,
+          avatarB: resolvedToAvatar,
         );
       }
 

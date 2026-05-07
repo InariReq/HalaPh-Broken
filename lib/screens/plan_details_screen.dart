@@ -15,6 +15,7 @@ import 'package:halaph/services/budget_routing_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/screens/add_place_screen.dart';
 import 'package:halaph/screens/friends_screen.dart';
+import 'package:halaph/widgets/fullscreen_image_preview.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
 
 class DestinationData {
@@ -103,6 +104,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   Map<String, ParticipantStartLocation> _participantStartLocations = {};
   String? _myParticipantStartKey;
   LatLng? _budgetFallbackOrigin;
+  bool _isSavingMyStartingPoint = false;
 
   bool get _canEditPlan =>
       _plan != null && SimplePlanService.canEditPlan(_plan!.id);
@@ -589,6 +591,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Widget _buildHeroSection() {
+    final bannerPath = _getBannerImageUrl().trim();
+    final hasPreviewableBanner = bannerPath.isNotEmpty;
+
     return Container(
       height: 224,
       width: double.infinity,
@@ -613,7 +618,19 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _buildBannerImage(),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: hasPreviewableBanner
+                    ? () => FullscreenImagePreview.open(
+                          context,
+                          imagePath: bannerPath,
+                          semanticLabel: _plan?.title,
+                        )
+                    : null,
+                child: _buildBannerImage(),
+              ),
+            ),
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -626,6 +643,52 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                 ),
               ),
             ),
+            if (hasPreviewableBanner)
+              Positioned(
+                top: 14,
+                left: 14,
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(999),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: () => FullscreenImagePreview.open(
+                      context,
+                      imagePath: bannerPath,
+                      semanticLabel: _plan?.title,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.zoom_out_map_rounded,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'View image',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -877,7 +940,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         myKey == null ? null : _participantStartLocations[myKey.trim()];
     final hasMyStart = myStart != null;
 
-    if (!_isEditing && !hasMyStart && _participantStartLocations.isEmpty) {
+    if (myKey == null &&
+        !_isEditing &&
+        !hasMyStart &&
+        _participantStartLocations.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -949,15 +1015,16 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       ),
                     ),
                   ],
-                  if (_isEditing) ...[
+                  if (myKey != null) ...[
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
                         OutlinedButton.icon(
-                          onPressed:
-                              myKey == null ? null : _selectMyStartingPoint,
+                          onPressed: _isSavingMyStartingPoint
+                              ? null
+                              : _selectMyStartingPoint,
                           icon: const Icon(Icons.add_location_alt_rounded),
                           label: Text(
                             hasMyStart
@@ -966,14 +1033,17 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                           ),
                         ),
                         OutlinedButton.icon(
-                          onPressed:
-                              myKey == null ? null : _useCurrentLocationAsStart,
+                          onPressed: _isSavingMyStartingPoint
+                              ? null
+                              : _useCurrentLocationAsStart,
                           icon: const Icon(Icons.gps_fixed_rounded),
                           label: const Text('Use My Current Location'),
                         ),
                         if (hasMyStart)
                           TextButton.icon(
-                            onPressed: _clearMyStartingPoint,
+                            onPressed: _isSavingMyStartingPoint
+                                ? null
+                                : _clearMyStartingPoint,
                             icon: const Icon(Icons.clear_rounded),
                             label: const Text('Clear My Starting Point'),
                             style: TextButton.styleFrom(
@@ -982,6 +1052,31 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                           ),
                       ],
                     ),
+                    if (_isSavingMyStartingPoint)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Saving your starting point...',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                   if (participantStarts.isNotEmpty) ...[
                     const SizedBox(height: 14),
@@ -1069,23 +1164,19 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       return;
     }
 
-    setState(() {
-      _participantStartLocations = {
-        ..._participantStartLocations,
-        key: ParticipantStartLocation(
-          name: destination.name,
-          address: destination.location,
-          latitude: coordinates.latitude,
-          longitude: coordinates.longitude,
-          updatedAt: DateTime.now().toIso8601String(),
-        ),
-      };
-    });
+    await _persistMyStartingPoint(
+      ParticipantStartLocation(
+        name: destination.name,
+        address: destination.location,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        updatedAt: DateTime.now().toIso8601String(),
+      ),
+    );
   }
 
   Future<void> _useCurrentLocationAsStart() async {
-    final key = _myParticipantStartKey;
-    if (key == null) {
+    if (_myParticipantStartKey == null) {
       _showError('Unable to identify your participant account for this plan.');
       return;
     }
@@ -1101,33 +1192,73 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         return;
       }
 
-      setState(() {
-        _participantStartLocations = {
-          ..._participantStartLocations,
-          key: ParticipantStartLocation(
-            name: 'Current Location',
-            address: 'Current GPS location',
-            latitude: location.latitude,
-            longitude: location.longitude,
-            updatedAt: DateTime.now().toIso8601String(),
-          ),
-        };
-      });
+      await _persistMyStartingPoint(
+        ParticipantStartLocation(
+          name: 'Current Location',
+          address: 'Current GPS location',
+          latitude: location.latitude,
+          longitude: location.longitude,
+          updatedAt: DateTime.now().toIso8601String(),
+        ),
+      );
     } catch (error) {
       _showError('Could not get your current location.');
     }
   }
 
-  void _clearMyStartingPoint() {
+  Future<void> _clearMyStartingPoint() async {
+    await _persistMyStartingPoint(null);
+  }
+
+  Future<void> _persistMyStartingPoint(
+    ParticipantStartLocation? location,
+  ) async {
+    final plan = _plan;
     final key = _myParticipantStartKey;
-    if (key == null) return;
+    if (plan == null || key == null) return;
 
-    final updated = Map<String, ParticipantStartLocation>.from(
+    final previous = Map<String, ParticipantStartLocation>.from(
       _participantStartLocations,
-    )..remove(key);
+    );
+    final next = Map<String, ParticipantStartLocation>.from(previous);
+    if (location == null) {
+      next.remove(key);
+    } else {
+      next[key] = location;
+    }
 
+    if (!mounted) return;
     setState(() {
-      _participantStartLocations = updated;
+      _isSavingMyStartingPoint = true;
+      _participantStartLocations = next;
+    });
+
+    final success = await SimplePlanService.updateMyParticipantStartLocation(
+      planId: plan.id,
+      participantId: key,
+      startLocation: location,
+    );
+
+    if (!mounted) return;
+
+    if (!success) {
+      setState(() {
+        _participantStartLocations = previous;
+        _isSavingMyStartingPoint = false;
+      });
+      _showError('Could not save your starting point.');
+      return;
+    }
+
+    final updated = SimplePlanService.getPlanById(plan.id);
+    setState(() {
+      if (updated != null) {
+        _plan = updated;
+        _participantStartLocations = Map<String, ParticipantStartLocation>.from(
+          updated.participantStartLocations,
+        );
+      }
+      _isSavingMyStartingPoint = false;
     });
   }
 

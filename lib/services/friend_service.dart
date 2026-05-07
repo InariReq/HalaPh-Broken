@@ -273,11 +273,7 @@ class FriendService {
           avatarUrl: data['avatarUrl'] as String?,
         );
       }).toList();
-      friends.sort(
-        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-      );
-      _cachedFriends = List<Friend>.from(friends);
-      _friendsController.add(friends);
+      unawaited(_publishHydratedFriends(friends));
     }, onError: (error) => debugPrint('Friends live updates failed: $error'));
   }
 
@@ -301,24 +297,68 @@ class FriendService {
     if (targetUid.isEmpty) return;
 
     final db = FirebaseFirestore.instance;
+    final targetCode = _normalizeCode(targetFriend?.code ?? '');
 
-    await db
-        .collection('users')
-        .doc(userId)
-        .collection('friends')
-        .doc(targetUid)
-        .delete();
+    Future<void> safeDelete(DocumentReference<Map<String, dynamic>> ref) async {
+      try {
+        await ref.delete();
+      } catch (error) {
+        debugPrint('Skipping delete for ${ref.path}: $error');
+      }
+    }
 
-    try {
-      await db
+    await safeDelete(
+      db.collection('users').doc(userId).collection('friends').doc(targetUid),
+    );
+    await safeDelete(
+      db.collection('users').doc(targetUid).collection('friends').doc(userId),
+    );
+    await safeDelete(
+        db.collection('friendRequests').doc('${userId}_$targetUid'));
+    await safeDelete(
+        db.collection('friendRequests').doc('${targetUid}_$userId'));
+    await safeDelete(
+      db
+          .collection('users')
+          .doc(userId)
+          .collection('friend_requests')
+          .doc(targetUid),
+    );
+    await safeDelete(
+      db
           .collection('users')
           .doc(targetUid)
-          .collection('friends')
-          .doc(userId)
-          .delete();
+          .collection('friend_requests')
+          .doc(userId),
+    );
+
+    try {
+      final outbound = await db
+          .collection('friendRequests')
+          .where('fromUid', isEqualTo: userId)
+          .where('toUid', isEqualTo: targetUid)
+          .get();
+      for (final doc in outbound.docs) {
+        await doc.reference.delete();
+      }
+
+      final inbound = await db
+          .collection('friendRequests')
+          .where('fromUid', isEqualTo: targetUid)
+          .where('toUid', isEqualTo: userId)
+          .get();
+      for (final doc in inbound.docs) {
+        await doc.reference.delete();
+      }
     } catch (error) {
-      debugPrint('Reciprocal friend delete skipped: $error');
+      debugPrint('Stale friend request cleanup skipped: $error');
     }
+
+    await _removeUnfriendedUserFromOwnedActivePlans(
+      ownerUid: userId,
+      removedUid: targetUid,
+      removedCode: targetCode,
+    );
 
     _cachedFriends = friends
         .where(
@@ -501,7 +541,129 @@ class FriendService {
           .toList();
     }
 
-    return friends;
+    return _hydrateFriends(friends);
+  }
+
+  Future<void> _publishHydratedFriends(List<Friend> friends) async {
+    final hydrated = await _hydrateFriends(friends);
+    hydrated.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
+    _cachedFriends = List<Friend>.from(hydrated);
+    _friendsController.add(hydrated);
+  }
+
+  Future<List<Friend>> _hydrateFriends(List<Friend> friends) async {
+    return Future.wait(friends.map(_hydrateFriend));
+  }
+
+  Future<Friend> _hydrateFriend(Friend friend) async {
+    final code = _normalizeCode(friend.code);
+    if (code.isEmpty) return friend;
+
+    try {
+      final profile = await findPublicProfileByCode(code);
+      if (profile == null) return friend;
+
+      final displayName =
+          profile.name.trim().isNotEmpty ? profile.name.trim() : friend.name;
+      final avatarUrl = profile.avatarUrl?.trim().isNotEmpty == true
+          ? profile.avatarUrl!.trim()
+          : friend.avatarUrl;
+
+      if (displayName == friend.name && avatarUrl == friend.avatarUrl) {
+        return friend;
+      }
+
+      return Friend(
+        id: friend.id,
+        uid: friend.uid,
+        name: displayName,
+        role: friend.role,
+        code: friend.code,
+        email: profile.email ?? friend.email,
+        avatarUrl: avatarUrl,
+      );
+    } catch (_) {
+      return friend;
+    }
+  }
+
+  Future<void> _removeUnfriendedUserFromOwnedActivePlans({
+    required String ownerUid,
+    required String removedUid,
+    required String removedCode,
+  }) async {
+    if (!await FirebaseAppService.initialize()) return;
+
+    final identifiers = <String>{removedUid.trim()};
+    if (removedCode.isNotEmpty) identifiers.add(removedCode);
+    if (identifiers.every((value) => value.isEmpty)) return;
+
+    try {
+      final today = DateTime.now();
+      final dayOnly = DateTime(today.year, today.month, today.day);
+      final snapshot = await FirebaseFirestore.instance
+          .collection('sharedPlans')
+          .where('ownerUid', isEqualTo: ownerUid)
+          .get();
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final createdBy = (data['createdBy'] as String? ?? '').trim();
+        if (createdBy != ownerUid) continue;
+        final rawEndDate = data['endDate'];
+        if (rawEndDate is! Timestamp) continue;
+        final endDate = rawEndDate.toDate();
+        final endDay = DateTime(endDate.year, endDate.month, endDate.day);
+        if (endDay.isBefore(dayOnly)) continue;
+
+        final participantUids = (data['participantUids'] as List? ?? const [])
+            .whereType<String>()
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toList();
+        final collaboratorUids = (data['collaboratorUids'] as List? ?? const [])
+            .whereType<String>()
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toList();
+        final startLocations = Map<String, dynamic>.from(
+          data['participantStartLocations'] as Map? ?? const {},
+        );
+
+        final nextParticipants = participantUids
+            .where((id) => !identifiers.contains(id))
+            .toSet()
+            .toList();
+        final nextCollaborators = collaboratorUids
+            .where((id) => !identifiers.contains(id))
+            .toSet()
+            .toList();
+        for (final id in identifiers) {
+          if (id.isNotEmpty) startLocations.remove(id);
+        }
+
+        final participantChanged =
+            nextParticipants.length != participantUids.toSet().length;
+        final collaboratorChanged =
+            nextCollaborators.length != collaboratorUids.toSet().length;
+        final startChanged = startLocations.length !=
+            (data['participantStartLocations'] as Map? ?? const {}).length;
+        if (!participantChanged && !collaboratorChanged && !startChanged) {
+          continue;
+        }
+
+        await doc.reference.update({
+          'participantUids': nextParticipants,
+          'collaboratorUids': nextCollaborators,
+          'participantStartLocations': startLocations,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (error) {
+      debugPrint('Unfriend plan cleanup skipped: $error');
+    }
   }
 
   Future<List<Friend>> _loadFriendsFromFirestore(String userId) async {
@@ -826,13 +988,19 @@ class FriendService {
             await _publicProfileBestEffortName(targetCode);
         final currentName = _usableName(data['toName'] as String?) ??
             await _currentUserBestEffortName(profileCode: myCode);
+        final targetAvatar =
+            (await findPublicProfileByCode(targetCode))?.avatarUrl;
+        final currentAvatar =
+            firebase_auth.FirebaseAuth.instance.currentUser?.photoURL;
         await FirestoreService.ensureFriendDocs(
           uidA: targetUid,
           uidB: currentUid,
           nameA: targetName,
           codeA: targetCode,
+          avatarA: targetAvatar,
           nameB: currentName,
           codeB: myCode,
+          avatarB: currentAvatar,
         );
         debugPrint('friendRepair: ensureFriendDocs success');
         return true;
@@ -858,13 +1026,19 @@ class FriendService {
               await _publicProfileBestEffortName(targetCode);
           final currentName = _usableName(data['toName'] as String?) ??
               await _currentUserBestEffortName(profileCode: myCode);
+          final targetAvatar =
+              (await findPublicProfileByCode(targetCode))?.avatarUrl;
+          final currentAvatar =
+              firebase_auth.FirebaseAuth.instance.currentUser?.photoURL;
           await FirestoreService.ensureFriendDocs(
             uidA: targetUid,
             uidB: currentUid,
             nameA: targetName,
             codeA: targetCode,
+            avatarA: targetAvatar,
             nameB: currentName,
             codeB: myCode,
+            avatarB: currentAvatar,
           );
           debugPrint('friendRepair: ensureFriendDocs success');
           return true;
