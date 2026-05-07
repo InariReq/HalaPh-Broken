@@ -129,29 +129,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
     passwordController.dispose();
 
     if (password == null || password.trim().isEmpty) return;
+    if (!mounted) return;
 
     setState(() {
       _deletingAccount = true;
     });
 
-    final success = await _auth.deleteCurrentAccount(password: password);
+    try {
+      final success = await _auth.deleteCurrentAccount(password: password);
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (!success) {
+      if (!success) {
+        setState(() {
+          _deletingAccount = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_auth.lastAuthError ?? 'Could not delete account.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      context.go('/accounts');
+    } catch (error) {
+      debugPrint('SettingsScreen: delete account flow failed: $error');
+      if (!mounted) return;
       setState(() {
         _deletingAccount = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_auth.lastAuthError ?? 'Could not delete account.'),
+        const SnackBar(
+          content: Text('Could not delete account. Please try again.'),
           backgroundColor: Colors.red,
         ),
       );
-      return;
     }
-
-    context.go('/accounts');
   }
 
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;

@@ -316,10 +316,30 @@ class FirestoreService {
   }) async {
     final code = friendCode?.trim().toUpperCase();
     final cleanupCodes = <String>{};
-    if (code != null && code.isNotEmpty) cleanupCodes.add(code);
-    final batch = _AccountCleanupBatch(_db);
+    final relationshipBatch = _AccountCleanupBatch(_db);
 
     try {
+      debugPrint('FirestoreService.cleanupAccountData: start uid=$uid');
+      if (code != null && code.isNotEmpty) {
+        try {
+          final directCodeDoc =
+              await _db.collection('friendCodes').doc(code).get();
+          final mappedUid =
+              (directCodeDoc.data()?['uid'] as String? ?? '').trim();
+          if (directCodeDoc.exists && mappedUid == uid) {
+            cleanupCodes.add(code);
+          } else {
+            debugPrint(
+              'FirestoreService.cleanupAccountData: skipping unowned friend code $code',
+            );
+          }
+        } catch (error) {
+          debugPrint(
+            'FirestoreService.cleanupAccountData: direct friend code check failed: $error',
+          );
+        }
+      }
+
       final friendDocs =
           await _db.collection('users').doc(uid).collection('friends').get();
       final friendUids = <String>{};
@@ -331,16 +351,18 @@ class FirestoreService {
                 doc.id)
             .trim();
         if (friendUid.isNotEmpty) friendUids.add(friendUid);
-        batch.delete(doc.reference);
+        relationshipBatch.delete(doc.reference);
       }
 
       for (final friendUid in friendUids) {
-        batch.delete(
+        relationshipBatch.delete(
           _db.collection('users').doc(friendUid).collection('friends').doc(uid),
         );
-        batch.delete(_db.collection('friendRequests').doc('${uid}_$friendUid'));
-        batch.delete(_db.collection('friendRequests').doc('${friendUid}_$uid'));
-        batch.delete(
+        relationshipBatch
+            .delete(_db.collection('friendRequests').doc('${uid}_$friendUid'));
+        relationshipBatch
+            .delete(_db.collection('friendRequests').doc('${friendUid}_$uid'));
+        relationshipBatch.delete(
           _db
               .collection('users')
               .doc(friendUid)
@@ -358,9 +380,9 @@ class FirestoreService {
         final data = doc.data();
         final fromUid = (data['fromUid'] as String? ?? doc.id).trim();
         final toUid = (data['toUid'] as String? ?? uid).trim();
-        batch.delete(doc.reference);
+        relationshipBatch.delete(doc.reference);
         if (fromUid.isNotEmpty && toUid.isNotEmpty) {
-          batch.delete(
+          relationshipBatch.delete(
               _db.collection('friendRequests').doc('${fromUid}_$toUid'));
         }
       }
@@ -372,9 +394,9 @@ class FirestoreService {
       for (final doc in sentRequests.docs) {
         final data = doc.data();
         final toUid = (data['toUid'] as String? ?? '').trim();
-        batch.delete(doc.reference);
+        relationshipBatch.delete(doc.reference);
         if (toUid.isNotEmpty) {
-          batch.delete(
+          relationshipBatch.delete(
             _db
                 .collection('users')
                 .doc(toUid)
@@ -389,19 +411,19 @@ class FirestoreService {
           .where('toUid', isEqualTo: uid)
           .get();
       for (final doc in receivedRequests.docs) {
-        batch.delete(doc.reference);
+        relationshipBatch.delete(doc.reference);
       }
 
       final syncDocs =
           await _db.collection('users').doc(uid).collection('sync').get();
       for (final doc in syncDocs.docs) {
-        batch.delete(doc.reference);
+        relationshipBatch.delete(doc.reference);
       }
 
       final favoriteDocs =
           await _db.collection('users').doc(uid).collection('favorites').get();
       for (final doc in favoriteDocs.docs) {
-        batch.delete(doc.reference);
+        relationshipBatch.delete(doc.reference);
       }
 
       try {
@@ -410,26 +432,45 @@ class FirestoreService {
             .where('uid', isEqualTo: uid)
             .get();
         for (final doc in mappedCodes.docs) {
-          cleanupCodes.add(doc.id.trim().toUpperCase());
-          final mappedCode =
-              (doc.data()['code'] as String?)?.trim().toUpperCase();
+          final docCode = doc.id.trim();
+          if (docCode.isNotEmpty) {
+            cleanupCodes.add(docCode);
+            cleanupCodes.add(docCode.toUpperCase());
+          }
+          final mappedCode = (doc.data()['code'] as String?)?.trim();
           if (mappedCode != null && mappedCode.isNotEmpty) {
             cleanupCodes.add(mappedCode);
+            cleanupCodes.add(mappedCode.toUpperCase());
           }
-          batch.delete(doc.reference);
         }
       } catch (error) {
         developer
             .log('FirestoreService: Friend code query cleanup skipped: $error');
       }
 
-      for (final friendCodeValue in cleanupCodes) {
-        batch.delete(_db.collection('publicProfiles').doc(friendCodeValue));
-        batch.delete(_db.collection('friendCodes').doc(friendCodeValue));
+      await relationshipBatch.commit();
+
+      if (cleanupCodes.isNotEmpty) {
+        final publicProfileBatch = _AccountCleanupBatch(_db);
+        for (final friendCodeValue in cleanupCodes) {
+          publicProfileBatch.delete(
+            _db.collection('publicProfiles').doc(friendCodeValue),
+          );
+        }
+        await publicProfileBatch.commit();
+
+        final friendCodeBatch = _AccountCleanupBatch(_db);
+        for (final friendCodeValue in cleanupCodes) {
+          friendCodeBatch
+              .delete(_db.collection('friendCodes').doc(friendCodeValue));
+        }
+        await friendCodeBatch.commit();
       }
 
-      batch.delete(_db.collection('users').doc(uid));
-      await batch.commit();
+      final userBatch = _AccountCleanupBatch(_db);
+      userBatch.delete(_db.collection('users').doc(uid));
+      await userBatch.commit();
+      debugPrint('FirestoreService.cleanupAccountData: completed uid=$uid');
     } catch (error) {
       developer.log('FirestoreService: Account cleanup failed: $error');
       rethrow;
