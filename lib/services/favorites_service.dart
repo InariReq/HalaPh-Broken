@@ -75,8 +75,6 @@ class FavoritesService {
     List<String> ids, {
     Map<String, Destination>? destinations,
   }) async {
-    final userId = await _currentUserId();
-    final cacheScope = _cacheScope(userId);
     final deduped = <String>{...ids}.toList();
     final sourceDestinations = destinations ?? _cachedDestinations ?? {};
     final savedDestinations = <String, Destination>{
@@ -84,49 +82,27 @@ class FavoritesService {
         if (sourceDestinations[id] != null) id: sourceDestinations[id]!,
     };
 
-    _cachedUserId = cacheScope;
-    _cachedIds = deduped;
-    _cachedDestinations = savedDestinations;
-
-    if (userId == null) {
-      await _saveLocalFavorites(
-        deduped,
-        destinations: savedDestinations,
-        scope: _localScope(null),
-      );
-      return;
-    }
-
-    final savedRemotely = await RemoteSyncService.instance.saveNamespace(
-      'favorites',
-      {
-        'ids': deduped,
-        'places': savedDestinations.values
-            .map((destination) => destination.toJson())
-            .toList(),
-      },
-    );
-
-    await _saveLocalFavorites(
-      deduped,
-      destinations: savedDestinations,
-      scope: _localScope(userId),
-    );
-
-    if (savedRemotely) {
-      await FriendService().publishFavoritePlaces(_orderedCachedDestinations());
+    final saved = await _persistFavorites(deduped, savedDestinations);
+    if (!saved) {
+      throw StateError('Could not save favorites');
     }
   }
 
-  Future<void> toggleFavorite(String id) async {
+  Future<bool> addFavorite(Destination destination) async {
+    final favoriteId = destination.id.trim();
+    if (favoriteId.isEmpty) return false;
+
     final ids = await getFavorites();
-    if (ids.contains(id)) {
-      ids.remove(id);
-    } else {
-      ids.add(id);
+    final destinations = Map<String, Destination>.from(
+      _cachedDestinations ?? const <String, Destination>{},
+    );
+
+    if (!ids.contains(favoriteId)) {
+      ids.add(favoriteId);
     }
-    await setFavorites(ids);
-    FavoritesNotifier().notifyFavoritesChanged();
+    destinations[favoriteId] = destination;
+
+    return _persistFavorites(ids, destinations);
   }
 
   Future<bool> removeFavorite(String id) async {
@@ -136,66 +112,32 @@ class FavoritesService {
     final ids = await getFavorites();
     if (!ids.contains(favoriteId)) return true;
 
-    final userId = await _currentUserId();
-    final cacheScope = _cacheScope(userId);
     final nextIds = ids.where((item) => item != favoriteId).toList();
-    final sourceDestinations = Map<String, Destination>.from(
+    final nextDestinations = Map<String, Destination>.from(
       _cachedDestinations ?? const <String, Destination>{},
     )..remove(favoriteId);
-    final nextDestinations = <String, Destination>{
-      for (final id in nextIds)
-        if (sourceDestinations[id] != null) id: sourceDestinations[id]!,
-    };
+    return _persistFavorites(nextIds, nextDestinations);
+  }
 
-    if (userId != null) {
-      final savedRemotely = await RemoteSyncService.instance.saveNamespace(
-        'favorites',
-        {
-          'ids': nextIds,
-          'places': nextDestinations.values
-              .map((destination) => destination.toJson())
-              .toList(),
-        },
-      );
-      if (!savedRemotely) return false;
+  Future<bool> toggleFavorite(Destination destination) async {
+    final ids = await getFavorites();
+    if (ids.contains(destination.id)) {
+      final removed = await removeFavorite(destination.id);
+      if (!removed) {
+        throw StateError('Could not remove favorite ${destination.id}');
+      }
+      return false;
     }
 
-    final savedLocally = await _saveLocalFavoritesWithResult(
-      nextIds,
-      destinations: nextDestinations,
-      scope: _localScope(userId),
-    );
-    if (!savedLocally) return false;
-
-    _cachedUserId = cacheScope;
-    _cachedIds = nextIds;
-    _cachedDestinations = nextDestinations;
-
-    if (userId != null) {
-      unawaited(
-        FriendService()
-            .publishFavoritePlaces(_orderedCachedDestinations())
-            .catchError((_) {}),
-      );
+    final added = await addFavorite(destination);
+    if (!added) {
+      throw StateError('Could not add favorite ${destination.id}');
     }
-    FavoritesNotifier().notifyFavoritesChanged();
     return true;
   }
 
-  Future<void> toggleFavoriteDestination(Destination destination) async {
-    final ids = await getFavorites();
-    final destinations = Map<String, Destination>.from(
-      _cachedDestinations ?? const <String, Destination>{},
-    );
-    if (ids.contains(destination.id)) {
-      ids.remove(destination.id);
-      destinations.remove(destination.id);
-    } else {
-      ids.add(destination.id);
-      destinations[destination.id] = destination;
-    }
-    await setFavorites(ids, destinations: destinations);
-    FavoritesNotifier().notifyFavoritesChanged();
+  Future<bool> toggleFavoriteDestination(Destination destination) {
+    return toggleFavorite(destination);
   }
 
   Future<bool> isFavorite(String id) async {
@@ -207,6 +149,54 @@ class FavoritesService {
     _cachedUserId = null;
     _cachedIds = null;
     _cachedDestinations = null;
+  }
+
+  Future<bool> _persistFavorites(
+    List<String> ids,
+    Map<String, Destination> destinations,
+  ) async {
+    final userId = await _currentUserId();
+    final cacheScope = _cacheScope(userId);
+    final deduped = <String>{...ids}.toList();
+    final savedDestinations = <String, Destination>{
+      for (final id in deduped)
+        if (destinations[id] != null) id: destinations[id]!,
+    };
+
+    if (userId != null) {
+      final savedRemotely = await RemoteSyncService.instance.saveNamespace(
+        'favorites',
+        {
+          'ids': deduped,
+          'places': savedDestinations.values
+              .map((destination) => destination.toJson())
+              .toList(),
+        },
+      );
+      if (!savedRemotely) return false;
+    }
+
+    final savedLocally = await _saveLocalFavoritesWithResult(
+      deduped,
+      destinations: savedDestinations,
+      scope: _localScope(userId),
+    );
+    if (!savedLocally && userId == null) return false;
+
+    _cachedUserId = cacheScope;
+    _cachedIds = deduped;
+    _cachedDestinations = savedDestinations;
+
+    if (userId != null) {
+      unawaited(
+        FriendService()
+            .publishFavoritePlaces(_orderedCachedDestinations())
+            .catchError((_) {}),
+      );
+    }
+
+    FavoritesNotifier().notifyFavoritesChanged();
+    return true;
   }
 
   Future<List<String>> _loadLocalFavorites({required String scope}) async {

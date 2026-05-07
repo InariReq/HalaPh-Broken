@@ -75,7 +75,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
     });
 
     try {
-      await _favoritesService.toggleFavoriteDestination(destination);
+      final isFavorite = await _favoritesService.toggleFavorite(destination);
+      if (!mounted) return;
+      setState(() {
+        if (isFavorite) {
+          _favoriteIds.add(id);
+        } else {
+          _favoriteIds.remove(id);
+        }
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -959,7 +967,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                             isFavorite
                                 ? Icons.favorite_rounded
                                 : Icons.favorite_border_rounded,
-                            color: Colors.red,
+                            color: isFavorite
+                                ? Colors.red
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
                             size: 20,
                           ),
                         ),

@@ -143,7 +143,15 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      await _favoritesService.toggleFavoriteDestination(destination);
+      final isFavorite = await _favoritesService.toggleFavorite(destination);
+      if (!mounted) return;
+      setState(() {
+        if (isFavorite) {
+          _favoriteIds.add(id);
+        } else {
+          _favoriteIds.remove(id);
+        }
+      });
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -1454,7 +1462,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           child: Icon(
                             isFavorite ? Icons.favorite : Icons.favorite_border,
-                            color: Colors.red,
+                            color: isFavorite
+                                ? Colors.red
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
                             size: 18,
                           ),
                         ),

@@ -85,11 +85,11 @@ class _FavoritesScreenState extends State<FavoritesScreen>
     }
   }
 
-  Future<void> _removeFavorite(String id) async {
-    if (_busyFavoriteIds.contains(id)) return;
+  Future<bool> _removeFavorite(String id) async {
+    if (_busyFavoriteIds.contains(id)) return false;
 
     final index = _favorites.indexWhere((item) => item.id == id);
-    if (index == -1) return;
+    if (index == -1) return false;
     final removed = _favorites[index];
     final messenger = ScaffoldMessenger.of(context);
 
@@ -109,7 +109,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
       removedSuccessfully = false;
     }
 
-    if (!mounted) return;
+    if (!mounted) return false;
 
     setState(() {
       _busyFavoriteIds.remove(id);
@@ -127,6 +127,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
         ),
       );
     }
+    return removedSuccessfully;
   }
 
   void refresh() {
@@ -337,7 +338,7 @@ class _FavoriteCard extends StatelessWidget {
   final bool isBusy;
   final VoidCallback onOpen;
   final VoidCallback onRoutes;
-  final VoidCallback onRemove;
+  final Future<bool> Function() onRemove;
 
   const _FavoriteCard({
     required this.destination,
@@ -352,7 +353,11 @@ class _FavoriteCard extends StatelessWidget {
     return Dismissible(
       key: Key(destination.id),
       direction: isBusy ? DismissDirection.none : DismissDirection.endToStart,
-      confirmDismiss: (_) async => !isBusy,
+      confirmDismiss: (_) async {
+        if (isBusy) return false;
+        await onRemove();
+        return false;
+      },
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
@@ -362,9 +367,6 @@ class _FavoriteCard extends StatelessWidget {
         ),
         child: Icon(Icons.delete_rounded, color: Colors.white),
       ),
-      onDismissed: (_) {
-        if (!isBusy) onRemove();
-      },
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -424,7 +426,7 @@ class _FavoriteCard extends StatelessWidget {
                       icon: Icon(Icons.favorite_rounded),
                       color: _FavoritesScreenState._danger,
                       tooltip: 'Remove favorite',
-                      onPressed: isBusy ? null : onRemove,
+                      onPressed: isBusy ? null : () => onRemove(),
                     ),
                   ],
                 ),
