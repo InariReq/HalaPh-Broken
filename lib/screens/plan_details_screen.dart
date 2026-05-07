@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:go_router/go_router.dart';
@@ -90,6 +91,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   Map<String, String> _destinationEndTimes = {};
   Map<String, PassengerType> _budgetPassengerTypes = {};
   Map<String, String> _budgetPassengerNames = {};
+  Map<String, ParticipantStartLocation> _participantStartLocations = {};
+  String? _myParticipantStartKey;
   LatLng? _budgetFallbackOrigin;
 
   bool get _canEditPlan =>
@@ -156,6 +159,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         _meetingPointAddress = _plan!.meetingPointAddress;
         _meetingPointLatitude = _plan!.meetingPointLatitude;
         _meetingPointLongitude = _plan!.meetingPointLongitude;
+        _participantStartLocations = Map<String, ParticipantStartLocation>.from(
+          _plan!.participantStartLocations,
+        );
         _startDate = _plan!.startDate;
         _endDate = _plan!.endDate;
 
@@ -178,6 +184,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         }
 
         await _loadBudgetPassengerTypes();
+        await _loadMyParticipantStartKey();
         await _loadBudgetFallbackOrigin();
       }
     } catch (error) {
@@ -280,6 +287,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         meetingPointAddress: _meetingPointAddress?.trim(),
         meetingPointLatitude: _meetingPointLatitude,
         meetingPointLongitude: _meetingPointLongitude,
+        participantStartLocations: _participantStartLocations,
         replaceMeetingPoint: true,
       );
 
@@ -506,6 +514,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                 children: [
                   _buildHeroSection(),
                   _buildMeetingPointSection(),
+                  _buildParticipantStartSection(),
                   _buildActionButtons(),
                   _buildBudgetSummaryCard(),
                   _buildItinerarySection(),
@@ -844,6 +853,293 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       _meetingPointAddress = null;
       _meetingPointLatitude = null;
       _meetingPointLongitude = null;
+    });
+  }
+
+  Future<void> _loadMyParticipantStartKey() async {
+    final plan = _plan;
+    if (plan == null) return;
+
+    final participantIds = _budgetParticipantIds();
+    if (participantIds.isEmpty) return;
+
+    final firebaseUid =
+        firebase_auth.FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
+    final myCode = await _friendService.getMyCode().catchError((_) => '');
+
+    String? key;
+    if (firebaseUid.isNotEmpty && participantIds.contains(firebaseUid)) {
+      key = firebaseUid;
+    } else if (myCode.trim().isNotEmpty &&
+        participantIds.contains(myCode.trim())) {
+      key = myCode.trim();
+    } else if (firebaseUid.isNotEmpty &&
+        SimplePlanService.isPlanOwner(plan.id) &&
+        plan.createdBy.trim() == firebaseUid) {
+      key = firebaseUid;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _myParticipantStartKey = key;
+    });
+  }
+
+  Widget _buildParticipantStartSection() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final myKey = _myParticipantStartKey;
+    final myStart =
+        myKey == null ? null : _participantStartLocations[myKey.trim()];
+    final hasMyStart = myStart != null;
+
+    if (!_isEditing && !hasMyStart && _participantStartLocations.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final participantIds = _budgetParticipantIds().toList()..sort();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.28),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 38,
+              width: 38,
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(
+                Icons.my_location_rounded,
+                color: Colors.green[700],
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'My Starting Point',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasMyStart ? myStart.name : 'No starting point selected',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  if (hasMyStart && myStart.address.trim().isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      myStart.address,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (_isEditing) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed:
+                              myKey == null ? null : _selectMyStartingPoint,
+                          icon: const Icon(Icons.add_location_alt_rounded),
+                          label: Text(
+                            hasMyStart
+                                ? 'Change Starting Point'
+                                : 'Select My Starting Point',
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed:
+                              myKey == null ? null : _useCurrentLocationAsStart,
+                          icon: const Icon(Icons.gps_fixed_rounded),
+                          label: const Text('Use My Current Location'),
+                        ),
+                        if (hasMyStart)
+                          TextButton.icon(
+                            onPressed: _clearMyStartingPoint,
+                            icon: const Icon(Icons.clear_rounded),
+                            label: const Text('Clear My Starting Point'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                  if (participantIds.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      'Participant starting points',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    ...participantIds.take(6).map((id) {
+                      final label = _budgetPassengerNames[id] ?? 'Participant';
+                      final start = _participantStartLocations[id];
+                      final isMe = myKey != null && id == myKey;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          children: [
+                            Icon(
+                              start == null
+                                  ? Icons.radio_button_unchecked_rounded
+                                  : Icons.check_circle_rounded,
+                              size: 15,
+                              color: start == null
+                                  ? colorScheme.onSurfaceVariant
+                                  : Colors.green[700],
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                '${isMe ? 'You' : label}: ${start == null ? 'Not set' : 'Set'}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    if (participantIds.length > 6)
+                      Text(
+                        '+${participantIds.length - 6} more participants',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectMyStartingPoint() async {
+    final key = _myParticipantStartKey;
+    if (key == null) {
+      _showError('Unable to identify your participant account for this plan.');
+      return;
+    }
+
+    final destination = await Navigator.push<Destination>(
+      context,
+      MaterialPageRoute(builder: (context) => const AddPlaceScreen()),
+    );
+
+    if (!mounted || destination == null) return;
+
+    final coordinates = destination.coordinates;
+    if (coordinates == null ||
+        BudgetRoutingService.isInvalidLocation(coordinates)) {
+      _showError('Selected location has invalid coordinates.');
+      return;
+    }
+
+    setState(() {
+      _participantStartLocations = {
+        ..._participantStartLocations,
+        key: ParticipantStartLocation(
+          name: destination.name,
+          address: destination.location,
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+          updatedAt: DateTime.now().toIso8601String(),
+        ),
+      };
+    });
+  }
+
+  Future<void> _useCurrentLocationAsStart() async {
+    final key = _myParticipantStartKey;
+    if (key == null) {
+      _showError('Unable to identify your participant account for this plan.');
+      return;
+    }
+
+    try {
+      final location = await BudgetRoutingService.getCurrentLocation()
+          .timeout(const Duration(seconds: 8));
+
+      if (!mounted) return;
+      if (location == null ||
+          BudgetRoutingService.isInvalidLocation(location)) {
+        _showError('Could not get your current location.');
+        return;
+      }
+
+      setState(() {
+        _participantStartLocations = {
+          ..._participantStartLocations,
+          key: ParticipantStartLocation(
+            name: 'Current Location',
+            address: 'Current GPS location',
+            latitude: location.latitude,
+            longitude: location.longitude,
+            updatedAt: DateTime.now().toIso8601String(),
+          ),
+        };
+      });
+    } catch (error) {
+      _showError('Could not get your current location.');
+    }
+  }
+
+  void _clearMyStartingPoint() {
+    final key = _myParticipantStartKey;
+    if (key == null) return;
+
+    final updated = Map<String, ParticipantStartLocation>.from(
+      _participantStartLocations,
+    )..remove(key);
+
+    setState(() {
+      _participantStartLocations = updated;
     });
   }
 
