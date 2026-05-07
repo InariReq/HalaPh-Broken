@@ -50,6 +50,20 @@ service cloud.firestore {
         && (!data.keys().hasAny(['ownerId']) || data.ownerId != request.auth.uid);
     }
 
+    function friendRequestDataInvolvesAuth(data) {
+      return (data.keys().hasAny(['fromUid']) && data.fromUid == request.auth.uid)
+        || (data.keys().hasAny(['toUid']) && data.toUid == request.auth.uid)
+        || (data.keys().hasAny(['senderUid']) && data.senderUid == request.auth.uid)
+        || (data.keys().hasAny(['targetUid']) && data.targetUid == request.auth.uid)
+        || (data.keys().hasAny(['receiverUid']) && data.receiverUid == request.auth.uid)
+        || (data.keys().hasAny(['requesterUid']) && data.requesterUid == request.auth.uid);
+    }
+
+    function friendRequestIdInvolvesAuth(requestId) {
+      return requestId.matches(request.auth.uid + '_.*')
+        || requestId.matches('.*_' + request.auth.uid);
+    }
+
     function isParticipantLeavingPlan() {
       return isPlanParticipant(resource.data)
         && authIsNotPlanOwner(resource.data)
@@ -170,8 +184,7 @@ service cloud.firestore {
 
       allow delete: if signedIn()
         && (isOwner(userId) ||
-            resource.data.fromUid == request.auth.uid ||
-            resource.data.toUid == request.auth.uid);
+            friendRequestDataInvolvesAuth(resource.data));
     }
 
     // Friend requests - top-level collection
@@ -206,8 +219,8 @@ service cloud.firestore {
 
       allow delete: if signedIn()
         && resource != null
-        && (resource.data.fromUid == request.auth.uid ||
-            resource.data.toUid == request.auth.uid);
+        && (friendRequestDataInvolvesAuth(resource.data) ||
+            friendRequestIdInvolvesAuth(requestId));
     }
 
     // Friend codes mapping
