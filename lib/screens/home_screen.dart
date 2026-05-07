@@ -175,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint('=== HOME SCREEN: Loading trending destinations ===');
       final destinations = await DestinationService.getTrendingDestinations();
       debugPrint(
-        'Home screen loaded ${destinations.length} trending destinations',
+        'Home screen loaded ${destinations.take(5).length} nearby popular destinations',
       );
 
       // Debug: Check if we got any real data
@@ -190,7 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (!mounted) return;
       setState(() {
-        _trendingDestinations = destinations;
+        _trendingDestinations = destinations.take(5).toList(growable: false);
         _isLoading = false;
       });
     } catch (e) {

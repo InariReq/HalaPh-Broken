@@ -228,14 +228,14 @@ class DestinationService {
             }).toList()
           : allDestinations;
 
-      return _rankAndLimit(localDestinations, location, limit: 24);
+      return _rankAndLimit(localDestinations, location, limit: 5);
     }
 
     try {
       final googleResults = await _searchPlaces(
         query: hasTypedQuery ? trimmed : 'tourist attractions in Manila',
         location: location,
-        limit: 24,
+        limit: 5,
       ).timeout(_placesSearchTimeout, onTimeout: () => <Destination>[]);
 
       allDestinations.addAll(googleResults);
@@ -257,8 +257,8 @@ class DestinationService {
       });
     }
 
-    final ranked = _rankAndLimit(allDestinations, location, limit: 24);
-    return _hydrateMissingImages(ranked, location, maxHydration: 8);
+    final ranked = _rankAndLimit(allDestinations, location, limit: 5);
+    return _hydrateMissingImages(ranked, location, maxHydration: 5);
   }
 
   static Future<List<Destination>> getTrendingDestinations() async {
@@ -269,14 +269,14 @@ class DestinationService {
       final location = await _getSearchLocation();
 
       if (!DevModeService.allowPaidGoogleApis) {
-        return _rankAndLimit(trending, location, limit: 20);
+        return _rankAndLimit(trending, location, limit: 5);
       }
 
       final places = await _discoverPlaces(location);
       trending.addAll(places);
 
-      final ranked = _rankAndLimit(trending, location, limit: 20);
-      return _hydrateMissingImages(ranked, location, maxHydration: 8);
+      final ranked = _rankAndLimit(trending, location, limit: 5);
+      return _hydrateMissingImages(ranked, location, maxHydration: 5);
     } catch (e) {
       debugPrint('Error fetching trending destinations: $e');
       return _popularMalls; // Fallback to malls
@@ -301,19 +301,19 @@ class DestinationService {
         return searchable.contains(query.toLowerCase());
       }).toList();
 
-      return _rankAndLimit(localDestinations, searchLocation, limit: 24);
+      return _rankAndLimit(localDestinations, searchLocation, limit: 5);
     }
 
     final searchQuery = _queryFor(query, category);
     final places = await _searchPlaces(
       query: searchQuery,
       location: searchLocation,
-      limit: 24,
+      limit: 5,
     );
     final filtered = category == null
         ? places
         : places.where((place) => place.category == category).toList();
-    return _rankAndLimit(filtered, searchLocation, limit: 24);
+    return _rankAndLimit(filtered, searchLocation, limit: 5);
   }
 
   static Future<List<String>> getAutocompleteSuggestions(
@@ -327,7 +327,7 @@ class DestinationService {
       final places = await _searchPlaces(
         query: trimmed,
         location: searchLocation,
-        limit: 8,
+        limit: 5,
       );
       final labels = <String>[];
       final seen = <String>{};
@@ -339,7 +339,7 @@ class DestinationService {
           labels.add(label);
         }
       }
-      return labels.take(6).toList(growable: false);
+      return labels.take(5).toList(growable: false);
     } catch (e) {
       debugPrint('Error getting autocomplete: $e');
       return <String>[];
@@ -459,7 +459,7 @@ class DestinationService {
         final places = await _searchPlaces(
           query: query,
           location: searchLocation,
-          limit: 8,
+          limit: 5,
         ).timeout(_placesSearchTimeout, onTimeout: () => const <Destination>[]);
         results.addAll(places);
       } catch (e) {
@@ -699,7 +699,7 @@ class DestinationService {
     final matches = await _searchPlaces(
       query: query,
       location: destination.coordinates ?? location,
-      limit: 3,
+      limit: 5,
     );
 
     for (final match in matches) {

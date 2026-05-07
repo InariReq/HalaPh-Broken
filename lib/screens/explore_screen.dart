@@ -154,7 +154,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
         setState(() {
           _selectedCategory = null;
-          _destinations = deduped;
+          _destinations = deduped.take(5).toList(growable: false);
         });
       }
     } catch (e) {
@@ -547,7 +547,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget _buildExploreSummary() {
     final isSearching = _searchController.text.trim().isNotEmpty;
     final summary = isSearching
-        ? 'Showing search results'
+        ? 'Showing up to 5 search results'
         : _selectedCategory == null
             ? 'Showing 5 nearby trending places, prioritizing food and malls'
             : 'Showing up to 5 nearby places within 5 km for this category';

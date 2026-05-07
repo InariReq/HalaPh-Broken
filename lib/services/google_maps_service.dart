@@ -109,7 +109,7 @@ class GoogleMapsService {
     required LatLng location,
     required String query,
     int radius = 3000,
-    int limit = 10,
+    int limit = 5,
   }) async {
     if (!isConfigured) return <Destination>[];
     try {
