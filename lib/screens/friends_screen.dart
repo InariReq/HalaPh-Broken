@@ -837,11 +837,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                           Icons.remove_circle_outline,
                           color: Colors.red,
                         ),
-                        onPressed: () async {
-                          await _friendService.removeFriend(friend.id);
-                          _selectedCodes.remove(friend.code);
-                          _loadData();
-                        },
+                        onPressed: () => _confirmRemoveFriend(friend),
                       ),
                     ],
                   ),
@@ -851,6 +847,35 @@ class _FriendsScreenState extends State<FriendsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmRemoveFriend(Friend friend) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove friend?'),
+        content: const Text(
+          'This will remove this person from your friends list. Shared plans are not deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await _friendService.removeFriend(friend.id);
+    _selectedCodes.remove(friend.code);
+    _loadData();
   }
 
   void _showFriendProfileSheet(Friend friend) {
