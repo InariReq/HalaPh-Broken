@@ -7,7 +7,6 @@ import 'package:halaph/screens/route_options_screen.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
-import 'package:halaph/widgets/demo_safe_panel.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -22,11 +21,14 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   static const Color _primary = Color(0xFF2196F3);
   static const Color _primaryDark = Color(0xFF1976D2);
   static const Color _danger = Color(0xFFE53935);
+  static const Duration _loadTimeout = Duration(seconds: 8);
+  static const Duration _removeTimeout = Duration(seconds: 8);
 
   final _favoritesService = FavoritesService();
   List<Destination> _favorites = [];
   final Set<String> _busyFavoriteIds = {};
   bool _loading = true;
+  int _loadRequestId = 0;
   StreamSubscription? _subscription;
 
   @override
@@ -35,7 +37,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
     WidgetsBinding.instance.addObserver(this);
     _loadFavorites();
     _subscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
-      _loadFavorites();
+      _loadFavorites(showLoading: false);
     });
   }
 
@@ -49,24 +51,37 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _loadFavorites();
+      _loadFavorites(showLoading: _favorites.isEmpty);
     }
   }
 
-  Future<void> _loadFavorites() async {
-    setState(() => _loading = true);
+  Future<void> _loadFavorites({bool showLoading = true}) async {
+    if (!mounted) return;
+
+    final requestId = ++_loadRequestId;
+    final shouldShowLoading =
+        showLoading && _favorites.isEmpty && _busyFavoriteIds.isEmpty;
+    if (shouldShowLoading) {
+      setState(() => _loading = true);
+    }
+
     try {
-      final destinations = await _favoritesService.getFavoriteDestinations(
-        forceRefresh: true,
-      );
-      if (mounted) {
-        setState(() {
-          _favorites = destinations;
-          _loading = false;
-        });
-      }
+      final destinations = await _favoritesService
+          .getFavoriteDestinations(
+            forceRefresh: true,
+          )
+          .timeout(_loadTimeout);
+      if (!mounted || requestId != _loadRequestId) return;
+
+      setState(() {
+        _favorites = destinations
+            .where((destination) => !_busyFavoriteIds.contains(destination.id))
+            .toList(growable: false);
+        _loading = false;
+      });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (!mounted || requestId != _loadRequestId) return;
+      setState(() => _loading = false);
     }
   }
 
@@ -76,31 +91,46 @@ class _FavoritesScreenState extends State<FavoritesScreen>
     final index = _favorites.indexWhere((item) => item.id == id);
     if (index == -1) return;
     final removed = _favorites[index];
+    final messenger = ScaffoldMessenger.of(context);
+
+    _loadRequestId++;
 
     setState(() {
       _busyFavoriteIds.add(id);
       _favorites.removeAt(index);
+      _loading = false;
     });
 
+    var removedSuccessfully = false;
     try {
-      await _favoritesService.toggleFavorite(id);
+      removedSuccessfully =
+          await _favoritesService.removeFavorite(id).timeout(_removeTimeout);
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
+      removedSuccessfully = false;
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _busyFavoriteIds.remove(id);
+      _loading = false;
+      if (!removedSuccessfully &&
+          !_favorites.any((item) => item.id == removed.id)) {
         _favorites.insert(index.clamp(0, _favorites.length), removed);
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _busyFavoriteIds.remove(id);
-        });
-        _loadFavorites();
       }
+    });
+
+    if (!removedSuccessfully) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Could not remove favorite. Please try again.'),
+        ),
+      );
     }
   }
 
   void refresh() {
-    _loadFavorites();
+    _loadFavorites(showLoading: _favorites.isEmpty);
   }
 
   @override
@@ -125,7 +155,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
               color: Theme.of(context).colorScheme.onSurface,
             ),
             tooltip: 'Refresh favorites',
-            onPressed: _loadFavorites,
+            onPressed: () => _loadFavorites(showLoading: _favorites.isEmpty),
           ),
         ],
       ),
@@ -133,7 +163,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
         child: _loading
             ? const _FavoritesLoading()
             : RefreshIndicator(
-                onRefresh: _loadFavorites,
+                onRefresh: () => _loadFavorites(showLoading: false),
                 child: _favorites.isEmpty
                     ? ListView(
                         padding: const EdgeInsets.fromLTRB(20, 24, 20, 110),
@@ -297,7 +327,7 @@ class _EmptyFavoritesCard extends StatelessWidget {
     return const EmptyStatePanel(
       icon: Icons.favorite_border_rounded,
       title: 'No favorites yet',
-      message: 'Tap the heart icon on places to save them here.',
+      message: 'Save places to find them here.',
     );
   }
 }
@@ -321,7 +351,8 @@ class _FavoriteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dismissible(
       key: Key(destination.id),
-      direction: DismissDirection.endToStart,
+      direction: isBusy ? DismissDirection.none : DismissDirection.endToStart,
+      confirmDismiss: (_) async => !isBusy,
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
@@ -331,7 +362,9 @@ class _FavoriteCard extends StatelessWidget {
         ),
         child: Icon(Icons.delete_rounded, color: Colors.white),
       ),
-      onDismissed: (_) => onRemove(),
+      onDismissed: (_) {
+        if (!isBusy) onRemove();
+      },
       child: Material(
         color: Colors.transparent,
         child: InkWell(

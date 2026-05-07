@@ -129,6 +129,59 @@ class FavoritesService {
     FavoritesNotifier().notifyFavoritesChanged();
   }
 
+  Future<bool> removeFavorite(String id) async {
+    final favoriteId = id.trim();
+    if (favoriteId.isEmpty) return false;
+
+    final ids = await getFavorites();
+    if (!ids.contains(favoriteId)) return true;
+
+    final userId = await _currentUserId();
+    final cacheScope = _cacheScope(userId);
+    final nextIds = ids.where((item) => item != favoriteId).toList();
+    final sourceDestinations = Map<String, Destination>.from(
+      _cachedDestinations ?? const <String, Destination>{},
+    )..remove(favoriteId);
+    final nextDestinations = <String, Destination>{
+      for (final id in nextIds)
+        if (sourceDestinations[id] != null) id: sourceDestinations[id]!,
+    };
+
+    if (userId != null) {
+      final savedRemotely = await RemoteSyncService.instance.saveNamespace(
+        'favorites',
+        {
+          'ids': nextIds,
+          'places': nextDestinations.values
+              .map((destination) => destination.toJson())
+              .toList(),
+        },
+      );
+      if (!savedRemotely) return false;
+    }
+
+    final savedLocally = await _saveLocalFavoritesWithResult(
+      nextIds,
+      destinations: nextDestinations,
+      scope: _localScope(userId),
+    );
+    if (!savedLocally) return false;
+
+    _cachedUserId = cacheScope;
+    _cachedIds = nextIds;
+    _cachedDestinations = nextDestinations;
+
+    if (userId != null) {
+      unawaited(
+        FriendService()
+            .publishFavoritePlaces(_orderedCachedDestinations())
+            .catchError((_) {}),
+      );
+    }
+    FavoritesNotifier().notifyFavoritesChanged();
+    return true;
+  }
+
   Future<void> toggleFavoriteDestination(Destination destination) async {
     final ids = await getFavorites();
     final destinations = Map<String, Destination>.from(
@@ -180,6 +233,18 @@ class FavoritesService {
     required Map<String, Destination>? destinations,
     required String scope,
   }) async {
+    await _saveLocalFavoritesWithResult(
+      ids,
+      destinations: destinations,
+      scope: scope,
+    );
+  }
+
+  Future<bool> _saveLocalFavoritesWithResult(
+    List<String> ids, {
+    required Map<String, Destination>? destinations,
+    required String scope,
+  }) async {
     final deduped = <String>{...ids}.toList();
     final places = (destinations ?? const <String, Destination>{})
         .values
@@ -190,8 +255,10 @@ class FavoritesService {
       final localStore = SharedPreferencesAsync();
       await localStore.setStringList(_localIdsKey(scope), deduped);
       await localStore.setString(_localPlacesKey(scope), jsonEncode(places));
+      return true;
     } catch (_) {
       // SharedPreferences is unavailable in some test environments.
+      return false;
     }
   }
 
