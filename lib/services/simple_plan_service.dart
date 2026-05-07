@@ -25,6 +25,7 @@ class SimplePlanService {
 
   static Stream<void> get changes => _changesController.stream;
   static bool debugAllowMemoryOnlyPlans = false;
+  static bool _planLoadRetryScheduled = false;
 
   static Future<void> initialize({bool forceRefresh = false}) async {
     if (!forceRefresh && _initialization != null) return _initialization;
@@ -75,16 +76,46 @@ class SimplePlanService {
         ..clear()
         ..addEntries(remotePlans.map((plan) => MapEntry(plan.id, plan)));
       _loadedForUserId = userId;
+      _planLoadRetryScheduled = false;
       _listenToRemotePlans(userId);
     } catch (error) {
       debugPrint('Plan load failed: $error');
+
+      // Do not treat one slow Firebase read as final.
+      // Keep any existing in-memory plans for the same user, start the live
+      // listener, and retry once shortly after the UI becomes responsive.
       if (_loadedForUserId != userId) {
         _plans.clear();
         _ownerUids.clear();
         _participantUids.clear();
         _loadedForUserId = userId;
+        _notifyChanged();
       }
+
+      _listenToRemotePlans(userId);
+      _schedulePlanLoadRetry(userId);
     }
+  }
+
+  static void _schedulePlanLoadRetry(String userId) {
+    if (_planLoadRetryScheduled) return;
+
+    _planLoadRetryScheduled = true;
+    unawaited(
+      Future<void>.delayed(const Duration(seconds: 3), () async {
+        if (_currentUserId() != userId) {
+          _planLoadRetryScheduled = false;
+          return;
+        }
+
+        try {
+          await initialize(forceRefresh: true);
+        } catch (error) {
+          debugPrint('Plan load retry failed: $error');
+          _planLoadRetryScheduled = false;
+        }
+      }),
+    );
   }
 
   static List<TravelPlan> getUserPlans({String? ownerId}) {
