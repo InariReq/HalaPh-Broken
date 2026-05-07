@@ -76,19 +76,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _deleteAccount() async {
     final firstConfirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete account?'),
-        content: Text(
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete account?'),
+        content: const Text(
           'This permanently deletes your account, removes you from friends lists, removes friend requests, removes your public profile, and removes or leaves shared plans where needed. This action cannot be undone.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel'),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Continue', style: TextStyle(color: Colors.red)),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Continue',
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -98,75 +101,156 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
 
     final passwordController = TextEditingController();
-    final password = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Confirm delete account'),
-        content: TextField(
-          controller: passwordController,
-          obscureText: true,
-          decoration: InputDecoration(
-            labelText: 'Password',
-            helperText:
-                'Enter your password to permanently delete this account.',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, passwordController.text),
-            child: Text(
-              'Delete Account',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
-    );
-    passwordController.dispose();
-
-    if (password == null || password.trim().isEmpty) return;
-    if (!mounted) return;
-
-    setState(() {
-      _deletingAccount = true;
-    });
 
     try {
-      final success = await _auth.deleteCurrentAccount(password: password);
+      final deleted = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          var isDeleting = false;
+          String? passwordError;
+
+          Future<void> submit(StateSetter setDialogState) async {
+            final enteredPassword = passwordController.text.trim();
+
+            if (enteredPassword.isEmpty) {
+              setDialogState(() {
+                passwordError = 'Enter your password to delete this account.';
+              });
+              return;
+            }
+
+            setDialogState(() {
+              isDeleting = true;
+              passwordError = null;
+            });
+
+            try {
+              final success = await _auth.deleteCurrentAccount(
+                password: enteredPassword,
+              );
+
+              if (!dialogContext.mounted) return;
+
+              if (!success) {
+                setDialogState(() {
+                  isDeleting = false;
+                  passwordError = _deleteAccountErrorMessage(
+                    _auth.lastAuthError,
+                  );
+                });
+                return;
+              }
+
+              Navigator.of(dialogContext, rootNavigator: true).pop(true);
+            } catch (error) {
+              debugPrint('SettingsScreen: delete account failed: $error');
+              if (!dialogContext.mounted) return;
+
+              setDialogState(() {
+                isDeleting = false;
+                passwordError = _deleteAccountErrorMessage(error);
+              });
+            }
+          }
+
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              final hasPassword =
+                  passwordController.text.trim().isNotEmpty && !isDeleting;
+
+              return AlertDialog(
+                title: const Text('Confirm delete account'),
+                content: TextField(
+                  controller: passwordController,
+                  enabled: !isDeleting,
+                  autofocus: true,
+                  obscureText: true,
+                  textInputAction: TextInputAction.done,
+                  onChanged: (_) {
+                    setDialogState(() {
+                      passwordError = null;
+                    });
+                  },
+                  onSubmitted: (_) {
+                    if (!isDeleting) {
+                      submit(setDialogState);
+                    }
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    helperText:
+                        'Enter your password to permanently delete this account.',
+                    errorText: passwordError,
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: isDeleting
+                        ? null
+                        : () => Navigator.pop(dialogContext, false),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed:
+                        hasPassword ? () => submit(setDialogState) : null,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.red,
+                    ),
+                    child: Text(
+                      isDeleting ? 'Deleting...' : 'Delete Account',
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
 
       if (!mounted) return;
 
-      if (!success) {
+      if (deleted == true) {
+        context.go('/accounts');
+      }
+    } finally {
+      passwordController.dispose();
+      if (mounted && _deletingAccount) {
         setState(() {
           _deletingAccount = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_auth.lastAuthError ?? 'Could not delete account.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
       }
-
-      context.go('/accounts');
-    } catch (error) {
-      debugPrint('SettingsScreen: delete account flow failed: $error');
-      if (!mounted) return;
-      setState(() {
-        _deletingAccount = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not delete account. Please try again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
+  }
+
+  String _deleteAccountErrorMessage(Object? error) {
+    final message = (error ?? '').toString().trim();
+    final lower = message.toLowerCase();
+
+    if (lower.contains('invalid-credential') ||
+        lower.contains('wrong-password') ||
+        lower.contains('password is incorrect') ||
+        lower.contains('malformed or has expired')) {
+      return 'Password is incorrect.';
+    }
+
+    if (lower.contains('requires-recent-login')) {
+      return 'Please log in again before deleting your account.';
+    }
+
+    if (lower.contains('network') ||
+        lower.contains('timeout') ||
+        lower.contains('connection')) {
+      return 'Check your internet connection and try again.';
+    }
+
+    if (message.isNotEmpty &&
+        !lower.contains('exception') &&
+        !lower.contains('firebaseauthexception')) {
+      return message;
+    }
+
+    return 'Could not delete account. Please try again.';
   }
 
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
