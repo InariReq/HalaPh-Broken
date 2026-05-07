@@ -297,10 +297,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
         return;
       }
 
-      final destinations = await DestinationService.searchDestinations('');
+      final destinations = await DestinationService.searchRealPlaces(
+        query: '',
+        location: location,
+        category: category,
+      );
       final deduped =
           DestinationService.deduplicateDestinationsById(destinations);
-      final filtered = _nearbyPlacesForCategory(
+      var filtered = _nearbyPlacesForCategory(
         deduped,
         location,
         category,
@@ -308,10 +312,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
         limit: 5,
       );
 
+      if (filtered.isEmpty) {
+        filtered = deduped.take(5).toList(growable: false);
+      }
+
       if (!mounted || generation != _searchGeneration) return;
 
       setState(() {
-        _destinations = filtered;
+        _destinations = filtered.take(5).toList(growable: false);
       });
     } catch (e) {
       debugPrint('Category filter error: $e');
