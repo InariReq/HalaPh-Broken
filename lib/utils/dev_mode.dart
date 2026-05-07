@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 enum DevMode { online, offline, emulator }
 
 class DevModeService {
-  static const bool paidGoogleApisEnabled = false;
+  static const bool paidGoogleApisEnabled = true;
 
   static bool get allowPaidGoogleApis => paidGoogleApisEnabled;
 
