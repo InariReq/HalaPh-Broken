@@ -85,13 +85,16 @@ class AuthService {
     return 'current_user';
   }
 
-  Future<void> logout() async {
-    if (await FirebaseAppService.initialize()) {
+  Future<void> logout({bool removeSavedAccount = false}) async {
+    try {
+      final uid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+      if (removeSavedAccount && uid != null && uid.trim().isNotEmpty) {
+        await SavedAccountsService().removeSavedAccount(uid.trim());
+      }
       await firebase_auth.FirebaseAuth.instance.signOut();
+    } catch (e) {
+      debugPrint('Logout failed: $e');
     }
-    SimplePlanService.resetCache();
-    FavoritesService().clearCache();
-    CommuterTypeService().clearCache();
   }
 
   Future<firebase_auth.User?> _getFirebaseUser() async {

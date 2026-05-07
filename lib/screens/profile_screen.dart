@@ -525,7 +525,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               widget.onLogout!.call();
               return;
             }
-            await _auth.logout();
+            await _auth.logout(removeSavedAccount: true);
             if (!mounted) return;
             router.go('/accounts');
           }
