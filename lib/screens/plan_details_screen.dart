@@ -300,8 +300,6 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       );
 
       if (success) {
-        _showSuccess('Plan updated successfully!');
-
         // Reload the plan from service to get the latest data including banner image
         final updatedPlan = SimplePlanService.getPlanById(_plan!.id);
         if (updatedPlan != null) {
@@ -311,17 +309,11 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           });
         }
 
-        // Return cleanly to the previous My Plans screen when this page was pushed.
-        await Future.delayed(const Duration(milliseconds: 200));
+        // Stay on this plan after saving. This avoids breaking the app shell
+        // when the plan was opened from different entry points.
         if (!mounted) return;
-
-        final navigator = Navigator.of(context);
-        if (navigator.canPop()) {
-          navigator.pop(true);
-          return;
-        }
-
-        context.go('/');
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        _showSuccess('Plan updated successfully!');
       } else {
         _showError('Failed to update plan');
       }
@@ -1275,8 +1267,11 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     try {
       final myType = await CommuterTypeService().loadCommuterType();
       final myCode = await _friendService.getMyCode().catchError((_) => '');
+      final firebaseUid =
+          firebase_auth.FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
 
       final myIds = <String>{};
+      if (firebaseUid.isNotEmpty) myIds.add(firebaseUid);
       if (myCode.trim().isNotEmpty) myIds.add(myCode.trim());
       if (SimplePlanService.isPlanOwner(plan.id) &&
           plan.createdBy.trim().isNotEmpty) {
@@ -1565,15 +1560,18 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               ? 'name:$normalizedName|type:$typeKey'
               : 'id:$id';
 
-      estimatesByPerson.putIfAbsent(
-        personKey,
-        () => _estimateForParticipant(
-          id: id,
-          name: name.isNotEmpty ? name : 'Participant',
-          type: type,
-          sharedFallbackEstimate: sharedFallbackEstimate,
-        ),
+      final estimate = _estimateForParticipant(
+        id: id,
+        name: name.isNotEmpty ? name : 'Participant',
+        type: type,
+        sharedFallbackEstimate: sharedFallbackEstimate,
       );
+
+      final existing = estimatesByPerson[personKey];
+      if (existing == null ||
+          (existing.isStartMissing && !estimate.isStartMissing)) {
+        estimatesByPerson[personKey] = estimate;
+      }
     }
 
     return estimatesByPerson.values.toList()
