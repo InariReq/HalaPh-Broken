@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -1437,10 +1438,17 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       debugPrint('Budget passenger type load failed: $error');
     }
 
-    var index = 1;
     for (final id in participantIds) {
       types.putIfAbsent(id, () => PassengerType.regular);
-      names.putIfAbsent(id, () => 'Participant ${index++}');
+
+      if (!names.containsKey(id) || names[id]!.trim().isEmpty) {
+        final resolvedName = await _resolveParticipantDisplayName(id);
+        if (resolvedName != null && resolvedName.trim().isNotEmpty) {
+          names[id] = resolvedName.trim();
+        }
+      }
+
+      names.putIfAbsent(id, () => _participantFallbackLabel(id));
     }
 
     if (!mounted) return;
@@ -1448,6 +1456,132 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       _budgetPassengerTypes = types;
       _budgetPassengerNames = names;
     });
+  }
+
+  String _participantFallbackLabel(String id) {
+    final trimmed = id.trim();
+    final plan = _plan;
+
+    if (plan != null &&
+        trimmed.isNotEmpty &&
+        trimmed == plan.createdBy.trim()) {
+      return 'Plan owner';
+    }
+
+    if (_myParticipantStartKey != null && trimmed == _myParticipantStartKey) {
+      return 'You';
+    }
+
+    return 'Participant';
+  }
+
+  Future<String?> _resolveParticipantDisplayName(String id) async {
+    final trimmed = id.trim();
+    if (trimmed.isEmpty) return null;
+
+    try {
+      final friends = await _friendService.getFriends();
+
+      for (final friend in friends) {
+        final friendUid = friend.uid?.trim();
+        final friendCode = friend.code.trim();
+        final matchesUid = friendUid != null && friendUid == trimmed;
+        final matchesCode = friendCode == trimmed;
+
+        if (!matchesUid && !matchesCode) continue;
+
+        final friendName = friend.name.trim();
+        if (friendName.isNotEmpty) return friendName;
+
+        if (friendCode.isNotEmpty) {
+          final publicName = await _resolvePublicProfileName(friendCode);
+          if (publicName != null && publicName.trim().isNotEmpty) {
+            return publicName.trim();
+          }
+        }
+      }
+    } catch (error) {
+      debugPrint('Participant friend name lookup failed for $trimmed: $error');
+    }
+
+    final publicName = await _resolvePublicProfileName(trimmed);
+    if (publicName != null && publicName.trim().isNotEmpty) {
+      return publicName.trim();
+    }
+
+    final userName = await _resolveUserProfileName(trimmed);
+    if (userName != null && userName.trim().isNotEmpty) {
+      return userName.trim();
+    }
+
+    return null;
+  }
+
+  Future<String?> _resolvePublicProfileName(String code) async {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return null;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('publicProfiles')
+          .doc(trimmed)
+          .get()
+          .timeout(const Duration(seconds: 3));
+
+      final data = doc.data();
+      if (data == null) return null;
+
+      return _firstNonEmptyString(data, const [
+        'name',
+        'displayName',
+        'username',
+        'email',
+      ]);
+    } catch (error) {
+      debugPrint(
+          'Participant public profile lookup skipped for $trimmed: $error');
+      return null;
+    }
+  }
+
+  Future<String?> _resolveUserProfileName(String uid) async {
+    final trimmed = uid.trim();
+    if (trimmed.isEmpty) return null;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(trimmed)
+          .get()
+          .timeout(const Duration(seconds: 3));
+
+      final data = doc.data();
+      if (data == null) return null;
+
+      return _firstNonEmptyString(data, const [
+        'name',
+        'displayName',
+        'username',
+        'email',
+      ]);
+    } catch (error) {
+      debugPrint(
+          'Participant user profile lookup skipped for $trimmed: $error');
+      return null;
+    }
+  }
+
+  String? _firstNonEmptyString(
+    Map<String, dynamic> data,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+    }
+    return null;
   }
 
   Future<void> _loadBudgetFallbackOrigin() async {
