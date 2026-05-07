@@ -53,6 +53,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   bool _isLoading = true;
   final FavoritesService _favoritesService = FavoritesService();
   bool _isFavorite = false;
+  bool _favoriteBusy = false;
   StreamSubscription? _subscription;
 
   @override
@@ -136,9 +137,26 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   }
 
   Future<void> _toggleFavorite() async {
-    if (_destination == null) return;
-    await _favoritesService.toggleFavoriteDestination(_destination!);
-    setState(() => _isFavorite = !_isFavorite);
+    if (_destination == null || _favoriteBusy) return;
+    final wasFavorite = _isFavorite;
+    setState(() {
+      _favoriteBusy = true;
+      _isFavorite = !_isFavorite;
+    });
+    try {
+      await _favoritesService.toggleFavoriteDestination(_destination!);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isFavorite = wasFavorite;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _favoriteBusy = false;
+        });
+      }
+    }
   }
 
   Future<void> _showAddToPlanSheet() async {
@@ -534,48 +552,66 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
             Positioned(
               top: 12,
               left: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.45),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+                child: InkWell(
                   borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.zoom_out_map, color: Colors.white, size: 14),
-                    SizedBox(width: 5),
-                    Text(
-                      'Tap to preview',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  onTap: () => _showImagePreview(imageUrl.trim()),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
                     ),
-                  ],
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.zoom_out_map, color: Colors.white, size: 14),
+                        SizedBox(width: 5),
+                        Text(
+                          'View image',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
           Positioned(
             top: 12,
             right: 12,
-            child: GestureDetector(
-              onTap: _toggleFavorite,
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Icon(
-                  _isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: Colors.red,
-                  size: 20,
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(18),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: _favoriteBusy ? null : _toggleFavorite,
+                child: AnimatedScale(
+                  duration: const Duration(milliseconds: 120),
+                  curve: Curves.easeOutCubic,
+                  scale: _favoriteBusy ? 0.96 : 1,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Icon(
+                      _isFavorite ? Icons.favorite : Icons.favorite_border,
+                      color: Colors.red,
+                      size: 20,
+                    ),
+                  ),
                 ),
               ),
             ),

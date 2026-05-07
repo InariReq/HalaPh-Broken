@@ -7,7 +7,7 @@ class FadeInPage extends StatelessWidget {
   const FadeInPage({
     super.key,
     required this.child,
-    this.duration = const Duration(milliseconds: 260),
+    this.duration = const Duration(milliseconds: 320),
   });
 
   @override
@@ -34,15 +34,15 @@ class SlideFadeIn extends StatelessWidget {
     super.key,
     required this.child,
     this.order = 0,
-    this.offset = 14,
-    this.baseDuration = const Duration(milliseconds: 240),
+    this.offset = 18,
+    this.baseDuration = const Duration(milliseconds: 300),
   });
 
   @override
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: baseDuration + Duration(milliseconds: order.clamp(0, 6) * 50),
+      duration: baseDuration + Duration(milliseconds: order.clamp(0, 6) * 70),
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {
         return Opacity(
@@ -62,12 +62,22 @@ class PressableCard extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
   final BorderRadius borderRadius;
+  final EdgeInsetsGeometry? padding;
+  final Color? splashColor;
+  final Color? highlightColor;
+  final double pressedScale;
+  final Duration duration;
 
   const PressableCard({
     super.key,
     required this.child,
     this.onTap,
     this.borderRadius = const BorderRadius.all(Radius.circular(18)),
+    this.padding,
+    this.splashColor,
+    this.highlightColor,
+    this.pressedScale = 0.982,
+    this.duration = const Duration(milliseconds: 130),
   });
 
   @override
@@ -84,20 +94,25 @@ class _PressableCardState extends State<PressableCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: widget.onTap == null ? null : (_) => _setPressed(true),
-      onPointerUp: widget.onTap == null ? null : (_) => _setPressed(false),
-      onPointerCancel: widget.onTap == null ? null : (_) => _setPressed(false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.985 : 1,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
-        child: Material(
-          color: Colors.transparent,
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return AnimatedScale(
+      scale: _pressed ? widget.pressedScale : 1,
+      duration: widget.duration,
+      curve: Curves.easeOutCubic,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: widget.borderRadius,
+        child: InkWell(
+          onTap: widget.onTap,
           borderRadius: widget.borderRadius,
-          child: InkWell(
-            onTap: widget.onTap,
-            borderRadius: widget.borderRadius,
+          splashColor:
+              widget.splashColor ?? Colors.blue.withValues(alpha: 0.10),
+          highlightColor: widget.highlightColor ??
+              colorScheme.primary.withValues(alpha: 0.06),
+          onHighlightChanged: widget.onTap == null ? null : _setPressed,
+          child: Padding(
+            padding: widget.padding ?? EdgeInsets.zero,
             child: widget.child,
           ),
         ),

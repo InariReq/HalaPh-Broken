@@ -22,6 +22,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   List<Destination> _destinations = [];
   bool _isLoading = false;
   final Set<String> _favoriteIds = {};
+  final Set<String> _favoriteBusyIds = {};
   final FavoritesService _favoritesService = FavoritesService();
   StreamSubscription? _subscription;
   Timer? _searchDebounce;
@@ -61,17 +62,36 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Future<void> _toggleFavorite(Destination destination) async {
     final id = destination.id;
+    if (_favoriteBusyIds.contains(id)) return;
+    final wasFavorite = _favoriteIds.contains(id);
+
+    setState(() {
+      _favoriteBusyIds.add(id);
+      if (wasFavorite) {
+        _favoriteIds.remove(id);
+      } else {
+        _favoriteIds.add(id);
+      }
+    });
+
     try {
       await _favoritesService.toggleFavoriteDestination(destination);
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        if (_favoriteIds.contains(id)) {
-          _favoriteIds.remove(id);
-        } else {
+        if (wasFavorite) {
           _favoriteIds.add(id);
+        } else {
+          _favoriteIds.remove(id);
         }
       });
-    } catch (_) {}
+    } finally {
+      if (mounted) {
+        setState(() {
+          _favoriteBusyIds.remove(id);
+        });
+      }
+    }
   }
 
   final List<DestinationCategory> _categories = [
@@ -611,8 +631,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
             itemCount: _destinations.length,
             itemBuilder: (context, index) {
               final destination = _destinations[index];
-              debugPrint('=== BUILDING CARD FOR: ${destination.name} ===');
-              debugPrint('=== DESTINATION ID: ${destination.id} ===');
               return TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: 1),
                 duration:
@@ -794,6 +812,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   Widget _buildDestinationCard(Destination destination) {
     final hasImage = destination.imageUrl.isNotEmpty &&
         destination.imageUrl.startsWith('http');
+    final isFavorite = _favoriteIds.contains(destination.id);
+    final isFavoriteBusy = _favoriteBusyIds.contains(destination.id);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 22),
@@ -900,29 +920,41 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 Positioned(
                   top: 14,
                   right: 14,
-                  child: GestureDetector(
-                    onTap: () => _toggleFavorite(destination),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.94),
-                        borderRadius: BorderRadius.circular(19),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.10),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(19),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(19),
+                      onTap: isFavoriteBusy
+                          ? null
+                          : () => _toggleFavorite(destination),
+                      child: AnimatedScale(
+                        duration: const Duration(milliseconds: 120),
+                        curve: Curves.easeOutCubic,
+                        scale: isFavoriteBusy ? 0.96 : 1,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.94),
+                            borderRadius: BorderRadius.circular(19),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.10),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: Icon(
-                        _favoriteIds.contains(destination.id)
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        color: Colors.red,
-                        size: 20,
+                          child: Icon(
+                            isFavorite
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: Colors.red,
+                            size: 20,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -998,8 +1030,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(18),
                       onTap: () {
-                        debugPrint('=== TAPPING ON: ${destination.name} ===');
-                        debugPrint('=== PASSING ID: ${destination.id} ===');
                         ExploreDetailsScreen.showAsBottomSheet(
                           context,
                           destinationId: destination.id,

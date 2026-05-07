@@ -25,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   bool _isTrendingLoadInProgress = false;
   final Set<String> _favoriteIds = {};
+  final Set<String> _favoriteBusyIds = {};
   final FavoritesService _favoritesService = FavoritesService();
   final FriendService _friendService = FriendService();
   StreamSubscription? _favoritesSubscription;
@@ -128,16 +129,37 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _toggleFavorite(Destination destination) async {
     final id = destination.id;
+    if (_favoriteBusyIds.contains(id)) return;
+    final wasFavorite = _favoriteIds.contains(id);
+
+    if (!mounted) return;
+    setState(() {
+      _favoriteBusyIds.add(id);
+      if (wasFavorite) {
+        _favoriteIds.remove(id);
+      } else {
+        _favoriteIds.add(id);
+      }
+    });
+
     try {
       await _favoritesService.toggleFavoriteDestination(destination);
+    } catch (_) {
+      if (!mounted) return;
       setState(() {
-        if (_favoriteIds.contains(id)) {
-          _favoriteIds.remove(id);
-        } else {
+        if (wasFavorite) {
           _favoriteIds.add(id);
+        } else {
+          _favoriteIds.remove(id);
         }
       });
-    } catch (_) {}
+    } finally {
+      if (mounted) {
+        setState(() {
+          _favoriteBusyIds.remove(id);
+        });
+      }
+    }
   }
 
   Future<void> _loadTrendingDestinations() async {
@@ -1190,6 +1212,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTrendingCard(Destination destination) {
+    final isFavorite = _favoriteIds.contains(destination.id);
+    final isFavoriteBusy = _favoriteBusyIds.contains(destination.id);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 18),
       decoration: BoxDecoration(
@@ -1383,21 +1408,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 Positioned(
                   top: 12,
                   right: 12,
-                  child: GestureDetector(
-                    onTap: () => _toggleFavorite(destination),
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        _favoriteIds.contains(destination.id)
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        color: Colors.red,
-                        size: 18,
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: isFavoriteBusy
+                          ? null
+                          : () => _toggleFavorite(destination),
+                      child: AnimatedScale(
+                        duration: const Duration(milliseconds: 120),
+                        curve: Curves.easeOutCubic,
+                        scale: isFavoriteBusy ? 0.96 : 1,
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(
+                            isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: Colors.red,
+                            size: 18,
+                          ),
+                        ),
                       ),
                     ),
                   ),

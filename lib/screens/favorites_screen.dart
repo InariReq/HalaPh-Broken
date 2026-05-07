@@ -24,6 +24,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
 
   final _favoritesService = FavoritesService();
   List<Destination> _favorites = [];
+  final Set<String> _busyFavoriteIds = {};
   bool _loading = true;
   StreamSubscription? _subscription;
 
@@ -69,9 +70,32 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   }
 
   Future<void> _removeFavorite(String id) async {
-    await _favoritesService.toggleFavorite(id);
-    if (!mounted) return;
-    await _loadFavorites();
+    if (_busyFavoriteIds.contains(id)) return;
+
+    final index = _favorites.indexWhere((item) => item.id == id);
+    if (index == -1) return;
+    final removed = _favorites[index];
+
+    setState(() {
+      _busyFavoriteIds.add(id);
+      _favorites.removeAt(index);
+    });
+
+    try {
+      await _favoritesService.toggleFavorite(id);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _favorites.insert(index.clamp(0, _favorites.length), removed);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busyFavoriteIds.remove(id);
+        });
+        _loadFavorites();
+      }
+    }
   }
 
   void refresh() {
@@ -130,11 +154,14 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                           }
 
                           final destination = _favorites[index - 1];
+                          final isBusy =
+                              _busyFavoriteIds.contains(destination.id);
 
                           return _FavoritesEntrance(
                             order: index - 1,
                             child: _FavoriteCard(
                               destination: destination,
+                              isBusy: isBusy,
                               onOpen: () =>
                                   ExploreDetailsScreen.showAsBottomSheet(
                                 context,
@@ -276,12 +303,14 @@ class _EmptyFavoritesCard extends StatelessWidget {
 
 class _FavoriteCard extends StatelessWidget {
   final Destination destination;
+  final bool isBusy;
   final VoidCallback onOpen;
   final VoidCallback onRoutes;
   final VoidCallback onRemove;
 
   const _FavoriteCard({
     required this.destination,
+    required this.isBusy,
     required this.onOpen,
     required this.onRoutes,
     required this.onRemove,
@@ -306,7 +335,7 @@ class _FavoriteCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: onOpen,
+          onTap: isBusy ? null : onOpen,
           child: Container(
             decoration: _cardDecoration(context),
             child: Row(
@@ -355,13 +384,13 @@ class _FavoriteCard extends StatelessWidget {
                       icon: Icon(Icons.directions_rounded),
                       color: _FavoritesScreenState._primaryDark,
                       tooltip: 'View routes',
-                      onPressed: onRoutes,
+                      onPressed: isBusy ? null : onRoutes,
                     ),
                     IconButton(
                       icon: Icon(Icons.favorite_rounded),
                       color: _FavoritesScreenState._danger,
                       tooltip: 'Remove favorite',
-                      onPressed: onRemove,
+                      onPressed: isBusy ? null : onRemove,
                     ),
                   ],
                 ),
