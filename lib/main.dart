@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -45,6 +46,18 @@ void main() async {
   await FirebaseAppService.initialize();
   await PlanNotificationService.initialize();
   await ThemeModeService.initialize();
+
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    debugPrint('Flutter widget error: ${details.exceptionAsString()}');
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: _HalaPhErrorPanel(
+        message: kReleaseMode
+            ? 'Something went wrong, but HalaPH is still running.'
+            : details.exceptionAsString(),
+      ),
+    );
+  };
 
   runApp(const HalaPhApp());
 }
@@ -135,6 +148,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
 }
 
 final GoRouter _router = GoRouter(
+  errorBuilder: (context, state) {
+    debugPrint('GoRouter error: ${state.error}');
+    return const _HalaPhErrorScreen();
+  },
   routes: [
     GoRoute(path: '/', builder: (context, state) => const AuthWrapper()),
     GoRoute(
@@ -224,6 +241,76 @@ final GoRouter _router = GoRouter(
     ),
   ],
 );
+
+class _HalaPhErrorScreen extends StatelessWidget {
+  const _HalaPhErrorScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('HalaPH')),
+      body: _HalaPhErrorPanel(
+        message: 'This page could not be opened.',
+        onGoHome: () => context.go('/'),
+      ),
+    );
+  }
+}
+
+class _HalaPhErrorPanel extends StatelessWidget {
+  final String message;
+  final VoidCallback? onGoHome;
+
+  const _HalaPhErrorPanel({
+    required this.message,
+    this.onGoHome,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.error_outline_rounded,
+                  size: 56,
+                  color: Colors.orange[700],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Something went wrong',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  maxLines: kReleaseMode ? 3 : 6,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                if (onGoHome != null) ...[
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: onGoHome,
+                    child: const Text('Go Home'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 Destination? _decodeDestinationQuery(String? encoded) {
   if (encoded == null || encoded.isEmpty) return null;

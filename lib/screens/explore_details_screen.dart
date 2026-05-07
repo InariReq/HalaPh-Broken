@@ -133,7 +133,13 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      debugPrint('Explore details load failed: $e');
+      if (mounted) {
+        setState(() {
+          _destination = widget.destination;
+          _isLoading = false;
+        });
+      }
     }
   }
 

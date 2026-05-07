@@ -114,6 +114,8 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
   bool get _canManageCollaborators => _isPlanOwner;
 
+  String get _normalizedPlanId => widget.planId?.trim() ?? '';
+
   @override
   void initState() {
     super.initState();
@@ -126,8 +128,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     super.dispose();
   }
 
-  Future<void> _loadPlan() async {
-    if (widget.planId == null || widget.planId!.trim().isEmpty) {
+  Future<void> _loadPlan({bool forceRefresh = false}) async {
+    final planId = _normalizedPlanId;
+    if (planId.isEmpty) {
       if (!mounted) return;
       setState(() {
         _plan = null;
@@ -138,15 +141,16 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
     try {
       unawaited(_friendService.getMyCode());
-      await SimplePlanService.initialize().timeout(const Duration(seconds: 10));
+      await SimplePlanService.initialize(forceRefresh: forceRefresh)
+          .timeout(const Duration(seconds: 10));
 
-      _plan = SimplePlanService.getPlanById(widget.planId!);
+      _plan = SimplePlanService.getPlanById(planId);
 
       if (_plan == null) {
         try {
           final myCode = await _friendService.getMyCode().catchError((_) => '');
           _plan = await SimplePlanService.joinSharedPlan(
-            widget.planId!,
+            planId,
             participantCode: myCode,
           ).timeout(const Duration(seconds: 10), onTimeout: () => null);
         } catch (e) {
@@ -208,6 +212,23 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     setState(() {
       _isLoading = false;
     });
+  }
+
+  void _safeBackOrHome() {
+    final router = GoRouter.of(context);
+    if (router.canPop()) {
+      router.pop();
+      return;
+    }
+    context.go('/');
+  }
+
+  void _retryLoadPlan() {
+    setState(() {
+      _isLoading = true;
+      _plan = null;
+    });
+    unawaited(_loadPlan(forceRefresh: true));
   }
 
   Future<void> _manageCollaborators() async {
@@ -352,12 +373,15 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
+        title: !_isLoading && _plan == null
+            ? const Text('Plan could not be opened')
+            : null,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
             color: Theme.of(context).colorScheme.onSurface,
           ),
-          onPressed: () => context.go('/'),
+          onPressed: _safeBackOrHome,
         ),
         actions: [
           if (!_isEditing && _canEditPlan)
@@ -445,7 +469,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               Icon(Icons.error_outline, size: 80, color: Colors.red[300]),
               const SizedBox(height: 24),
               Text(
-                'Plan Not Found',
+                'Plan could not be opened',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -454,23 +478,22 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'The plan you\'re looking for doesn\'t exist or may have been deleted.',
+                'This plan may still be syncing, unavailable offline, or no longer shared with this account.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
+              const SizedBox(height: 20),
+              OutlinedButton.icon(
+                onPressed: _normalizedPlanId.isEmpty ? null : _retryLoadPlan,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry'),
+              ),
               const SizedBox(height: 32),
               ElevatedButton(
-                onPressed: () {
-                  final navigator = Navigator.of(context);
-                  if (navigator.canPop()) {
-                    navigator.pop();
-                    return;
-                  }
-                  context.go('/');
-                },
+                onPressed: _safeBackOrHome,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue[600],
                   foregroundColor: Colors.white,
@@ -483,7 +506,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   ),
                 ),
                 child: Text(
-                  'Back to My Plans',
+                  'Go Home',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),

@@ -352,7 +352,16 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       ),
       child: InkWell(
         onTap: () {
-          context.go('/plan-details?planId=${plan.id}');
+          final planId = plan.id.trim();
+          if (planId.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('This plan could not be opened yet.'),
+              ),
+            );
+            return;
+          }
+          context.go('/plan-details?planId=${Uri.encodeComponent(planId)}');
         },
         borderRadius: BorderRadius.circular(20),
         child: Padding(

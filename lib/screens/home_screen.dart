@@ -776,7 +776,18 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: InkWell(
         onTap: () {
-          GoRouter.of(context).push('/plan-details?planId=${plan.id}');
+          final planId = plan.id.trim();
+          if (planId.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('This plan could not be opened yet.'),
+              ),
+            );
+            return;
+          }
+          GoRouter.of(context).push(
+            '/plan-details?planId=${Uri.encodeComponent(planId)}',
+          );
         },
         borderRadius: BorderRadius.circular(16),
         child: Column(
@@ -871,12 +882,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openPlanDestinationDetails(Destination destination) {
-    ExploreDetailsScreen.showAsBottomSheet(
-      context,
-      destinationId: destination.id,
-      source: 'home_up_next',
-      destination: destination,
-    );
+    try {
+      final destinationId = destination.id.trim();
+      if (destinationId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open destination details.')),
+        );
+        return;
+      }
+      ExploreDetailsScreen.showAsBottomSheet(
+        context,
+        destinationId: destinationId,
+        source: 'home_up_next',
+        destination: destination,
+      );
+    } catch (error) {
+      debugPrint('Home Up Next destination open failed: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open destination details.')),
+      );
+    }
   }
 
   Widget _buildNextPlanStopShortcut(Destination destination) {

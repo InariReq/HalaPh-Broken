@@ -459,17 +459,39 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
       );
 
       if (mounted) {
+        final savedPlanId = savedPlan.id.trim();
+
+        if (savedPlanId.isEmpty ||
+            SimplePlanService.getPlanById(savedPlanId) == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Plan was saved, but it could not be opened yet. Please check My Plans.',
+              ),
+            ),
+          );
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Plan "${savedPlan.title}" saved successfully!'),
           ),
         );
-        // Navigate BEFORE setting _isLoading = false (widget will unmount)
-        final planId = savedPlan.id;
+
         setState(() {
           _isLoading = false;
         });
-        context.go('/plan-details?planId=$planId');
+
+        final router = GoRouter.of(context);
+        if (router.canPop()) {
+          router.pop(savedPlanId);
+        } else {
+          context.go('/');
+        }
       }
     } catch (e) {
       debugPrint('Error saving plan: $e');
