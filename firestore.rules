@@ -221,23 +221,34 @@ service cloud.firestore {
 
     // Public profiles - searchable by code only
     match /publicProfiles/{code} {
+      function ownsFriendCode() {
+        return exists(/databases/$(database)/documents/friendCodes/$(code))
+          && get(/databases/$(database)/documents/friendCodes/$(code)).data.uid == request.auth.uid;
+      }
+
       allow get: if signedIn() && (
         // User reading their own profile
         resource.data.uid == request.auth.uid ||
+        // Current owner of this friend code reading or repairing their profile
+        ownsFriendCode() ||
         // Friend reading (must already be in user's friend list)
         exists(/databases/$(database)/documents/users/$(request.auth.uid)/friends/$(resource.data.uid))
       );
       allow list: if false;  // NO listing - must know exact code
-      allow create: if signedIn() && request.auth.uid == request.resource.data.uid
+      allow create: if signedIn()
+        && ownsFriendCode()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.code == code
         && request.resource.data.code is string
-        && request.resource.data.code.size() == 7;  // Format: XX-0000
+        && request.resource.data.code.size() == 7
+        && request.resource.data.keys().hasOnly(['uid', 'code', 'name', 'email', 'avatarUrl', 'commuterType', 'favoritePlaceIds', 'favoritePlaces', 'createdAt', 'updatedAt']);
       allow update: if signedIn()
-        && request.auth.uid == resource.data.uid
-        && request.resource.data.uid == resource.data.uid
-        && request.resource.data.code == resource.data.code
+        && ownsFriendCode()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.code == code
         && request.resource.data.keys().hasOnly(['uid', 'code', 'name', 'email', 'avatarUrl', 'commuterType', 'favoritePlaceIds', 'favoritePlaces', 'createdAt', 'updatedAt'])
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'avatarUrl', 'commuterType', 'favoritePlaceIds', 'favoritePlaces', 'updatedAt']);
-      allow delete: if signedIn() && request.auth.uid == resource.data.uid;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'code', 'name', 'email', 'avatarUrl', 'commuterType', 'favoritePlaceIds', 'favoritePlaces', 'createdAt', 'updatedAt']);
+      allow delete: if signedIn() && ownsFriendCode();
     }
 
     // Shared plans - ONLY participants can read/write
