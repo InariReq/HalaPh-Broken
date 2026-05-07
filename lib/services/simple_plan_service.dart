@@ -190,6 +190,7 @@ class SimplePlanService {
     String? meetingPointAddress,
     double? meetingPointLatitude,
     double? meetingPointLongitude,
+    Map<String, ParticipantStartLocation>? participantStartLocations,
     bool replaceMeetingPoint = false,
     String? status,
   }) async {
@@ -232,6 +233,8 @@ class SimplePlanService {
       meetingPointLongitude: replaceMeetingPoint
           ? meetingPointLongitude
           : existing.meetingPointLongitude,
+      participantStartLocations:
+          participantStartLocations ?? existing.participantStartLocations,
       collaboratorUids: existing.collaboratorUids,
       status: status ?? existing.status,
     );
@@ -347,6 +350,7 @@ class SimplePlanService {
         meetingPointAddress: plan.meetingPointAddress,
         meetingPointLatitude: plan.meetingPointLatitude,
         meetingPointLongitude: plan.meetingPointLongitude,
+        participantStartLocations: plan.participantStartLocations,
         collaboratorUids: plan.collaboratorUids,
       );
 
@@ -422,6 +426,7 @@ class SimplePlanService {
       meetingPointAddress: existing.meetingPointAddress,
       meetingPointLatitude: existing.meetingPointLatitude,
       meetingPointLongitude: existing.meetingPointLongitude,
+      participantStartLocations: existing.participantStartLocations,
       collaboratorUids: collaboratorIds,
     );
 
@@ -445,6 +450,7 @@ class SimplePlanService {
       meetingPointAddress: existing.meetingPointAddress,
       meetingPointLatitude: existing.meetingPointLatitude,
       meetingPointLongitude: existing.meetingPointLongitude,
+      participantStartLocations: existing.participantStartLocations,
       collaboratorUids: collaboratorIds,
     );
 
@@ -466,6 +472,7 @@ class SimplePlanService {
         meetingPointAddress: updated.meetingPointAddress,
         meetingPointLatitude: updated.meetingPointLatitude,
         meetingPointLongitude: updated.meetingPointLongitude,
+        participantStartLocations: updated.participantStartLocations,
         collaboratorUids: collaboratorIds,
       );
       _notifyChanged();
@@ -643,6 +650,7 @@ class SimplePlanService {
       meetingPointAddress: existing.meetingPointAddress,
       meetingPointLatitude: existing.meetingPointLatitude,
       meetingPointLongitude: existing.meetingPointLongitude,
+      participantStartLocations: existing.participantStartLocations,
       collaboratorUids: existing.collaboratorUids,
     );
 
@@ -989,6 +997,7 @@ class SimplePlanService {
       'meetingPointAddress',
       'meetingPointLatitude',
       'meetingPointLongitude',
+      'participantStartLocations',
       'isShared',
       'isPublic',
       'status',
@@ -1022,6 +1031,10 @@ class SimplePlanService {
         'meetingPointLongitude': data.containsKey('meetingPointLongitude')
             ? data['meetingPointLongitude']
             : FieldValue.delete(),
+        'participantStartLocations':
+            data.containsKey('participantStartLocations')
+                ? data['participantStartLocations']
+                : FieldValue.delete(),
         'updatedAt': data['updatedAt'],
       };
 

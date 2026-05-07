@@ -2,6 +2,49 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:halaph/models/destination.dart';
 
+class ParticipantStartLocation {
+  final String name;
+  final String address;
+  final double latitude;
+  final double longitude;
+  final dynamic updatedAt;
+
+  const ParticipantStartLocation({
+    required this.name,
+    required this.address,
+    required this.latitude,
+    required this.longitude,
+    this.updatedAt,
+  });
+
+  factory ParticipantStartLocation.fromJson(Map<String, dynamic> json) {
+    final latitude = TravelPlan._parseDouble(json['latitude']);
+    final longitude = TravelPlan._parseDouble(json['longitude']);
+
+    if (latitude == null || longitude == null) {
+      throw FormatException('Invalid participant start location coordinates');
+    }
+
+    return ParticipantStartLocation(
+      name: (json['name'] as String? ?? '').trim(),
+      address: (json['address'] as String? ?? '').trim(),
+      latitude: latitude,
+      longitude: longitude,
+      updatedAt: json['updatedAt'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name.trim(),
+      'address': address.trim(),
+      'latitude': latitude,
+      'longitude': longitude,
+      if (updatedAt != null) 'updatedAt': updatedAt,
+    };
+  }
+}
+
 class TravelPlan {
   final String id;
   final String title;
@@ -16,6 +59,7 @@ class TravelPlan {
   final String? meetingPointAddress;
   final double? meetingPointLatitude;
   final double? meetingPointLongitude;
+  final Map<String, ParticipantStartLocation> participantStartLocations;
   final List<String> collaboratorUids;
   final String status;
 
@@ -33,6 +77,7 @@ class TravelPlan {
     this.meetingPointAddress,
     this.meetingPointLatitude,
     this.meetingPointLongitude,
+    this.participantStartLocations = const {},
     this.collaboratorUids = const [],
     this.status = 'active',
   });
@@ -50,6 +95,31 @@ class TravelPlan {
     if (value is num) return value.toDouble();
     if (value is String) return double.tryParse(value.trim());
     return null;
+  }
+
+  static Map<String, ParticipantStartLocation> _parseParticipantStartLocations(
+    dynamic value,
+  ) {
+    if (value is! Map) return const {};
+
+    final parsed = <String, ParticipantStartLocation>{};
+
+    for (final entry in value.entries) {
+      final key = entry.key.toString().trim();
+      final rawLocation = entry.value;
+
+      if (key.isEmpty || rawLocation is! Map) continue;
+
+      try {
+        parsed[key] = ParticipantStartLocation.fromJson(
+          Map<String, dynamic>.from(rawLocation),
+        );
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return parsed;
   }
 
   factory TravelPlan.fromJson(Map<String, dynamic> json) {
@@ -79,6 +149,8 @@ class TravelPlan {
       meetingPointAddress: (json['meetingPointAddress'] as String?)?.trim(),
       meetingPointLatitude: _parseDouble(json['meetingPointLatitude']),
       meetingPointLongitude: _parseDouble(json['meetingPointLongitude']),
+      participantStartLocations:
+          _parseParticipantStartLocations(json['participantStartLocations']),
       collaboratorUids: List<String>.from(json['collaboratorUids'] ?? []),
       status: _parseStatus(json['status']),
     );
@@ -116,6 +188,8 @@ class TravelPlan {
       meetingPointAddress: (data['meetingPointAddress'] as String?)?.trim(),
       meetingPointLatitude: _parseDouble(data['meetingPointLatitude']),
       meetingPointLongitude: _parseDouble(data['meetingPointLongitude']),
+      participantStartLocations:
+          _parseParticipantStartLocations(data['participantStartLocations']),
       collaboratorUids: List<String>.from(data['collaboratorUids'] ?? []),
       status: _parseStatus(data['status']),
     );
@@ -151,6 +225,12 @@ class TravelPlan {
         'meetingPointLatitude': meetingPointLatitude,
       if (meetingPointLongitude != null)
         'meetingPointLongitude': meetingPointLongitude,
+      if (participantStartLocations.isNotEmpty)
+        'participantStartLocations': {
+          for (final entry in participantStartLocations.entries)
+            if (entry.key.trim().isNotEmpty)
+              entry.key.trim(): entry.value.toJson(),
+        },
     };
     return data;
   }
