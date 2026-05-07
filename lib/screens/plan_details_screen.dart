@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:halaph/models/friend.dart';
 import 'package:halaph/models/plan.dart';
@@ -9,6 +10,7 @@ import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/commuter_type_service.dart';
 import 'package:halaph/services/fare_service.dart';
+import 'package:halaph/services/budget_routing_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/screens/add_place_screen.dart';
 import 'package:halaph/screens/friends_screen.dart';
@@ -1028,7 +1030,79 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
   double _estimatedTransportTotal() {
     const minimumLocalFarePerStop = 15.0;
-    return _budgetStopCount() * minimumLocalFarePerStop;
+    final stops = _orderedBudgetDestinations();
+
+    if (stops.isEmpty) return 0;
+
+    final meetingLat = _meetingPointLatitude;
+    final meetingLng = _meetingPointLongitude;
+
+    if (meetingLat == null || meetingLng == null) {
+      return stops.length * minimumLocalFarePerStop;
+    }
+
+    var currentPoint = LatLng(meetingLat, meetingLng);
+    var total = 0.0;
+
+    for (final destination in stops) {
+      final destinationPoint = destination.coordinates;
+      if (destinationPoint == null ||
+          BudgetRoutingService.isInvalidLocation(destinationPoint)) {
+        total += minimumLocalFarePerStop;
+        continue;
+      }
+
+      final distanceKm = BudgetRoutingService.calculateDistance(
+        currentPoint,
+        destinationPoint,
+      );
+
+      final legFare = _regularMeetingPointLegFare(distanceKm);
+      total += legFare <= 0 ? minimumLocalFarePerStop : legFare;
+      currentPoint = destinationPoint;
+    }
+
+    return total;
+  }
+
+  List<Destination> _orderedBudgetDestinations() {
+    final orderedDays = _itinerary.keys.toList()..sort();
+
+    return [
+      for (final day in orderedDays)
+        ..._itinerary[day] ?? const <Destination>[],
+    ];
+  }
+
+  double _regularMeetingPointLegFare(double distanceKm) {
+    if (distanceKm <= 0) return 0;
+
+    final fares = <double>[
+      FareService.estimateCommuteTotal(
+        TravelMode.jeepney,
+        distanceKm,
+        type: PassengerType.regular,
+      ).totalFare,
+      FareService.estimateCommuteTotal(
+        TravelMode.bus,
+        distanceKm,
+        type: PassengerType.regular,
+      ).totalFare,
+      FareService.estimateCommuteTotal(
+        TravelMode.train,
+        distanceKm,
+        type: PassengerType.regular,
+      ).totalFare,
+      FareService.estimateCommuteTotal(
+        TravelMode.fx,
+        distanceKm,
+        type: PassengerType.regular,
+      ).totalFare,
+    ].where((fare) => fare > 0).toList();
+
+    if (fares.isEmpty) return 0;
+    fares.sort();
+    return fares.first;
   }
 
   double _estimateForPassengerType(
@@ -1282,7 +1356,11 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   _buildBudgetDetailLine(
                     icon: Icons.route_rounded,
                     text: hasStops
-                        ? 'Based on $stopLabel across $dayLabel using a conservative local commute estimate.'
+                        ? meetingPoint.isNotEmpty &&
+                                _meetingPointLatitude != null &&
+                                _meetingPointLongitude != null
+                            ? 'Based on travel from the selected meeting point through $stopLabel across $dayLabel.'
+                            : 'Based on $stopLabel across $dayLabel using a conservative local commute estimate.'
                         : 'Add destinations to estimate transport cost.',
                   ),
                   const SizedBox(height: 7),
