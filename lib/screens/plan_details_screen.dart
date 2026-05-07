@@ -519,25 +519,78 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
+          padding: EdgeInsets.zero,
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: IntrinsicHeight(
-              child: Column(
-                children: [
-                  _buildHeroSection(),
-                  _buildMeetingPointSection(),
-                  _buildParticipantStartSection(),
-                  _buildActionButtons(),
-                  _buildBudgetSummaryCard(),
-                  _buildItinerarySection(),
-                  const SizedBox(height: 20),
-                ],
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _safePlanSection('overview', _buildHeroSection),
+                _safePlanSection('meeting point', _buildMeetingPointSection),
+                _safePlanSection(
+                  'starting point',
+                  _buildParticipantStartSection,
+                ),
+                _safePlanSection('actions', _buildActionButtons),
+                _safePlanSection('budget', _buildBudgetSummaryCard),
+                _safePlanSection('itinerary', _buildItinerarySection),
+                const SizedBox(height: 20),
+              ],
             ),
           ),
         );
       },
     );
+  }
+
+  Widget _safePlanSection(String label, Widget Function() builder) {
+    try {
+      return KeyedSubtree(
+        key: ValueKey('plan_details_section_$label'),
+        child: builder(),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('Plan Details section "$label" failed: $error');
+      debugPrint('$stackTrace');
+
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: Theme.of(context)
+                  .colorScheme
+                  .outlineVariant
+                  .withValues(alpha: 0.35),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'This $label section could not load. The rest of the plan is still available.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   String _getBannerImageUrl() {
