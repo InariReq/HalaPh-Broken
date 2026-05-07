@@ -90,6 +90,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   Map<String, String> _destinationEndTimes = {};
   Map<String, PassengerType> _budgetPassengerTypes = {};
   Map<String, String> _budgetPassengerNames = {};
+  LatLng? _budgetFallbackOrigin;
 
   bool get _canEditPlan =>
       _plan != null && SimplePlanService.canEditPlan(_plan!.id);
@@ -177,6 +178,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         }
 
         await _loadBudgetPassengerTypes();
+        await _loadBudgetFallbackOrigin();
       }
     } catch (error) {
       debugPrint('Plan details load failed: $error');
@@ -1015,6 +1017,24 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     });
   }
 
+  Future<void> _loadBudgetFallbackOrigin() async {
+    try {
+      final origin = await BudgetRoutingService.getCurrentLocation()
+          .timeout(const Duration(seconds: 5));
+
+      if (!mounted) return;
+      setState(() {
+        _budgetFallbackOrigin = origin;
+      });
+    } catch (error) {
+      debugPrint('Budget fallback origin load failed: $error');
+      if (!mounted) return;
+      setState(() {
+        _budgetFallbackOrigin = null;
+      });
+    }
+  }
+
   int _budgetStopCount() {
     return _itinerary.values.fold<int>(
       0,
@@ -1037,11 +1057,15 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     final meetingLat = _meetingPointLatitude;
     final meetingLng = _meetingPointLongitude;
 
-    if (meetingLat == null || meetingLng == null) {
+    final LatLng? originPoint = meetingLat != null && meetingLng != null
+        ? LatLng(meetingLat, meetingLng)
+        : _budgetFallbackOrigin;
+
+    if (originPoint == null) {
       return stops.length * minimumLocalFarePerStop;
     }
 
-    var currentPoint = LatLng(meetingLat, meetingLng);
+    var currentPoint = originPoint;
     var total = 0.0;
 
     for (final destination in stops) {
@@ -1324,7 +1348,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     icon: Icons.place_rounded,
                     text: meetingPoint.isNotEmpty
                         ? 'Meeting point: $meetingPoint'
-                        : 'No meeting point set',
+                        : _budgetFallbackOrigin != null
+                            ? 'No meeting point set. Using your current location.'
+                            : 'No meeting point set',
                   ),
                   if (meetingAddress.isNotEmpty) ...[
                     const SizedBox(height: 7),
@@ -1360,7 +1386,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                                 _meetingPointLatitude != null &&
                                 _meetingPointLongitude != null
                             ? 'Based on travel from the selected meeting point through $stopLabel across $dayLabel.'
-                            : 'Based on $stopLabel across $dayLabel using a conservative local commute estimate.'
+                            : _budgetFallbackOrigin != null
+                                ? 'Based on travel from your current location through $stopLabel across $dayLabel.'
+                                : 'Based on $stopLabel across $dayLabel using a conservative local commute estimate.'
                         : 'Add destinations to estimate transport cost.',
                   ),
                   const SizedBox(height: 7),
