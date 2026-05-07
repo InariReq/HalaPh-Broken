@@ -261,7 +261,7 @@ service cloud.firestore {
         (isPlanParticipant(resource.data) &&
          resource.data.collaboratorUids is list &&
          request.auth.uid in resource.data.collaboratorUids &&
-         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'startDate', 'endDate', 'days', 'itinerary', 'itineraries', 'items', 'destinationIds', 'bannerImage', 'isShared', 'updatedAt', 'version']) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'startDate', 'endDate', 'days', 'itinerary', 'itineraries', 'items', 'destinationIds', 'bannerImage', 'meetingPointName', 'isShared', 'updatedAt', 'version']) &&
          request.resource.data.createdBy == resource.data.createdBy &&
          request.resource.data.ownerUid == resource.data.ownerUid &&
          request.resource.data.ownerId == resource.data.ownerId &&

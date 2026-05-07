@@ -186,6 +186,7 @@ class SimplePlanService {
     Map<String, String>? destinationTimes,
     Map<String, String>? destinationEndTimes,
     String? bannerImage,
+    String? meetingPointName,
     String? status,
   }) async {
     final existing = _plans[planId];
@@ -216,6 +217,7 @@ class SimplePlanService {
       itinerary: newItinerary,
       isShared: existing.isShared,
       bannerImage: bannerImage ?? existing.bannerImage,
+      meetingPointName: meetingPointName ?? existing.meetingPointName,
       collaboratorUids: existing.collaboratorUids,
       status: status ?? existing.status,
     );
@@ -327,6 +329,8 @@ class SimplePlanService {
         itinerary: plan.itinerary,
         isShared: true,
         bannerImage: plan.bannerImage,
+        meetingPointName: plan.meetingPointName,
+        collaboratorUids: plan.collaboratorUids,
       );
 
       _plans[joined.id] = joined;
@@ -397,6 +401,7 @@ class SimplePlanService {
       itinerary: existing.itinerary,
       isShared: selectedParticipants.isNotEmpty,
       bannerImage: existing.bannerImage,
+      meetingPointName: existing.meetingPointName,
       collaboratorUids: collaboratorIds,
     );
 
@@ -416,6 +421,7 @@ class SimplePlanService {
       itinerary: existing.itinerary,
       isShared: resolvedParticipantUids.length > 1,
       bannerImage: existing.bannerImage,
+      meetingPointName: existing.meetingPointName,
       collaboratorUids: collaboratorIds,
     );
 
@@ -433,6 +439,7 @@ class SimplePlanService {
         itinerary: updated.itinerary,
         isShared: remoteParticipantUids.length > 1,
         bannerImage: updated.bannerImage,
+        meetingPointName: updated.meetingPointName,
         collaboratorUids: collaboratorIds,
       );
       _notifyChanged();
@@ -606,6 +613,8 @@ class SimplePlanService {
       itinerary: itinerary,
       isShared: existing.isShared,
       bannerImage: existing.bannerImage,
+      meetingPointName: existing.meetingPointName,
+      collaboratorUids: existing.collaboratorUids,
     );
 
     try {
@@ -947,6 +956,7 @@ class SimplePlanService {
       'destinationIds',
       'bannerImage',
       'bannerImageUrl',
+      'meetingPointName',
       'isShared',
       'isPublic',
       'status',
@@ -968,6 +978,8 @@ class SimplePlanService {
         'itinerary': data['itinerary'],
         'isShared': data['isShared'],
         'bannerImage': data['bannerImage'],
+        if (plan.meetingPointName != null)
+          'meetingPointName': plan.meetingPointName!.trim(),
         'updatedAt': data['updatedAt'],
       };
 

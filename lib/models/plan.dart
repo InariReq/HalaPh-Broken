@@ -12,6 +12,7 @@ class TravelPlan {
   final List<DayItinerary> itinerary;
   final bool isShared;
   final String? bannerImage;
+  final String? meetingPointName;
   final List<String> collaboratorUids;
   final String status;
 
@@ -25,6 +26,7 @@ class TravelPlan {
     this.itinerary = const [],
     this.isShared = false,
     this.bannerImage,
+    this.meetingPointName,
     this.collaboratorUids = const [],
     this.status = 'active',
   });
@@ -61,6 +63,7 @@ class TravelPlan {
           [],
       isShared: json['isShared'] ?? false,
       bannerImage: (json['bannerImage'] as String?)?.trim(),
+      meetingPointName: (json['meetingPointName'] as String?)?.trim(),
       collaboratorUids: List<String>.from(json['collaboratorUids'] ?? []),
       status: _parseStatus(json['status']),
     );
@@ -94,6 +97,7 @@ class TravelPlan {
           [],
       isShared: data['isShared'] ?? false,
       bannerImage: (data['bannerImage'] as String?)?.trim(),
+      meetingPointName: (data['meetingPointName'] as String?)?.trim(),
       collaboratorUids: List<String>.from(data['collaboratorUids'] ?? []),
       status: _parseStatus(data['status']),
     );
@@ -121,6 +125,8 @@ class TravelPlan {
       'isShared': isShared,
       'status': status.trim().isEmpty ? 'active' : status.trim(),
       if (bannerImage?.isNotEmpty == true) 'bannerImage': bannerImage!.trim(),
+      if (meetingPointName?.trim().isNotEmpty == true)
+        'meetingPointName': meetingPointName!.trim(),
     };
     return data;
   }

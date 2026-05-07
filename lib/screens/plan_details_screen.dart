@@ -77,6 +77,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   bool _isEditing = false;
   bool _isSaving = false;
   final _titleController = TextEditingController();
+  final _meetingPointController = TextEditingController();
   DateTime? _startDate;
   DateTime? _endDate;
   Map<int, List<Destination>> _itinerary = {};
@@ -95,6 +96,13 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   void initState() {
     super.initState();
     _loadPlan();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _meetingPointController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPlan() async {
@@ -139,6 +147,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
       if (_plan != null) {
         _titleController.text = _plan!.title;
+        _meetingPointController.text = _plan!.meetingPointName ?? '';
         _startDate = _plan!.startDate;
         _endDate = _plan!.endDate;
 
@@ -258,6 +267,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         destinationTimes: _destinationStartTimes,
         destinationEndTimes: _destinationEndTimes,
         bannerImage: _plan!.bannerImage,
+        meetingPointName: _meetingPointController.text.trim(),
       );
 
       if (success) {
@@ -482,6 +492,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               child: Column(
                 children: [
                   _buildHeroSection(),
+                  _buildMeetingPointSection(),
                   _buildActionButtons(),
                   _buildBudgetSummaryCard(),
                   _buildItinerarySection(),
@@ -681,6 +692,96 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeetingPointSection() {
+    final meetingPoint = _meetingPointController.text.trim();
+    if (!_isEditing && meetingPoint.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.28),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 38,
+              width: 38,
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(
+                Icons.place_rounded,
+                color: Colors.blue[700],
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _isEditing
+                  ? TextField(
+                      controller: _meetingPointController,
+                      textInputAction: TextInputAction.done,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Optional meeting point',
+                        hintText: 'Example: Ayala Center Cebu',
+                        labelStyle: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        hintStyle: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        isDense: true,
+                        border: const UnderlineInputBorder(),
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Meeting Point',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          meetingPoint,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ],
         ),
@@ -950,6 +1051,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     final stopLabel =
         stopCount == 1 ? '1 itinerary stop' : '$stopCount itinerary stops';
     final dayLabel = dayCount == 1 ? '1 day' : '$dayCount days';
+    final meetingPoint = _plan?.meetingPointName?.trim() ?? '';
 
     return _buildItineraryEntrance(
       order: 0,
@@ -1065,6 +1167,13 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     icon: Icons.groups_rounded,
                     text:
                         'Estimated for $participantLabel using saved commuter types.',
+                  ),
+                  const SizedBox(height: 7),
+                  _buildBudgetDetailLine(
+                    icon: Icons.place_rounded,
+                    text: meetingPoint.isNotEmpty
+                        ? 'Meeting point: $meetingPoint'
+                        : 'No meeting point set.',
                   ),
                   if (hasStops && passengerEstimates.isNotEmpty) ...[
                     const SizedBox(height: 7),
