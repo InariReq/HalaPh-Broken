@@ -137,11 +137,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (!mounted) return;
 
-    setState(() {
-      _deletingAccount = false;
-    });
-
     if (!success) {
+      setState(() {
+        _deletingAccount = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_auth.lastAuthError ?? 'Could not delete account.'),
@@ -150,10 +149,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       return;
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Account deleted.')),
-    );
 
     context.go('/accounts');
   }

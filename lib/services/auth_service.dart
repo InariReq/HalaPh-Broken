@@ -282,8 +282,12 @@ class AuthService {
       }
 
       await user.delete();
-      await SavedAccountsService().removeSavedAccount(uid);
-      await firebase_auth.FirebaseAuth.instance.signOut();
+      try {
+        await SavedAccountsService().removeSavedAccount(uid);
+        await firebase_auth.FirebaseAuth.instance.signOut();
+      } catch (error) {
+        debugPrint('Post-delete local account cleanup skipped: $error');
+      }
       SimplePlanService.resetCache();
       FavoritesService().clearCache();
       FriendService().clearCache();

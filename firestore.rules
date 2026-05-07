@@ -169,7 +169,9 @@ service cloud.firestore {
       );
 
       allow delete: if signedIn()
-        && resource.data.uid == request.auth.uid;
+        && (isOwner(userId) ||
+            resource.data.fromUid == request.auth.uid ||
+            resource.data.toUid == request.auth.uid);
     }
 
     // Friend requests - top-level collection
@@ -219,7 +221,8 @@ service cloud.firestore {
         && resource.data.uid == request.auth.uid
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['code', 'updatedAt']);
-      allow delete: if false;
+      allow delete: if signedIn()
+        && resource.data.uid == request.auth.uid;
     }
 
     // Public profiles - searchable by code only
