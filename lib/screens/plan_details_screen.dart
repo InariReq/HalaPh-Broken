@@ -318,9 +318,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         final navigator = Navigator.of(context);
         if (navigator.canPop()) {
           navigator.pop(true);
-        } else {
-          context.go('/my-plans');
+          return;
         }
+
+        context.go('/');
       } else {
         _showError('Failed to update plan');
       }
@@ -494,7 +495,14 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               ),
               const SizedBox(height: 32),
               ElevatedButton(
-                onPressed: () => context.go('/my-plans'),
+                onPressed: () {
+                  final navigator = Navigator.of(context);
+                  if (navigator.canPop()) {
+                    navigator.pop();
+                    return;
+                  }
+                  context.go('/');
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue[600],
                   foregroundColor: Colors.white,
