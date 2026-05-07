@@ -32,11 +32,19 @@ class _BudgetPassengerEstimate {
   final String name;
   final PassengerType type;
   final double estimate;
+  final String? startLocationName;
+  final double startLegEstimate;
+  final double sharedRouteEstimate;
+  final bool isStartMissing;
 
   const _BudgetPassengerEstimate({
     required this.name,
     required this.type,
     required this.estimate,
+    this.startLocationName,
+    this.startLegEstimate = 0,
+    this.sharedRouteEstimate = 0,
+    this.isStartMissing = false,
   });
 }
 
@@ -1345,19 +1353,17 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   double _estimatedTransportTotal() {
+    final originPoint = _meetingPointLatLng() ?? _budgetFallbackOrigin;
+    return _estimatedRouteTotalFrom(originPoint);
+  }
+
+  double _estimatedRouteTotalFrom(LatLng? originPoint) {
     const minimumLocalFarePerStop = 15.0;
     final stops = _orderedBudgetDestinations();
 
     if (stops.isEmpty) return 0;
-
-    final meetingLat = _meetingPointLatitude;
-    final meetingLng = _meetingPointLongitude;
-
-    final LatLng? originPoint = meetingLat != null && meetingLng != null
-        ? LatLng(meetingLat, meetingLng)
-        : _budgetFallbackOrigin;
-
-    if (originPoint == null) {
+    if (originPoint == null ||
+        BudgetRoutingService.isInvalidLocation(originPoint)) {
       return stops.length * minimumLocalFarePerStop;
     }
 
@@ -1383,6 +1389,38 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     }
 
     return total;
+  }
+
+  LatLng? _meetingPointLatLng() {
+    final meetingLat = _meetingPointLatitude;
+    final meetingLng = _meetingPointLongitude;
+    if (meetingLat == null || meetingLng == null) return null;
+
+    final point = LatLng(meetingLat, meetingLng);
+    if (BudgetRoutingService.isInvalidLocation(point)) return null;
+    return point;
+  }
+
+  LatLng? _participantStartLatLng(ParticipantStartLocation? start) {
+    if (start == null) return null;
+    final point = LatLng(start.latitude, start.longitude);
+    if (BudgetRoutingService.isInvalidLocation(point)) return null;
+    return point;
+  }
+
+  double _estimatedLegTotal(LatLng? origin, LatLng? destination) {
+    if (origin == null ||
+        destination == null ||
+        BudgetRoutingService.isInvalidLocation(origin) ||
+        BudgetRoutingService.isInvalidLocation(destination)) {
+      return 0;
+    }
+
+    final distanceKm = BudgetRoutingService.calculateDistance(
+      origin,
+      destination,
+    );
+    return _regularMeetingPointLegFare(distanceKm);
   }
 
   List<Destination> _orderedBudgetDestinations() {
@@ -1438,8 +1476,50 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     };
   }
 
+  _BudgetPassengerEstimate _estimateForParticipant({
+    required String id,
+    required String name,
+    required PassengerType type,
+    required double sharedFallbackEstimate,
+  }) {
+    final meetingPoint = _meetingPointLatLng();
+    final startLocation = _participantStartLocations[id];
+    final startPoint = _participantStartLatLng(startLocation);
+    final hasValidStart = startPoint != null;
+
+    var regularStartLeg = 0.0;
+    late final double regularSharedRoute;
+
+    if (hasValidStart && meetingPoint != null) {
+      regularStartLeg = _estimatedLegTotal(startPoint, meetingPoint);
+      regularSharedRoute = _estimatedRouteTotalFrom(meetingPoint);
+    } else if (hasValidStart) {
+      regularSharedRoute = _estimatedRouteTotalFrom(startPoint);
+    } else {
+      regularSharedRoute = sharedFallbackEstimate;
+    }
+
+    final startLegEstimate = _estimateForPassengerType(regularStartLeg, type);
+    final sharedRouteEstimate = _estimateForPassengerType(
+      regularSharedRoute,
+      type,
+    );
+
+    return _BudgetPassengerEstimate(
+      name: name.isNotEmpty ? name : 'Participant',
+      type: type,
+      estimate: startLegEstimate + sharedRouteEstimate,
+      startLocationName: startLocation?.name.trim().isNotEmpty == true
+          ? startLocation!.name.trim()
+          : null,
+      startLegEstimate: startLegEstimate,
+      sharedRouteEstimate: sharedRouteEstimate,
+      isStartMissing: !hasValidStart,
+    );
+  }
+
   List<_BudgetPassengerEstimate> _budgetPassengerEstimates(
-    double regularPassengerEstimate,
+    double sharedFallbackEstimate,
   ) {
     final participantIds = _budgetParticipantIds().toList()..sort();
 
@@ -1448,7 +1528,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         _BudgetPassengerEstimate(
           name: 'You',
           type: PassengerType.regular,
-          estimate: regularPassengerEstimate,
+          estimate: sharedFallbackEstimate,
+          sharedRouteEstimate: sharedFallbackEstimate,
+          isStartMissing: true,
         ),
       ];
     }
@@ -1469,10 +1551,11 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
       estimatesByPerson.putIfAbsent(
         personKey,
-        () => _BudgetPassengerEstimate(
+        () => _estimateForParticipant(
+          id: id,
           name: name.isNotEmpty ? name : 'Participant',
           type: type,
-          estimate: _estimateForPassengerType(regularPassengerEstimate, type),
+          sharedFallbackEstimate: sharedFallbackEstimate,
         ),
       );
     }
@@ -1613,6 +1696,11 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   child: _buildBudgetMetric(
                     label: 'Per passenger',
                     value: hasStops ? perPassengerDisplay : 'Pending',
+                    onTap: hasStops
+                        ? () => _showPassengerBudgetBreakdown(
+                              passengerEstimates,
+                            )
+                        : null,
                   ),
                 ),
               ],
@@ -1639,6 +1727,14 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     text:
                         'Estimated for $participantLabel using saved commuter types.',
                   ),
+                  if (hasStops && passengerEstimates.isNotEmpty) ...[
+                    const SizedBox(height: 7),
+                    _buildBudgetDetailLine(
+                      icon: Icons.touch_app_rounded,
+                      text:
+                          'Tap Per passenger to view each participant\'s fare breakdown.',
+                    ),
+                  ],
                   const SizedBox(height: 7),
                   _buildBudgetDetailLine(
                     icon: Icons.place_rounded,
@@ -1654,25 +1750,6 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       icon: Icons.location_on_outlined,
                       text: 'Address: $meetingAddress',
                     ),
-                  ],
-                  if (hasStops && passengerEstimates.isNotEmpty) ...[
-                    const SizedBox(height: 7),
-                    ...passengerEstimates.take(4).map(
-                          (estimate) => Padding(
-                            padding: const EdgeInsets.only(bottom: 7),
-                            child: _buildBudgetDetailLine(
-                              icon: CommuterTypeService.iconFor(estimate.type),
-                              text:
-                                  '${estimate.name}, ${CommuterTypeService.labelFor(estimate.type)}: ${_formatBudgetAmount(estimate.estimate)}',
-                            ),
-                          ),
-                        ),
-                    if (passengerEstimates.length > 4)
-                      _buildBudgetDetailLine(
-                        icon: Icons.more_horiz_rounded,
-                        text:
-                            '+${passengerEstimates.length - 4} more participant estimates.',
-                      ),
                   ],
                   const SizedBox(height: 7),
                   _buildBudgetDetailLine(
@@ -1705,37 +1782,258 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   Widget _buildBudgetMetric({
     required String label,
     required String value,
+    VoidCallback? onTap,
   }) {
-    return Container(
+    final metric = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: BoxDecoration(
         color: Colors.blue.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(16),
       ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (onTap != null) ...[
+            const SizedBox(width: 6),
+            Icon(
+              Icons.expand_more_rounded,
+              size: 18,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (onTap == null) return metric;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: metric,
+      ),
+    );
+  }
+
+  void _showPassengerBudgetBreakdown(
+    List<_BudgetPassengerEstimate> estimates,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: colorScheme.surfaceContainer,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Participant Fare Breakdown',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Transport fare estimates only',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: estimates.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      return _buildPassengerBudgetBreakdownCard(
+                        context,
+                        estimates[index],
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPassengerBudgetBreakdownCard(
+    BuildContext context,
+    _BudgetPassengerEstimate estimate,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final typeLabel = CommuterTypeService.labelFor(estimate.type);
+    final startLabel = estimate.startLocationName?.trim().isNotEmpty == true
+        ? estimate.startLocationName!.trim()
+        : 'Starting point not set';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.26),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Icon(
+                CommuterTypeService.iconFor(estimate.type),
+                size: 18,
+                color: Colors.blue[700],
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  estimate.name,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              Text(
+                _formatBudgetAmount(estimate.estimate),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
           Text(
-            label,
+            typeLabel,
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
+          const SizedBox(height: 10),
+          _buildBudgetSheetLine(
+            context,
+            'Starting point',
+            startLabel,
           ),
+          const SizedBox(height: 6),
+          _buildBudgetSheetLine(
+            context,
+            'Start leg fare',
+            _formatBudgetAmount(estimate.startLegEstimate),
+          ),
+          const SizedBox(height: 6),
+          _buildBudgetSheetLine(
+            context,
+            'Shared route fare',
+            _formatBudgetAmount(estimate.sharedRouteEstimate),
+          ),
+          const SizedBox(height: 6),
+          _buildBudgetSheetLine(
+            context,
+            'Total fare',
+            _formatBudgetAmount(estimate.estimate),
+            isStrong: true,
+          ),
+          if (estimate.isStartMissing) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Starting point not set. Estimate uses shared route only.',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.3,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildBudgetSheetLine(
+    BuildContext context,
+    String label,
+    String value, {
+    bool isStrong = false,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isStrong ? FontWeight.w900 : FontWeight.w700,
+              color: isStrong ? colorScheme.onSurface : colorScheme.onSurface,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
