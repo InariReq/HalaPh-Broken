@@ -284,11 +284,11 @@ class FriendService {
     }
   }
 
-  Future<List<Friend>> getFriends() async {
+  Future<List<Friend>> getFriends({bool forceRefresh = false}) async {
     final userId = await _currentUserId();
     if (userId == null) return const <Friend>[];
 
-    if (_cachedUserId == userId && _cachedFriends != null) {
+    if (!forceRefresh && _cachedUserId == userId && _cachedFriends != null) {
       return List<Friend>.from(_cachedFriends!);
     }
 
@@ -933,7 +933,84 @@ class FriendService {
     return userId;
   }
 
-  Future<void> _publishPublicProfile(String rawCode) async {
+  Future<void> syncCurrentUserAvatarToPublicProfile(String avatarUrl) async {
+    final usableAvatarUrl = avatarUrl.trim();
+    if (usableAvatarUrl.isEmpty) return;
+
+    if (!await FirebaseAppService.initialize()) return;
+    final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) return;
+
+    try {
+      final code = await getMyCode(forceRefresh: true);
+      if (code.isEmpty || code == 'HP-0000') return;
+
+      await RemoteSyncService.instance.saveNamespace('profile', {
+        'code': code,
+        'avatarUrl': usableAvatarUrl,
+      });
+
+      await _syncCurrentUserProfileAvatar(
+        uid: firebaseUser.uid,
+        avatarUrl: usableAvatarUrl,
+      );
+      await _publishPublicProfile(code, avatarUrl: usableAvatarUrl);
+      await _syncFriendCodeAvatarIfSupported(
+        code: code,
+        uid: firebaseUser.uid,
+        avatarUrl: usableAvatarUrl,
+      );
+    } catch (error) {
+      debugPrint('Profile avatar public sync failed: $error');
+    }
+  }
+
+  Future<void> _syncCurrentUserProfileAvatar({
+    required String uid,
+    required String avatarUrl,
+  }) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'uid': uid,
+        'photoUrl': avatarUrl,
+        'avatarUrl': avatarUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)).timeout(const Duration(seconds: 5));
+    } catch (error) {
+      debugPrint('Current user avatar sync skipped: $error');
+    }
+  }
+
+  Future<void> _syncFriendCodeAvatarIfSupported({
+    required String code,
+    required String uid,
+    required String avatarUrl,
+  }) async {
+    try {
+      final docRef =
+          FirebaseFirestore.instance.collection('friendCodes').doc(code);
+      final doc = await docRef.get().timeout(const Duration(seconds: 5));
+      final data = doc.data();
+      if (!doc.exists || data == null || data['uid'] != uid) return;
+      if (!data.containsKey('avatarUrl')) return;
+
+      await docRef.set({
+        'uid': uid,
+        'code': code,
+        'avatarUrl': avatarUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)).timeout(const Duration(seconds: 5));
+    } on FirebaseException catch (error) {
+      debugPrint('Friend code avatar sync skipped: ${error.code}');
+    } catch (error) {
+      debugPrint('Friend code avatar sync skipped: $error');
+    }
+  }
+
+  Future<void> _publishPublicProfile(
+    String rawCode, {
+    String? avatarUrl,
+  }) async {
     final code = _normalizeCode(rawCode);
     final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
     if (code.isEmpty || firebaseUser == null) return;
@@ -951,7 +1028,10 @@ class FriendService {
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      if (firebaseUser.photoURL?.isNotEmpty == true) {
+      final usableAvatarUrl = avatarUrl?.trim();
+      if (usableAvatarUrl != null && usableAvatarUrl.isNotEmpty) {
+        data['avatarUrl'] = usableAvatarUrl;
+      } else if (firebaseUser.photoURL?.isNotEmpty == true) {
         data['avatarUrl'] = firebaseUser.photoURL!;
       }
 
@@ -977,7 +1057,10 @@ class FriendService {
           'updatedAt': FieldValue.serverTimestamp(),
         };
 
-        if (firebaseUser.photoURL?.isNotEmpty == true) {
+        final usableAvatarUrl = avatarUrl?.trim();
+        if (usableAvatarUrl != null && usableAvatarUrl.isNotEmpty) {
+          fallbackData['avatarUrl'] = usableAvatarUrl;
+        } else if (firebaseUser.photoURL?.isNotEmpty == true) {
           fallbackData['avatarUrl'] = firebaseUser.photoURL!;
         }
 

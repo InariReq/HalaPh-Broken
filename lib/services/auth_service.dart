@@ -212,19 +212,25 @@ class AuthService {
     try {
       final user = firebase_auth.FirebaseAuth.instance.currentUser;
       if (user == null) return null;
+      final usableAvatarUrl = avatarUrl?.trim();
 
       if (name != null && name.trim().isNotEmpty) {
         await user.updateDisplayName(name.trim());
       }
 
-      if (avatarUrl != null && avatarUrl.isNotEmpty) {
-        await user.updatePhotoURL(avatarUrl);
+      if (usableAvatarUrl != null && usableAvatarUrl.isNotEmpty) {
+        await user.updatePhotoURL(usableAvatarUrl);
       }
 
       await user.reload();
       final refreshedUser =
           firebase_auth.FirebaseAuth.instance.currentUser ?? user;
       await SavedAccountsService().saveFirebaseUser(refreshedUser);
+      if (usableAvatarUrl != null && usableAvatarUrl.isNotEmpty) {
+        await FriendService().syncCurrentUserAvatarToPublicProfile(
+          usableAvatarUrl,
+        );
+      }
       return _toAppUser(refreshedUser);
     } catch (e) {
       debugPrint('Failed to update profile: $e');

@@ -5,7 +5,6 @@ import 'package:halaph/models/friend.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/utils/navigation_utils.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
-import 'package:halaph/widgets/demo_safe_panel.dart';
 
 class FriendsScreen extends StatefulWidget {
   final bool selectionMode;
@@ -43,7 +42,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     debugPrint('FriendsScreen: Loading data...');
     try {
       final myCode = await _friendService.getMyCode(forceRefresh: true);
-      final friends = await _friendService.getFriends();
+      final friends = await _friendService.getFriends(forceRefresh: true);
       final requests = await _loadPendingRequests();
       debugPrint(
         'FriendsScreen: Loaded ${friends.length} friends, ${requests.length} pending requests',
@@ -303,20 +302,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
               children: [
                 _buildFriendProfileDragHandle(),
                 const SizedBox(height: 8),
-                CircleAvatar(
+                _FriendAvatar(
+                  avatarUrl: avatarUrl,
                   radius: 24,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.surfaceContainerHighest,
-                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                      ? NetworkImage(avatarUrl)
-                      : null,
-                  child: (avatarUrl == null || avatarUrl.isEmpty)
-                      ? Icon(
-                          Icons.person,
-                          size: 28,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        )
-                      : null,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -680,20 +668,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                CircleAvatar(
+                _FriendAvatar(
+                  avatarUrl: friend.avatarUrl,
                   radius: 24,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.surfaceContainerHighest,
-                  backgroundImage: friend.avatarUrl != null
-                      ? NetworkImage(friend.avatarUrl!)
-                      : null,
-                  child: friend.avatarUrl == null
-                      ? Icon(
-                          Icons.person,
-                          size: 28,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        )
-                      : null,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -836,20 +813,12 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   _buildFriendProfileDragHandle(),
                   const SizedBox(height: 8),
                   Center(
-                    child: CircleAvatar(
+                    child: _FriendAvatar(
+                      avatarUrl: friend.avatarUrl,
                       radius: 44,
                       backgroundColor: const Color(0xFFE3F2FD),
-                      backgroundImage:
-                          friend.avatarUrl?.trim().isNotEmpty == true
-                              ? NetworkImage(friend.avatarUrl!)
-                              : null,
-                      child: friend.avatarUrl?.trim().isNotEmpty == true
-                          ? null
-                          : Icon(
-                              Icons.person,
-                              size: 44,
-                              color: Color(0xFF1976D2),
-                            ),
+                      iconColor: const Color(0xFF1976D2),
+                      iconSize: 44,
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -1166,5 +1135,54 @@ class _FriendsScreenState extends State<FriendsScreen> {
   void dispose() {
     _profileCodeController.dispose();
     super.dispose();
+  }
+}
+
+class _FriendAvatar extends StatelessWidget {
+  const _FriendAvatar({
+    required this.avatarUrl,
+    required this.radius,
+    this.backgroundColor,
+    this.iconColor,
+    this.iconSize,
+  });
+
+  final String? avatarUrl;
+  final double radius;
+  final Color? backgroundColor;
+  final Color? iconColor;
+  final double? iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = avatarUrl?.trim();
+    final hasAvatar = url != null && url.isNotEmpty;
+    final fallback = _fallback(context);
+
+    return ClipOval(
+      child: Container(
+        width: radius * 2,
+        height: radius * 2,
+        color: backgroundColor ??
+            Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: hasAvatar
+            ? Image.network(
+                url,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => fallback,
+              )
+            : fallback,
+      ),
+    );
+  }
+
+  Widget _fallback(BuildContext context) {
+    return Center(
+      child: Icon(
+        Icons.person,
+        size: iconSize ?? 28,
+        color: iconColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    );
   }
 }
