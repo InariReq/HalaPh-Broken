@@ -34,14 +34,14 @@ class FriendService {
 
   Stream<List<Friend>> get friendsStream => _friendsController.stream;
 
-  Future<String> getMyCode() async {
+  Future<String> getMyCode({bool forceRefresh = false}) async {
     final userId = await _currentUserId();
     if (userId == null) return 'HP-0000';
 
     final firebaseUser = firebase_auth.FirebaseAuth.instance.currentUser;
     final seed = firebaseUser?.email ?? firebaseUser?.displayName ?? 'traveler';
 
-    if (_cachedUserId == userId && _cachedCode != null) {
+    if (!forceRefresh && _cachedUserId == userId && _cachedCode != null) {
       final claimedCode = await _claimOrGenerateAvailableCode(
         preferredCode: _cachedCode!,
         uid: userId,
@@ -56,6 +56,24 @@ class FriendService {
       });
       await _publishPublicProfile(claimedCode);
       return claimedCode;
+    }
+
+    if (forceRefresh) {
+      final existingCode = await _findExistingFriendCodeForUid(userId);
+      if (existingCode != null && existingCode.isNotEmpty) {
+        final claimedCode = await _claimOrGenerateAvailableCode(
+          preferredCode: existingCode,
+          uid: userId,
+          seed: seed,
+        );
+        _cachedUserId = userId;
+        _cachedCode = claimedCode;
+        await RemoteSyncService.instance.saveNamespace('profile', {
+          'code': claimedCode,
+        });
+        await _publishPublicProfile(claimedCode);
+        return claimedCode;
+      }
     }
 
     final remoteProfile = await RemoteSyncService.instance.loadNamespace(
@@ -93,6 +111,34 @@ class FriendService {
     });
     await _publishPublicProfile(claimedCode);
     return claimedCode;
+  }
+
+  Future<String?> _findExistingFriendCodeForUid(String uid) async {
+    if (uid.trim().isEmpty) return null;
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('friendCodes')
+          .where('uid', isEqualTo: uid)
+          .limit(1)
+          .get()
+          .timeout(const Duration(seconds: 5));
+
+      if (snapshot.docs.isEmpty) return null;
+
+      final doc = snapshot.docs.first;
+      final data = doc.data();
+      final rawCode = data['code'] as String? ?? doc.id;
+      final code = _normalizeCode(rawCode);
+
+      if (code.isEmpty || code == 'HP-0000') return null;
+
+      debugPrint('FriendService: refreshed friend code from Firebase: $code');
+      return code;
+    } catch (error) {
+      debugPrint('FriendService: friend code refresh lookup skipped: $error');
+      return null;
+    }
   }
 
   Future<String> _claimOrGenerateAvailableCode({

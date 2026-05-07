@@ -41,7 +41,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Future<void> _loadData() async {
     debugPrint('FriendsScreen: Loading data...');
     try {
-      final myCode = await _friendService.getMyCode();
+      final myCode = await _friendService.getMyCode(forceRefresh: true);
       final friends = await _friendService.getFriends();
       final requests = await _loadPendingRequests();
       debugPrint(
