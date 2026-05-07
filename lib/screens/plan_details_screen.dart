@@ -620,19 +620,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: hasPreviewableBanner
-                    ? () => FullscreenImagePreview.open(
-                          context,
-                          imagePath: bannerPath,
-                          semanticLabel: _plan?.title,
-                        )
-                    : null,
-                child: _buildBannerImage(),
-              ),
-            ),
+            _buildBannerImage(),
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(

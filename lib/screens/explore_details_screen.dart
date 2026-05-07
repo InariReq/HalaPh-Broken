@@ -492,32 +492,27 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: GestureDetector(
-              onTap: hasPreviewableImage
-                  ? () => _showImagePreview(imageUrl.trim())
-                  : null,
-              child: SizedBox(
-                width: double.infinity,
-                height: double.infinity,
-                child: hasPreviewableImage
-                    ? CachedNetworkImage(
-                        imageUrl: imageUrl.trim(),
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.blue[600],
-                            ),
+            child: SizedBox(
+              width: double.infinity,
+              height: double.infinity,
+              child: hasPreviewableImage
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl.trim(),
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.blue[600],
                           ),
                         ),
-                        errorWidget: (context, url, error) =>
-                            _buildFallbackImage(),
-                      )
-                    : _buildFallbackImage(),
-              ),
+                      ),
+                      errorWidget: (context, url, error) =>
+                          _buildFallbackImage(),
+                    )
+                  : _buildFallbackImage(),
             ),
           ),
           if (hasPreviewableImage)
