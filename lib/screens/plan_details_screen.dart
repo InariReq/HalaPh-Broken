@@ -311,9 +311,14 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           });
         }
 
-        // Navigate to My Plans
-        await Future.delayed(const Duration(milliseconds: 300));
-        if (mounted) {
+        // Return cleanly to the previous My Plans screen when this page was pushed.
+        await Future.delayed(const Duration(milliseconds: 200));
+        if (!mounted) return;
+
+        final navigator = Navigator.of(context);
+        if (navigator.canPop()) {
+          navigator.pop(true);
+        } else {
           context.go('/my-plans');
         }
       } else {
