@@ -106,11 +106,12 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   LatLng? _budgetFallbackOrigin;
   bool _isSavingMyStartingPoint = false;
 
-  bool get _canEditPlan =>
-      _plan != null && SimplePlanService.canEditPlan(_plan!.id);
-
-  bool get _canManageCollaborators =>
+  bool get _isPlanOwner =>
       _plan != null && SimplePlanService.isPlanOwner(_plan!.id);
+
+  bool get _canEditPlan => _isPlanOwner;
+
+  bool get _canManageCollaborators => _isPlanOwner;
 
   @override
   void initState() {
@@ -882,6 +883,11 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Future<void> _selectMeetingPoint() async {
+    if (!_canEditPlan) {
+      _showError('Only the plan owner can edit the meeting point.');
+      return;
+    }
+
     final destination = await Navigator.push<Destination>(
       context,
       MaterialPageRoute(builder: (context) => const AddPlaceScreen()),
@@ -896,6 +902,11 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   void _clearMeetingPoint() {
+    if (!_canEditPlan) {
+      _showError('Only the plan owner can edit the meeting point.');
+      return;
+    }
+
     setState(() {
       _meetingPointName = null;
       _meetingPointAddress = null;
@@ -1264,6 +1275,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
   Widget _buildActionButtons() {
     final canManageCollaborators = _canManageCollaborators;
+
+    if (!_canEditPlan && !canManageCollaborators) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -2207,12 +2222,15 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Future<void> _addLocations() async {
+    if (_plan == null || !_canEditPlan) {
+      _showError('Only the plan owner can edit itinerary locations.');
+      return;
+    }
+
     if (!_hasValidPlanDateRange) {
       _showEditDateRequiredMessage();
       return;
     }
-
-    if (_plan == null || !_canEditPlan) return;
     final dayNumber = 1;
     final result = await Navigator.push<Destination>(
       context,
