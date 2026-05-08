@@ -34,6 +34,18 @@ class RouteMapScreen extends StatefulWidget {
   State<RouteMapScreen> createState() => _RouteMapScreenState();
 }
 
+class _HistoricalInstructionStep {
+  final IconData icon;
+  final String title;
+  final String body;
+
+  const _HistoricalInstructionStep({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+}
+
 class _RouteMapScreenState extends State<RouteMapScreen> {
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
@@ -448,6 +460,20 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                     }
 
                     if (!hasSteps) {
+                      final bestHistoricalMatch =
+                          _historicalRouteMatches.isNotEmpty
+                              ? _historicalRouteMatches.first
+                              : null;
+
+                      if (bestHistoricalMatch != null) {
+                        return _buildRoutePanelEntrance(
+                          order: 3,
+                          child: _buildHistoricalInstructionSteps(
+                            bestHistoricalMatch,
+                          ),
+                        );
+                      }
+
                       return _buildRoutePanelEntrance(
                         order: 3,
                         child: Padding(
@@ -480,7 +506,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                 SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    'Detailed step-by-step directions are unavailable. Use the map preview and estimated route data.',
+                                    'No verified public transport step list was found for this route. HalaPH will not show car-driving directions as commute instructions.',
                                     style: TextStyle(
                                       height: 1.35,
                                       color: Theme.of(context).brightness ==
@@ -943,6 +969,183 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoricalInstructionSteps(HistoricalRouteMatch match) {
+    final steps = <_HistoricalInstructionStep>[
+      _HistoricalInstructionStep(
+        icon: Icons.directions_walk_rounded,
+        title: 'Walk to boarding point',
+        body:
+            'Go to ${match.boardStopName}. Estimated walk: ${_formatMeters(match.walkToBoardMeters)}.',
+      ),
+      _HistoricalInstructionStep(
+        icon: Icons.directions_bus_filled_rounded,
+        title: 'Board the vehicle',
+        body:
+            'Look for the signboard / route name: ${match.signboard}. ${match.via.trim().isNotEmpty ? 'Use the via clue: ${match.viaLabel}.' : 'No via point is listed in the GTFS route name.'}',
+      ),
+      _HistoricalInstructionStep(
+        icon: Icons.route_rounded,
+        title: 'Ride to the alighting point',
+        body:
+            'Stay on the route for about ${match.stopCount} stop${match.stopCount == 1 ? '' : 's'}. Confirm with the driver, conductor, or dispatcher before paying.',
+      ),
+      _HistoricalInstructionStep(
+        icon: Icons.flag_rounded,
+        title: 'Get off',
+        body:
+            'Alight at ${match.alightStopName}. This is the matched GTFS drop-off point nearest your destination.',
+      ),
+      _HistoricalInstructionStep(
+        icon: Icons.directions_walk_rounded,
+        title: 'Continue to destination',
+        body:
+            'Walk from the drop-off point to your destination. Estimated walk: ${_formatMeters(match.walkFromAlightMeters)}.',
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.28),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.format_list_numbered_rounded,
+                    color: _getModeColor()),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Historical GTFS commute steps',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'These steps use matched historical route data. Confirm current operation before riding.',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.3,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...List.generate(steps.length, (index) {
+              final step = steps[index];
+              final isLast = index == steps.length - 1;
+
+              return Padding(
+                padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
+                      children: [
+                        Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _getModeColor().withValues(alpha: 0.12),
+                            border: Border.all(
+                              color: _getModeColor().withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${index + 1}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                color: _getModeColor(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (!isLast)
+                          Container(
+                            width: 2,
+                            height: 34,
+                            color: _getModeColor().withValues(alpha: 0.18),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(step.icon,
+                                    size: 17, color: _getModeColor()),
+                                const SizedBox(width: 7),
+                                Expanded(
+                                  child: Text(
+                                    step.title,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              step.body,
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.35,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           ],
         ),
       ),
