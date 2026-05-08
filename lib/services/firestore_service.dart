@@ -9,6 +9,46 @@ import 'package:halaph/models/plan.dart';
 
 /// Centralized Firestore service layer that enforces production security rules
 class FirestoreService {
+  static Future<void> _deleteNestedFriendRequestDocIfAllowed(
+    FirebaseFirestore db,
+    String ownerUid,
+    String requestId,
+  ) async {
+    try {
+      await db
+          .collection('users')
+          .doc(ownerUid)
+          .collection('friend_requests')
+          .doc(requestId)
+          .delete();
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        debugPrint(
+          'Account cleanup: skipped denied stale users/$ownerUid/friend_requests/$requestId',
+        );
+        return;
+      }
+      rethrow;
+    }
+  }
+
+  static Future<void> _deleteFriendRequestDocIfAllowed(
+    FirebaseFirestore db,
+    String requestId,
+  ) async {
+    try {
+      await db.collection('friendRequests').doc(requestId).delete();
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        debugPrint(
+          'Account cleanup: skipped denied stale friendRequests/$requestId',
+        );
+        return;
+      }
+      rethrow;
+    }
+  }
+
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static firebase_auth.User? _currentUser;
   static StreamSubscription<firebase_auth.User?>? _authSubscription;
@@ -358,17 +398,9 @@ class FirestoreService {
         relationshipBatch.delete(
           _db.collection('users').doc(friendUid).collection('friends').doc(uid),
         );
-        relationshipBatch
-            .delete(_db.collection('friendRequests').doc('${uid}_$friendUid'));
-        relationshipBatch
-            .delete(_db.collection('friendRequests').doc('${friendUid}_$uid'));
-        relationshipBatch.delete(
-          _db
-              .collection('users')
-              .doc(friendUid)
-              .collection('friend_requests')
-              .doc(uid),
-        );
+        await _deleteFriendRequestDocIfAllowed(_db, '${uid}_$friendUid');
+        await _deleteFriendRequestDocIfAllowed(_db, '${friendUid}_$uid');
+        await _deleteNestedFriendRequestDocIfAllowed(_db, friendUid, uid);
       }
 
       final incomingRequests = await _db
@@ -382,8 +414,7 @@ class FirestoreService {
         final toUid = (data['toUid'] as String? ?? uid).trim();
         relationshipBatch.delete(doc.reference);
         if (fromUid.isNotEmpty && toUid.isNotEmpty) {
-          relationshipBatch.delete(
-              _db.collection('friendRequests').doc('${fromUid}_$toUid'));
+          await _deleteFriendRequestDocIfAllowed(_db, '${fromUid}_$toUid');
         }
       }
 

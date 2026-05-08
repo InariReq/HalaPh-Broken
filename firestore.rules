@@ -188,7 +188,36 @@ service cloud.firestore {
     }
 
     // Friend requests - top-level collection
+
+    function friendRequestResourceHasCurrentUser() {
+      return request.auth != null
+        && (
+          ('fromUid' in resource.data && resource.data.fromUid == request.auth.uid)
+          || ('toUid' in resource.data && resource.data.toUid == request.auth.uid)
+          || ('senderUid' in resource.data && resource.data.senderUid == request.auth.uid)
+          || ('receiverUid' in resource.data && resource.data.receiverUid == request.auth.uid)
+          || ('requesterUid' in resource.data && resource.data.requesterUid == request.auth.uid)
+          || ('targetUid' in resource.data && resource.data.targetUid == request.auth.uid)
+          || ('uid' in resource.data && resource.data.uid == request.auth.uid)
+        );
+    }
+
+    function friendRequestIdHasCurrentUser(requestId) {
+      return request.auth != null
+        && (
+          requestId == request.auth.uid
+          || requestId.matches(request.auth.uid + '_.*')
+          || requestId.matches('.*_' + request.auth.uid)
+          || requestId.matches('.*_' + request.auth.uid + '_.*')
+        );
+    }
+
     match /friendRequests/{requestId} {
+      allow delete: if request.auth != null
+        && (
+          friendRequestResourceHasCurrentUser()
+          || friendRequestIdHasCurrentUser(requestId)
+        );
 
       // terminal-account-cleanup-friendRequests-delete
       allow delete: if request.auth != null && (
