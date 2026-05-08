@@ -43,6 +43,8 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   int _currentStep = 0;
   String _polyline = '';
   List<LatLng> _routePoints = [];
+  List<LatLng> _walkingRoutePoints = [];
+  bool _loadingWalkingRoute = false;
   VerifiedRouteReference? _historicalRouteReference;
 
   @override
@@ -186,6 +188,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
       setState(() {
         _polyline = poly;
         _routePoints = pts;
+        _walkingRoutePoints = [];
         _polylines = {
           Polyline(
             polylineId: const PolylineId('route'),
@@ -196,6 +199,67 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         };
       });
     }
+  }
+
+  Future<void> _showWalkingDirectionsForStep(
+    Map<String, dynamic> step,
+  ) async {
+    if (!_isWalkingStep(step) || _loadingWalkingRoute) return;
+
+    final start = _walkingStepStart(step);
+    final end = _walkingStepEnd(step);
+    if (start == null || end == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Walking path is unavailable.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _loadingWalkingRoute = true;
+      _walkingRoutePoints = [];
+      _polylines = _withoutWalkingRoutePolyline(_polylines);
+    });
+
+    final directions = await GoogleMapsService.getDirections(
+      startLat: start.latitude,
+      startLon: start.longitude,
+      endLat: end.latitude,
+      endLon: end.longitude,
+      profile: 'walking',
+    );
+
+    if (!mounted) return;
+
+    final polyline = directions?['polyline'] as String? ?? '';
+    final points = MapUtils.decodePolyline(polyline);
+
+    if (points.isEmpty) {
+      setState(() {
+        _loadingWalkingRoute = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not load walking path.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _loadingWalkingRoute = false;
+      _walkingRoutePoints = points;
+      _polylines = {
+        ..._withoutWalkingRoutePolyline(_polylines),
+        Polyline(
+          polylineId: const PolylineId('google_walking_segment'),
+          points: points,
+          color: Colors.blueAccent,
+          width: 7,
+        ),
+      };
+    });
+
+    await _fitPoints(points, padding: 72);
   }
 
   List<Map<String, dynamic>> _effectiveRouteSteps() {
@@ -213,6 +277,8 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
       required TravelMode mode,
       required double lat,
       required double lng,
+      LatLng? walkingStart,
+      LatLng? walkingEnd,
     }) {
       return {
         'html_instructions': instruction,
@@ -220,6 +286,13 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         'start_location': {
           'lat': lat,
           'lng': lng,
+        },
+        if (walkingStart != null && walkingEnd != null) ...{
+          'walking_start_lat': walkingStart.latitude,
+          'walking_start_lng': walkingStart.longitude,
+          'walking_end_lat': walkingEnd.latitude,
+          'walking_end_lng': walkingEnd.longitude,
+          'is_historical_walking_step': true,
         },
       };
     }
@@ -251,16 +324,19 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
       final isFirst = i == 0;
       final isLast = i == legs.length - 1;
 
-      steps.add(
-        step(
-          instruction: isFirst
-              ? 'Walk to boarding point: ${leg.boardStopName}.'
-              : 'Walk to connecting boarding point: ${leg.boardStopName}.',
-          mode: TravelMode.walking,
-          lat: isFirst ? widget.origin.latitude : legs[i - 1].alightStopLat,
-          lng: isFirst ? widget.origin.longitude : legs[i - 1].alightStopLon,
-        ),
-      );
+      if (isFirst) {
+        final boardPoint = LatLng(leg.boardStopLat, leg.boardStopLon);
+        steps.add(
+          step(
+            instruction: 'Walk to boarding point: ${leg.boardStopName}.',
+            mode: TravelMode.walking,
+            lat: widget.origin.latitude,
+            lng: widget.origin.longitude,
+            walkingStart: widget.origin,
+            walkingEnd: boardPoint,
+          ),
+        );
+      }
 
       steps.add(
         step(
@@ -283,18 +359,27 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
       );
 
       if (!isLast) {
+        final nextLeg = legs[i + 1];
+        final transferStart = LatLng(leg.alightStopLat, leg.alightStopLon);
+        final transferEnd = LatLng(nextLeg.boardStopLat, nextLeg.boardStopLon);
         steps.add(
           step(
             instruction:
-                'Transfer: walk from ${leg.alightStopName} to ${legs[i + 1].boardStopName}.',
+                'Transfer: walk from ${leg.alightStopName} to ${nextLeg.boardStopName}.',
             mode: TravelMode.walking,
             lat: leg.alightStopLat,
             lng: leg.alightStopLon,
+            walkingStart: transferStart,
+            walkingEnd: transferEnd,
           ),
         );
       }
     }
 
+    final finalWalkStart = LatLng(
+      legs.last.alightStopLat,
+      legs.last.alightStopLon,
+    );
     steps.add(
       step(
         instruction:
@@ -302,6 +387,8 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         mode: TravelMode.walking,
         lat: legs.last.alightStopLat,
         lng: legs.last.alightStopLon,
+        walkingStart: finalWalkStart,
+        walkingEnd: widget.destination,
       ),
     );
 
@@ -697,7 +784,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                     }
 
                     final stepIndex = index - 3;
-                    final step = widget.steps[stepIndex];
+                    final step = effectiveSteps[stepIndex];
                     final instruction =
                         step['html_instructions'] as String? ?? '';
                     final distance =
@@ -747,19 +834,32 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                     }
 
                     final isCurrentStep = stepIndex == _currentStep;
+                    final isWalkingStep = _isWalkingStep(step);
 
                     return Padding(
                       padding: EdgeInsets.fromLTRB(
                         18,
                         stepIndex == 0 ? 4 : 0,
                         18,
-                        stepIndex == widget.steps.length - 1 ? 28 : 10,
+                        stepIndex == effectiveSteps.length - 1 ? 28 : 10,
                       ),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(16),
-                        onTap: () {
+                        onTap: () async {
                           setState(() {
                             _currentStep = stepIndex;
+                          });
+
+                          if (isWalkingStep) {
+                            await _showWalkingDirectionsForStep(step);
+                            return;
+                          }
+
+                          setState(() {
+                            _walkingRoutePoints = [];
+                            _polylines = _withoutWalkingRoutePolyline(
+                              _polylines,
+                            );
                           });
 
                           final latLng = _extractStepLocation(step);
@@ -862,6 +962,38 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                                 .onSurfaceVariant,
                                             fontWeight: FontWeight.w600,
                                           ),
+                                        ),
+                                      ),
+                                    if (isWalkingStep)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.directions_walk,
+                                              size: 15,
+                                              color: Colors.blueAccent,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                _loadingWalkingRoute &&
+                                                        isCurrentStep
+                                                    ? 'Loading Google walking path...'
+                                                    : isCurrentStep &&
+                                                            _walkingRoutePoints
+                                                                .isNotEmpty
+                                                        ? 'Google walking path shown.'
+                                                        : 'Tap to show Google walking path.',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  height: 1.25,
+                                                  color: Colors.blueAccent,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                   ],
@@ -1143,13 +1275,103 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     try {
       final startLocation = step['start_location'] as Map?;
       if (startLocation != null) {
-        return LatLng(
-          startLocation['lat'] as double,
-          startLocation['lng'] as double,
-        );
+        final lat = _asDouble(startLocation['lat']);
+        final lng = _asDouble(startLocation['lng']);
+        if (lat != null && lng != null) {
+          return LatLng(lat, lng);
+        }
       }
     } catch (_) {}
     return null;
+  }
+
+  bool _isWalkingStep(Map<String, dynamic> step) {
+    final mode = (step['travel_mode'] ?? '').toString().toUpperCase();
+    return mode == TravelMode.walking.name.toUpperCase();
+  }
+
+  LatLng? _walkingStepStart(Map<String, dynamic> step) {
+    final historicalLat = _asDouble(step['walking_start_lat']);
+    final historicalLng = _asDouble(step['walking_start_lng']);
+    if (historicalLat != null && historicalLng != null) {
+      return LatLng(historicalLat, historicalLng);
+    }
+    return _extractStepLocation(step);
+  }
+
+  LatLng? _walkingStepEnd(Map<String, dynamic> step) {
+    final historicalLat = _asDouble(step['walking_end_lat']);
+    final historicalLng = _asDouble(step['walking_end_lng']);
+    if (historicalLat != null && historicalLng != null) {
+      return LatLng(historicalLat, historicalLng);
+    }
+
+    final endLocation = step['end_location'] as Map?;
+    if (endLocation == null) return null;
+
+    final lat = _asDouble(endLocation['lat']);
+    final lng = _asDouble(endLocation['lng']);
+    if (lat == null || lng == null) return null;
+    return LatLng(lat, lng);
+  }
+
+  double? _asDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  Set<Polyline> _withoutWalkingRoutePolyline(Set<Polyline> polylines) {
+    return polylines
+        .where(
+          (polyline) =>
+              polyline.polylineId != const PolylineId('google_walking_segment'),
+        )
+        .toSet();
+  }
+
+  Future<void> _fitPoints(
+    List<LatLng> points, {
+    double padding = 50,
+  }) async {
+    final controller = _mapController;
+    if (controller == null || points.isEmpty) return;
+
+    if (points.length == 1) {
+      await controller.animateCamera(
+        CameraUpdate.newLatLngZoom(points.first, 16),
+      );
+      return;
+    }
+
+    var south = points.first.latitude;
+    var north = points.first.latitude;
+    var west = points.first.longitude;
+    var east = points.first.longitude;
+
+    for (final point in points.skip(1)) {
+      if (point.latitude < south) south = point.latitude;
+      if (point.latitude > north) north = point.latitude;
+      if (point.longitude < west) west = point.longitude;
+      if (point.longitude > east) east = point.longitude;
+    }
+
+    if (south == north && west == east) {
+      await controller.animateCamera(
+        CameraUpdate.newLatLngZoom(points.first, 16),
+      );
+      return;
+    }
+
+    await controller.animateCamera(
+      CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(south, west),
+          northeast: LatLng(north, east),
+        ),
+        padding,
+      ),
+    );
   }
 
   void _fitBounds() {
