@@ -1,67 +1,43 @@
+import 'dart:math' as math;
+
 import 'package:flutter/services.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/verified_route.dart';
 import 'package:halaph/services/budget_routing_service.dart';
 
 class VerifiedRouteService {
   static const String _routesAssetPath =
       'lib/Assets/gtfs-master/gtfs-master/routes.txt';
+  static const String _stopsAssetPath =
+      'lib/Assets/gtfs-master/gtfs-master/stops.txt';
+  static const String _tripsAssetPath =
+      'lib/Assets/gtfs-master/gtfs-master/trips.txt';
+  static const String _stopTimesAssetPath =
+      'lib/Assets/gtfs-master/gtfs-master/stop_times.txt';
 
   static List<VerifiedRouteReference>? _cachedRoutes;
+  static _GtfsIndex? _cachedIndex;
 
   static Future<List<VerifiedRouteReference>> loadHistoricalGtfsRoutes() async {
     if (_cachedRoutes != null) return _cachedRoutes!;
 
     try {
-      final csvText = await rootBundle.loadString(_routesAssetPath);
-      final rows = _parseCsv(csvText);
-      if (rows.isEmpty) {
-        _cachedRoutes = const [];
-        return _cachedRoutes!;
-      }
-
-      final headers = rows.first;
-      final dataRows = rows.skip(1);
-
-      String value(List<String> row, String header) {
-        final index = headers.indexOf(header);
-        if (index < 0 || index >= row.length) return '';
-        return row[index].trim();
-      }
-
-      final routes = <VerifiedRouteReference>[];
-
-      for (final row in dataRows) {
-        final routeShortName = value(row, 'route_short_name');
-        final routeLongName = value(row, 'route_long_name');
-        final routeDesc = value(row, 'route_desc');
-        final routeType = value(row, 'route_type');
-        final routeId = value(row, 'route_id');
-        final agencyId = value(row, 'agency_id');
-
-        final routeName =
-            routeShortName.isNotEmpty ? routeShortName : routeLongName;
-
-        if (routeName.trim().isEmpty && routeDesc.trim().isEmpty) continue;
-
-        final mode = _modeForGtfsRouteType(routeType);
-        if (mode == null) continue;
-
-        routes.add(
-          VerifiedRouteReference(
-            routeName: routeName,
-            routeDescription: routeDesc,
-            mode: mode,
-            sourceLabel: 'Historical GTFS reference, confirm before riding',
-            sourceType: VerifiedRouteSourceType.historicalGtfs,
-            sourceDetail:
-                'Sakay.ph GTFS entry. Agency: $agencyId. Route ID: $routeId. Calendar data ends 2020-06-30. Use only as a route clue, not current operating proof.',
-            lastVerifiedAt: DateTime(2020, 6, 30),
-          ),
-        );
-      }
-
-      _cachedRoutes = routes;
-      return routes;
+      final index = await _loadGtfsIndex();
+      _cachedRoutes = index.routes.values
+          .map(
+            (route) => VerifiedRouteReference(
+              routeName: route.displayName,
+              routeDescription: route.description,
+              mode: route.mode,
+              sourceLabel: 'Historical GTFS reference, confirm before riding',
+              sourceType: VerifiedRouteSourceType.historicalGtfs,
+              sourceDetail:
+                  'Sakay.ph/LTFRB GTFS route entry. Agency: ${route.agencyId}. Route ID: ${route.routeId}. Calendar data may be historical. Use only as a route clue, not current operating proof.',
+              lastVerifiedAt: DateTime(2020, 6, 30),
+            ),
+          )
+          .toList(growable: false);
+      return _cachedRoutes!;
     } catch (_) {
       _cachedRoutes = const [];
       return _cachedRoutes!;
@@ -118,6 +94,280 @@ class VerifiedRouteService {
     return best;
   }
 
+  static Future<List<HistoricalRouteMatch>> findHistoricalRouteMatches({
+    required TravelMode mode,
+    required LatLng origin,
+    required LatLng destination,
+    int limit = 6,
+    double maxWalkMeters = 900,
+  }) async {
+    final index = await _loadGtfsIndex();
+
+    final originStops = _nearestStops(
+      index.stops.values,
+      origin,
+      maxWalkMeters,
+      limit: 30,
+    );
+    final destinationStops = _nearestStops(
+      index.stops.values,
+      destination,
+      maxWalkMeters,
+      limit: 30,
+    );
+
+    if (originStops.isEmpty || destinationStops.isEmpty) return const [];
+
+    final originStopIds = originStops.map((item) => item.stop.stopId).toSet();
+    final destinationStopIds =
+        destinationStops.map((item) => item.stop.stopId).toSet();
+
+    final originDistanceByStop = {
+      for (final item in originStops) item.stop.stopId: item.distanceMeters,
+    };
+    final destinationDistanceByStop = {
+      for (final item in destinationStops)
+        item.stop.stopId: item.distanceMeters,
+    };
+
+    final matchesByRoute = <String, HistoricalRouteMatch>{};
+
+    for (final trip in index.trips.values) {
+      final route = index.routes[trip.routeId];
+      if (route == null || !_modeMatches(mode, route.mode)) continue;
+
+      final stopTimes = index.stopTimesByTripId[trip.tripId] ?? const [];
+      if (stopTimes.length < 2) continue;
+
+      _GtfsStopTime? boardTime;
+      _GtfsStopTime? alightTime;
+
+      for (final stopTime in stopTimes) {
+        if (boardTime == null && originStopIds.contains(stopTime.stopId)) {
+          boardTime = stopTime;
+          continue;
+        }
+
+        if (boardTime != null &&
+            stopTime.sequence > boardTime.sequence &&
+            destinationStopIds.contains(stopTime.stopId)) {
+          alightTime = stopTime;
+          break;
+        }
+      }
+
+      if (boardTime == null || alightTime == null) continue;
+
+      final boardStop = index.stops[boardTime.stopId];
+      final alightStop = index.stops[alightTime.stopId];
+      if (boardStop == null || alightStop == null) continue;
+
+      final walkToBoard = originDistanceByStop[boardStop.stopId] ?? 0;
+      final walkFromAlight = destinationDistanceByStop[alightStop.stopId] ?? 0;
+      final stopCount = (alightTime.sequence - boardTime.sequence).abs();
+
+      final reference = VerifiedRouteReference(
+        routeName: route.displayName,
+        routeDescription: route.description,
+        mode: route.mode,
+        sourceLabel: 'Historical GTFS reference, confirm before riding',
+        sourceType: VerifiedRouteSourceType.historicalGtfs,
+        sourceDetail:
+            'Sakay.ph/LTFRB GTFS match. Agency: ${route.agencyId}. Route ID: ${route.routeId}. Use as a route clue only, not current operating proof.',
+        lastVerifiedAt: DateTime(2020, 6, 30),
+      );
+
+      final match = HistoricalRouteMatch(
+        route: reference,
+        signboard: route.displayName,
+        via: _extractVia(route.displayName, route.description),
+        boardStopName: boardStop.name,
+        alightStopName: alightStop.name,
+        walkToBoardMeters: walkToBoard,
+        walkFromAlightMeters: walkFromAlight,
+        stopCount: stopCount,
+      );
+
+      final previous = matchesByRoute[route.routeId];
+      if (previous == null ||
+          (match.walkToBoardMeters + match.walkFromAlightMeters) <
+              (previous.walkToBoardMeters + previous.walkFromAlightMeters)) {
+        matchesByRoute[route.routeId] = match;
+      }
+    }
+
+    final matches = matchesByRoute.values.toList()
+      ..sort(
+        (a, b) {
+          final aWalk = a.walkToBoardMeters + a.walkFromAlightMeters;
+          final bWalk = b.walkToBoardMeters + b.walkFromAlightMeters;
+          final byWalk = aWalk.compareTo(bWalk);
+          if (byWalk != 0) return byWalk;
+          return a.stopCount.compareTo(b.stopCount);
+        },
+      );
+
+    return matches.take(limit).toList(growable: false);
+  }
+
+  static Future<_GtfsIndex> _loadGtfsIndex() async {
+    if (_cachedIndex != null) return _cachedIndex!;
+
+    final routesRows = _parseCsv(await rootBundle.loadString(_routesAssetPath));
+    final stopsRows = _parseCsv(await rootBundle.loadString(_stopsAssetPath));
+    final tripsRows = _parseCsv(await rootBundle.loadString(_tripsAssetPath));
+    final stopTimeRows =
+        _parseCsv(await rootBundle.loadString(_stopTimesAssetPath));
+
+    final routes = <String, _GtfsRoute>{};
+    for (final row in _rowsWithHeaders(routesRows)) {
+      final mode = _modeForGtfsRouteType(row['route_type'] ?? '');
+      if (mode == null) continue;
+      final routeId = (row['route_id'] ?? '').trim();
+      if (routeId.isEmpty) continue;
+      routes[routeId] = _GtfsRoute(
+        routeId: routeId,
+        agencyId: (row['agency_id'] ?? '').trim(),
+        shortName: (row['route_short_name'] ?? '').trim(),
+        longName: (row['route_long_name'] ?? '').trim(),
+        description: (row['route_desc'] ?? '').trim(),
+        mode: mode,
+      );
+    }
+
+    final stops = <String, _GtfsStop>{};
+    for (final row in _rowsWithHeaders(stopsRows)) {
+      final stopId = (row['stop_id'] ?? '').trim();
+      final name = (row['stop_name'] ?? '').trim();
+      final lat = double.tryParse((row['stop_lat'] ?? '').trim());
+      final lon = double.tryParse((row['stop_lon'] ?? '').trim());
+      if (stopId.isEmpty || name.isEmpty || lat == null || lon == null) {
+        continue;
+      }
+      stops[stopId] = _GtfsStop(
+        stopId: stopId,
+        name: name,
+        latitude: lat,
+        longitude: lon,
+      );
+    }
+
+    final trips = <String, _GtfsTrip>{};
+    for (final row in _rowsWithHeaders(tripsRows)) {
+      final tripId = (row['trip_id'] ?? '').trim();
+      final routeId = (row['route_id'] ?? '').trim();
+      if (tripId.isEmpty || routeId.isEmpty || !routes.containsKey(routeId)) {
+        continue;
+      }
+      trips[tripId] = _GtfsTrip(
+        tripId: tripId,
+        routeId: routeId,
+        headsign: (row['trip_headsign'] ?? '').trim(),
+        shapeId: (row['shape_id'] ?? '').trim(),
+      );
+    }
+
+    final stopTimesByTripId = <String, List<_GtfsStopTime>>{};
+    for (final row in _rowsWithHeaders(stopTimeRows)) {
+      final tripId = (row['trip_id'] ?? '').trim();
+      final stopId = (row['stop_id'] ?? '').trim().replaceAll('"', '');
+      final sequence = int.tryParse((row['stop_sequence'] ?? '').trim());
+      if (tripId.isEmpty ||
+          stopId.isEmpty ||
+          sequence == null ||
+          !trips.containsKey(tripId) ||
+          !stops.containsKey(stopId)) {
+        continue;
+      }
+      stopTimesByTripId
+          .putIfAbsent(tripId, () => <_GtfsStopTime>[])
+          .add(_GtfsStopTime(
+            tripId: tripId,
+            stopId: stopId,
+            sequence: sequence,
+          ));
+    }
+
+    for (final times in stopTimesByTripId.values) {
+      times.sort((a, b) => a.sequence.compareTo(b.sequence));
+    }
+
+    _cachedIndex = _GtfsIndex(
+      routes: routes,
+      stops: stops,
+      trips: trips,
+      stopTimesByTripId: stopTimesByTripId,
+    );
+    return _cachedIndex!;
+  }
+
+  static Iterable<Map<String, String>> _rowsWithHeaders(
+      List<List<String>> rows) sync* {
+    if (rows.isEmpty) return;
+
+    final headers = rows.first.map((header) => header.trim()).toList();
+    for (final row in rows.skip(1)) {
+      final map = <String, String>{};
+      for (var i = 0; i < headers.length && i < row.length; i++) {
+        map[headers[i]] = row[i].trim();
+      }
+      yield map;
+    }
+  }
+
+  static List<_NearestStop> _nearestStops(
+    Iterable<_GtfsStop> stops,
+    LatLng point,
+    double maxMeters, {
+    required int limit,
+  }) {
+    final nearest = <_NearestStop>[];
+
+    for (final stop in stops) {
+      final distance = _distanceMeters(
+        point.latitude,
+        point.longitude,
+        stop.latitude,
+        stop.longitude,
+      );
+      if (distance <= maxMeters) {
+        nearest.add(_NearestStop(stop: stop, distanceMeters: distance));
+      }
+    }
+
+    nearest.sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
+    return nearest.take(limit).toList(growable: false);
+  }
+
+  static double _distanceMeters(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const earthRadiusMeters = 6371000.0;
+    final dLat = _toRadians(lat2 - lat1);
+    final dLon = _toRadians(lon2 - lon1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_toRadians(lat1)) *
+            math.cos(_toRadians(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return earthRadiusMeters * c;
+  }
+
+  static double _toRadians(double degrees) => degrees * math.pi / 180.0;
+
+  static String _extractVia(String routeName, String routeDescription) {
+    final source = '$routeName $routeDescription';
+    final match =
+        RegExp(r'\bvia\s+(.+)$', caseSensitive: false).firstMatch(source);
+    if (match == null) return '';
+
+    return (match.group(1) ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
   static TravelMode? _modeForGtfsRouteType(String routeType) {
     switch (routeType.trim()) {
       case '2':
@@ -132,8 +382,6 @@ class VerifiedRouteService {
   static bool _modeMatches(TravelMode requestedMode, TravelMode routeMode) {
     if (requestedMode == routeMode) return true;
 
-    // Historical GTFS route_type 3 covers road public transport. Keep this
-    // shared for jeepney, bus, and FX/UV, but label it as historical reference.
     if (routeMode == TravelMode.bus &&
         (requestedMode == TravelMode.jeepney ||
             requestedMode == TravelMode.bus ||
@@ -230,4 +478,92 @@ class VerifiedRouteService {
 
     return rows;
   }
+}
+
+class _GtfsIndex {
+  final Map<String, _GtfsRoute> routes;
+  final Map<String, _GtfsStop> stops;
+  final Map<String, _GtfsTrip> trips;
+  final Map<String, List<_GtfsStopTime>> stopTimesByTripId;
+
+  const _GtfsIndex({
+    required this.routes,
+    required this.stops,
+    required this.trips,
+    required this.stopTimesByTripId,
+  });
+}
+
+class _GtfsRoute {
+  final String routeId;
+  final String agencyId;
+  final String shortName;
+  final String longName;
+  final String description;
+  final TravelMode mode;
+
+  const _GtfsRoute({
+    required this.routeId,
+    required this.agencyId,
+    required this.shortName,
+    required this.longName,
+    required this.description,
+    required this.mode,
+  });
+
+  String get displayName {
+    if (shortName.trim().isNotEmpty) return shortName.trim();
+    if (longName.trim().isNotEmpty) return longName.trim();
+    return description.trim();
+  }
+}
+
+class _GtfsStop {
+  final String stopId;
+  final String name;
+  final double latitude;
+  final double longitude;
+
+  const _GtfsStop({
+    required this.stopId,
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+  });
+}
+
+class _GtfsTrip {
+  final String tripId;
+  final String routeId;
+  final String headsign;
+  final String shapeId;
+
+  const _GtfsTrip({
+    required this.tripId,
+    required this.routeId,
+    required this.headsign,
+    required this.shapeId,
+  });
+}
+
+class _GtfsStopTime {
+  final String tripId;
+  final String stopId;
+  final int sequence;
+
+  const _GtfsStopTime({
+    required this.tripId,
+    required this.stopId,
+    required this.sequence,
+  });
+}
+
+class _NearestStop {
+  final _GtfsStop stop;
+  final double distanceMeters;
+
+  const _NearestStop({
+    required this.stop,
+    required this.distanceMeters,
+  });
 }

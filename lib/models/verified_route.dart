@@ -32,3 +32,31 @@ class VerifiedRouteReference {
     return routeDescription.trim();
   }
 }
+
+class HistoricalRouteMatch {
+  final VerifiedRouteReference route;
+  final String signboard;
+  final String via;
+  final String boardStopName;
+  final String alightStopName;
+  final double walkToBoardMeters;
+  final double walkFromAlightMeters;
+  final int stopCount;
+
+  const HistoricalRouteMatch({
+    required this.route,
+    required this.signboard,
+    required this.via,
+    required this.boardStopName,
+    required this.alightStopName,
+    required this.walkToBoardMeters,
+    required this.walkFromAlightMeters,
+    required this.stopCount,
+  });
+
+  String get sourceWarning =>
+      'Historical GTFS reference only. Confirm route status, signboard, and drop-off before riding.';
+
+  String get viaLabel =>
+      via.trim().isEmpty ? 'No via point listed' : via.trim();
+}
