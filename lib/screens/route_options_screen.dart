@@ -220,13 +220,20 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                 <Map<String, dynamic>>[];
         final rawPolyline = directions?['polyline'] as String? ?? '';
 
-        final rawHasLiveRailTransitStep = _hasLiveRailTransitStep(rawSteps);
+        final rawStepsMatchSelectedMode = _liveStepsContainSelectedMode(
+          modeData.mode,
+          rawSteps,
+        );
 
-        final steps = isRailMode && !rawHasLiveRailTransitStep
-            ? <Map<String, dynamic>>[]
-            : rawSteps;
-        final polyline =
-            isRailMode && !rawHasLiveRailTransitStep ? '' : rawPolyline;
+        final steps =
+            rawStepsMatchSelectedMode ? rawSteps : <Map<String, dynamic>>[];
+        final polyline = rawStepsMatchSelectedMode ? rawPolyline : '';
+
+        if (rawSteps.isNotEmpty && !rawStepsMatchSelectedMode) {
+          debugPrint(
+            'RouteOptions: ignored live transit steps for ${modeData.name}; steps do not include selected mode.',
+          );
+        }
 
         final hasRouteShape = steps.isNotEmpty || polyline.trim().isNotEmpty;
         final hasLiveTransitStep = _hasLiveTransitStep(steps);
@@ -1248,6 +1255,20 @@ double _distanceKmForLiveStep(Map<String, dynamic> step) {
   }
 
   return 0.0;
+}
+
+bool _liveStepsContainSelectedMode(
+  TravelMode selectedMode,
+  List<Map<String, dynamic>> steps,
+) {
+  if (selectedMode == TravelMode.walking) return false;
+
+  for (final step in steps) {
+    final mode = _travelModeForLiveStep(step);
+    if (mode == selectedMode) return true;
+  }
+
+  return false;
 }
 
 String _displayNameForLiveSteps(
