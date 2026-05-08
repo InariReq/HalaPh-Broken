@@ -42,6 +42,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   String _polyline = '';
   List<LatLng> _routePoints = [];
   VerifiedRouteReference? _historicalRouteReference;
+  List<HistoricalRouteMatch> _historicalRouteMatches = const [];
 
   @override
   void initState() {
@@ -58,9 +59,17 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
       mode: widget.mode,
       destinationName: widget.destinationName,
     );
+    final matches = await VerifiedRouteService.findHistoricalRouteMatches(
+      mode: widget.mode,
+      origin: widget.origin,
+      destination: widget.destination,
+      limit: 5,
+    );
+
     if (!mounted) return;
     setState(() {
       _historicalRouteReference = reference;
+      _historicalRouteMatches = matches;
     });
   }
 
@@ -804,10 +813,14 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
   Widget _buildRouteGuidanceCard() {
     final lineName = _firstTransitLineName();
+    final bestHistoricalMatch = _historicalRouteMatches.isNotEmpty
+        ? _historicalRouteMatches.first
+        : null;
     final instruction = _routeDirectionInstruction(lineName);
     final notes = _routeDirectionNotes(lineName);
     final hasExactLine = lineName.isNotEmpty;
-    final hasHistoricalReference = _historicalRouteReference != null;
+    final hasHistoricalReference =
+        _historicalRouteReference != null || bestHistoricalMatch != null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
@@ -854,6 +867,10 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
+            if (bestHistoricalMatch != null && !hasExactLine) ...[
+              const SizedBox(height: 10),
+              _buildHistoricalRouteMatchCard(bestHistoricalMatch),
+            ],
             if (hasHistoricalReference && !hasExactLine) ...[
               const SizedBox(height: 10),
               Container(
@@ -930,6 +947,125 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildHistoricalRouteMatchCard(HistoricalRouteMatch match) {
+    final alternativeCount = (_historicalRouteMatches.length - 1).clamp(0, 99);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFF0F2537)
+            : const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF2B5A7A)
+              : const Color(0xFFBFDBFE),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHistoricalDetailRow(
+            icon: Icons.directions_bus_filled_rounded,
+            label: 'Signboard / Route Name',
+            value: match.signboard,
+          ),
+          const SizedBox(height: 8),
+          _buildHistoricalDetailRow(
+            icon: Icons.alt_route_rounded,
+            label: 'Via',
+            value: match.viaLabel,
+          ),
+          const SizedBox(height: 8),
+          _buildHistoricalDetailRow(
+            icon: Icons.place_rounded,
+            label: 'Board at',
+            value:
+                '${match.boardStopName} (${_formatMeters(match.walkToBoardMeters)} walk)',
+          ),
+          const SizedBox(height: 8),
+          _buildHistoricalDetailRow(
+            icon: Icons.flag_rounded,
+            label: 'Get off at',
+            value:
+                '${match.alightStopName} (${_formatMeters(match.walkFromAlightMeters)} from destination)',
+          ),
+          const SizedBox(height: 8),
+          _buildHistoricalDetailRow(
+            icon: Icons.format_list_numbered_rounded,
+            label: 'Stops',
+            value:
+                '${match.stopCount} stop${match.stopCount == 1 ? '' : 's'} between boarding and alighting',
+          ),
+          if (alternativeCount > 0) ...[
+            const SizedBox(height: 8),
+            _buildHistoricalDetailRow(
+              icon: Icons.compare_arrows_rounded,
+              label: 'Alternatives',
+              value:
+                  '$alternativeCount other historical route clue${alternativeCount == 1 ? '' : 's'} found near this trip',
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            match.sourceWarning,
+            style: TextStyle(
+              fontSize: 11.5,
+              height: 1.3,
+              fontWeight: FontWeight.w800,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFFFDE68A)
+                  : const Color(0xFF92400E),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoricalDetailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 17, color: _getModeColor()),
+        const SizedBox(width: 8),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.3,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                TextSpan(text: value),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatMeters(double meters) {
+    if (meters < 1000) return '${meters.round()}m';
+    return '${(meters / 1000).toStringAsFixed(1)}km';
   }
 
   LatLng? _extractStepLocation(Map<String, dynamic> step) {
