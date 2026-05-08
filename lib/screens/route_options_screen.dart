@@ -192,8 +192,12 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             modeData.mode == TravelMode.fx;
         final isRailMode = modeData.mode == TravelMode.train;
 
+        final isPublicTransportMode = isRoadPublicMode || isRailMode;
+        final googleProfile =
+            isPublicTransportMode ? 'transit' : modeData.profile;
+
         final shouldCallGoogleDirections =
-            !isRoadPublicMode || historicalMatch == null;
+            isPublicTransportMode || historicalMatch == null;
 
         final directions = shouldCallGoogleDirections
             ? await GoogleMapsService.getDirections(
@@ -201,13 +205,13 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                 startLon: origin.longitude,
                 endLat: destination.latitude,
                 endLon: destination.longitude,
-                profile: modeData.profile,
+                profile: googleProfile,
               )
             : null;
 
         if (!shouldCallGoogleDirections) {
           debugPrint(
-            'RouteOptions: skipped Google driving directions for ${modeData.name}; using GTFS match.',
+            'RouteOptions: skipped Google directions for ${modeData.name}; using GTFS match.',
           );
         }
 
@@ -218,16 +222,11 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
 
         final rawHasLiveRailTransitStep = _hasLiveRailTransitStep(rawSteps);
 
-        final steps = isRoadPublicMode
+        final steps = isRailMode && !rawHasLiveRailTransitStep
             ? <Map<String, dynamic>>[]
-            : isRailMode && !rawHasLiveRailTransitStep
-                ? <Map<String, dynamic>>[]
-                : rawSteps;
-        final polyline = isRoadPublicMode
-            ? ''
-            : isRailMode && !rawHasLiveRailTransitStep
-                ? ''
-                : rawPolyline;
+            : rawSteps;
+        final polyline =
+            isRailMode && !rawHasLiveRailTransitStep ? '' : rawPolyline;
 
         final hasRouteShape = steps.isNotEmpty || polyline.trim().isNotEmpty;
         final hasLiveTransitStep = _hasLiveTransitStep(steps);
@@ -256,9 +255,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           continue;
         }
 
-        if (isRoadPublicMode && !hasHistoricalMatch) {
+        if (isRoadPublicMode && !hasHistoricalMatch && !hasLiveTransitStep) {
           debugPrint(
-            'RouteOptions: skipped ${modeData.name}, no verified public transport route match.',
+            'RouteOptions: skipped ${modeData.name}, no verified public transport route match or live transit steps.',
           );
           continue;
         }
@@ -278,8 +277,10 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                     : 'Historical route match'
                 : 'Live map route';
 
-        final isNearbyDropOff =
-            historicalMatch != null && _isNearbyDropOff(historicalMatch);
+        final displayHistoricalMatch =
+            hasLiveTransitStep ? null : historicalMatch;
+        final isNearbyDropOff = displayHistoricalMatch != null &&
+            _isNearbyDropOff(displayHistoricalMatch);
         final confidenceDetail = hasLiveTransitStep
             ? 'Google returned public transport step data with route or stop details.'
             : hasHistoricalMatch
@@ -304,13 +305,13 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
               ? '$confidenceDetail Nearby route: get off at the listed verified stop, then walk to the destination.'
               : confidenceDetail,
           isVerifiedTransit: hasLiveTransitStep || hasHistoricalMatch,
-          historicalMatch: historicalMatch,
+          historicalMatch: displayHistoricalMatch,
           routeScore: _routeScore(
             mode: modeData.mode,
             fare: fare,
             duration: duration,
             distanceKm: distance,
-            historicalMatch: historicalMatch,
+            historicalMatch: displayHistoricalMatch,
             hasLiveTransitStep: hasLiveTransitStep,
             hasLiveRailTransitStep: hasLiveRailTransitStep,
           ),
