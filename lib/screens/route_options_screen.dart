@@ -85,7 +85,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       final modes = [
         _ModeData(
             TravelMode.jeepney,
-            'Traditional Jeepney',
+            'Jeepney',
             Icons.directions_bus,
             (double distance) => FareService.estimateFare(
                 TravelMode.jeepney, distance,
@@ -93,7 +93,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             'driving'),
         _ModeData(
             TravelMode.bus,
-            'Bus (Ordinary/Aircon)',
+            'Bus',
             Icons.directions_bus,
             (double distance) => FareService.estimateFare(
                 TravelMode.bus, distance,
@@ -109,7 +109,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             'transit'),
         _ModeData(
             TravelMode.fx,
-            'FX/Van',
+            'FX',
             Icons.airport_shuttle,
             (double distance) => FareService.estimateFare(
                 TravelMode.fx, distance,
