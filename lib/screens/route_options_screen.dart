@@ -158,6 +158,39 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             (directions?['steps'] as List?)?.cast<Map<String, dynamic>>() ??
                 <Map<String, dynamic>>[];
         final polyline = directions?['polyline'] as String? ?? '';
+        final hasRouteShape = steps.isNotEmpty || polyline.trim().isNotEmpty;
+        final hasLiveTransitStep = _hasLiveTransitStep(steps);
+        final isRoadPublicMode = modeData.mode == TravelMode.jeepney ||
+            modeData.mode == TravelMode.bus ||
+            modeData.mode == TravelMode.fx;
+        final isRailMode = modeData.mode == TravelMode.train;
+
+        if (!hasRouteShape) {
+          debugPrint(
+            'RouteOptions: skipped ${modeData.name}, no usable route shape.',
+          );
+          continue;
+        }
+
+        if (isRailMode && !hasLiveTransitStep) {
+          debugPrint(
+            'RouteOptions: skipped ${modeData.name}, no live train transit step.',
+          );
+          continue;
+        }
+
+        final confidenceLabel = hasLiveTransitStep
+            ? 'Verified live transit route'
+            : isRoadPublicMode
+                ? 'General route guide'
+                : 'Live map route';
+
+        final confidenceDetail = hasLiveTransitStep
+            ? 'Google returned transit step data with route or stop details.'
+            : isRoadPublicMode
+                ? 'Estimated road guide only. Confirm the signboard, terminal, and drop-off before boarding.'
+                : 'Google returned route geometry, but no public transport vehicle details.';
+
         _directionSteps[modeData.mode.toString()] = steps;
 
         _fares.add(_TransportFare(
@@ -171,6 +204,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           steps: steps,
           polyline: polyline,
           fareBreakdown: fareBreakdown,
+          confidenceLabel: confidenceLabel,
+          confidenceDetail: confidenceDetail,
+          isVerifiedTransit: hasLiveTransitStep,
         ));
       }
 
@@ -236,7 +272,20 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
 
     // If there are no fares available, show an empty state instead of crashing
     if (_fares.isEmpty) {
-      return Center(child: Text('No routes available at this moment.'));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No verified public transportation route found for the listed vehicle types. Try another origin, a nearer destination, or check local terminals.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+              height: 1.35,
+            ),
+          ),
+        ),
+      );
     }
     final bool mapsConfigured = GoogleMapsService.isConfigured;
     return Column(
@@ -597,6 +646,33 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                    const SizedBox(height: 5),
+                    Text(
+                      fare.confidenceLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: fare.isVerifiedTransit
+                            ? (Theme.of(context).brightness == Brightness.dark
+                                ? Colors.green[300]
+                                : Colors.green[700])
+                            : (Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFFF6D58A)
+                                : const Color(0xFFB45309)),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      fare.confidenceDetail,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        height: 1.25,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     if (fare.steps.isNotEmpty) ...[
                       const SizedBox(height: 5),
                       Text(
@@ -814,6 +890,9 @@ class _TransportFare {
   final List<Map<String, dynamic>> steps;
   final String polyline;
   final List<String> fareBreakdown;
+  final String confidenceLabel;
+  final String confidenceDetail;
+  final bool isVerifiedTransit;
 
   _TransportFare({
     required this.mode,
@@ -826,7 +905,21 @@ class _TransportFare {
     this.steps = const [],
     this.polyline = '',
     this.fareBreakdown = const [],
+    required this.confidenceLabel,
+    required this.confidenceDetail,
+    required this.isVerifiedTransit,
   });
+}
+
+bool _hasLiveTransitStep(List<Map<String, dynamic>> steps) {
+  for (final step in steps) {
+    final travelMode = (step['travel_mode'] ?? '').toString().toUpperCase();
+    final transitDetails = step['transit_details'];
+    if (travelMode == 'TRANSIT' && transitDetails is Map) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // Dev mode sheet widget (in-app)
