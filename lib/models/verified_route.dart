@@ -38,7 +38,11 @@ class HistoricalRouteMatch {
   final String signboard;
   final String via;
   final String boardStopName;
+  final double boardStopLat;
+  final double boardStopLon;
   final String alightStopName;
+  final double alightStopLat;
+  final double alightStopLon;
   final double walkToBoardMeters;
   final double rideDistanceMeters;
   final double walkFromAlightMeters;
@@ -49,7 +53,11 @@ class HistoricalRouteMatch {
     required this.signboard,
     required this.via,
     required this.boardStopName,
+    required this.boardStopLat,
+    required this.boardStopLon,
     required this.alightStopName,
+    required this.alightStopLat,
+    required this.alightStopLon,
     required this.walkToBoardMeters,
     required this.rideDistanceMeters,
     required this.walkFromAlightMeters,

@@ -82,7 +82,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     setState(() {
       _historicalRouteReference = reference;
       _historicalRouteMatches = matches;
+      _setupMap();
     });
+    _fitBounds();
   }
 
   void _setupMap() {
@@ -101,6 +103,52 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         infoWindow: InfoWindow(title: 'Destination'),
       ),
     };
+
+    if (_historicalRouteMatches.isNotEmpty) {
+      final match = _historicalRouteMatches.first;
+      final boardPoint = LatLng(match.boardStopLat, match.boardStopLon);
+      final alightPoint = LatLng(match.alightStopLat, match.alightStopLon);
+
+      _markers.addAll({
+        Marker(
+          markerId: const MarkerId('board_stop'),
+          position: boardPoint,
+          icon:
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          infoWindow: InfoWindow(
+            title: 'Board here',
+            snippet: match.boardStopName,
+          ),
+        ),
+        Marker(
+          markerId: const MarkerId('alight_stop'),
+          position: alightPoint,
+          icon:
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+          infoWindow: InfoWindow(
+            title: 'Get off here',
+            snippet: match.alightStopName,
+          ),
+        ),
+      });
+
+      if (_routePoints.isEmpty) {
+        _polylines = {
+          Polyline(
+            polylineId: const PolylineId('historical_gtfs_guide'),
+            points: [
+              widget.origin,
+              boardPoint,
+              alightPoint,
+              widget.destination,
+            ],
+            color: _getModeColor(),
+            width: 5,
+            patterns: [PatternItem.dash(18), PatternItem.gap(10)],
+          ),
+        };
+      }
+    }
 
     // Use route points if available
     if (_routePoints.isNotEmpty) {
@@ -983,7 +1031,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         icon: Icons.directions_walk_rounded,
         title: 'Walk to boarding point',
         body:
-            'Go to ${match.boardStopName}. Estimated walk: ${_formatMeters(match.walkToBoardMeters)}.',
+            'Follow the map to the blue “Board here” marker at ${match.boardStopName}. Estimated walk: ${_formatMeters(match.walkToBoardMeters)}.',
       ),
       _HistoricalInstructionStep(
         icon: Icons.directions_bus_filled_rounded,
@@ -1001,13 +1049,13 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         icon: Icons.flag_rounded,
         title: 'Get off',
         body:
-            'Alight at ${match.alightStopName}. This is the matched GTFS drop-off point nearest your destination.',
+            'Alight at the orange “Get off here” marker at ${match.alightStopName}. This is the matched GTFS drop-off point nearest your destination.',
       ),
       _HistoricalInstructionStep(
         icon: Icons.directions_walk_rounded,
         title: 'Continue to destination',
         body:
-            'Walk from the drop-off point to your destination. Estimated walk: ${_formatMeters(match.walkFromAlightMeters)}.',
+            'Follow the map from the orange drop-off marker to the red destination marker. Estimated walk: ${_formatMeters(match.walkFromAlightMeters)}.',
       ),
     ];
 
@@ -1047,7 +1095,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'These steps use matched historical route data. Confirm current operation before riding.',
+              'Use the blue boarding marker, orange drop-off marker, and dashed guide line on the map. Confirm current operation before riding.',
               style: TextStyle(
                 fontSize: 12,
                 height: 1.3,
