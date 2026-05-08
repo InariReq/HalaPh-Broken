@@ -136,6 +136,10 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           origin: origin,
           destination: destination,
           limit: 1,
+          maxWalkMeters: _gtfsMatchRadiusForMode(modeData.mode),
+        );
+        debugPrint(
+          'RouteOptions: ${modeData.name} historical matches=${historicalMatches.length}',
         );
         final historicalMatch =
             historicalMatches.isNotEmpty ? historicalMatches.first : null;
@@ -912,6 +916,21 @@ class _RouteOptionPressableCardState extends State<_RouteOptionPressableCard> {
         ),
       ),
     );
+  }
+}
+
+double _gtfsMatchRadiusForMode(TravelMode mode) {
+  switch (mode) {
+    case TravelMode.jeepney:
+      return 1400;
+    case TravelMode.bus:
+      return 1800;
+    case TravelMode.fx:
+      return 1800;
+    case TravelMode.train:
+      return 1600;
+    case TravelMode.walking:
+      return 0;
   }
 }
 
