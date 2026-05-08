@@ -16,6 +16,7 @@ class RouteMapScreen extends StatefulWidget {
   final List<Map<String, dynamic>> steps;
   final double fare;
   final List<String> fareBreakdown;
+  final HistoricalRouteMatch? historicalMatch;
 
   const RouteMapScreen({
     super.key,
@@ -28,6 +29,7 @@ class RouteMapScreen extends StatefulWidget {
     required this.steps,
     required this.fare,
     this.fareBreakdown = const [],
+    this.historicalMatch,
   });
 
   @override
@@ -80,6 +82,65 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         infoWindow: InfoWindow(title: 'Destination'),
       ),
     };
+
+    if (widget.historicalMatch != null) {
+      final match = widget.historicalMatch!;
+      final firstLeg = match.legs.isNotEmpty ? match.legs.first : null;
+      final lastLeg = match.legs.isNotEmpty ? match.legs.last : null;
+
+      final boardPoint = LatLng(
+        firstLeg?.boardStopLat ?? match.boardStopLat,
+        firstLeg?.boardStopLon ?? match.boardStopLon,
+      );
+      final alightPoint = LatLng(
+        lastLeg?.alightStopLat ?? match.alightStopLat,
+        lastLeg?.alightStopLon ?? match.alightStopLon,
+      );
+
+      _markers.addAll({
+        Marker(
+          markerId: const MarkerId('gtfs_board_stop'),
+          position: boardPoint,
+          icon:
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          infoWindow: InfoWindow(
+            title: 'Board here',
+            snippet: firstLeg?.boardStopName ?? match.boardStopName,
+          ),
+        ),
+        Marker(
+          markerId: const MarkerId('gtfs_alight_stop'),
+          position: alightPoint,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueOrange,
+          ),
+          infoWindow: InfoWindow(
+            title: 'Get off here',
+            snippet: lastLeg?.alightStopName ?? match.alightStopName,
+          ),
+        ),
+      });
+
+      if (match.hasTransfer && match.legs.length >= 2) {
+        _markers.add(
+          Marker(
+            markerId: const MarkerId('gtfs_transfer_stop'),
+            position: LatLng(
+              match.legs.first.alightStopLat,
+              match.legs.first.alightStopLon,
+            ),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueYellow,
+            ),
+            infoWindow: InfoWindow(
+              title: 'Transfer here',
+              snippet:
+                  '${match.legs.first.alightStopName} → ${match.legs[1].boardStopName}',
+            ),
+          ),
+        );
+      }
+    }
 
     // Use route points if available
     if (_routePoints.isNotEmpty) {
@@ -134,6 +195,131 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
           )
         };
       });
+    }
+  }
+
+  List<Map<String, dynamic>> _effectiveRouteSteps() {
+    if (widget.steps.isNotEmpty) return widget.steps;
+
+    final match = widget.historicalMatch;
+    if (match == null) return const [];
+
+    return _historicalRouteSteps(match);
+  }
+
+  List<Map<String, dynamic>> _historicalRouteSteps(HistoricalRouteMatch match) {
+    Map<String, dynamic> step({
+      required String instruction,
+      required TravelMode mode,
+      required double lat,
+      required double lng,
+    }) {
+      return {
+        'html_instructions': instruction,
+        'travel_mode': mode.name.toUpperCase(),
+        'start_location': {
+          'lat': lat,
+          'lng': lng,
+        },
+      };
+    }
+
+    final legs = match.legs.isNotEmpty
+        ? match.legs
+        : <HistoricalRouteLeg>[
+            HistoricalRouteLeg(
+              route: match.route,
+              mode: match.route.mode,
+              signboard: match.signboard,
+              via: match.via,
+              boardStopName: match.boardStopName,
+              boardStopLat: match.boardStopLat,
+              boardStopLon: match.boardStopLon,
+              alightStopName: match.alightStopName,
+              alightStopLat: match.alightStopLat,
+              alightStopLon: match.alightStopLon,
+              walkToBoardMeters: match.walkToBoardMeters,
+              rideDistanceMeters: match.rideDistanceMeters,
+              stopCount: match.stopCount,
+            ),
+          ];
+
+    final steps = <Map<String, dynamic>>[];
+
+    for (var i = 0; i < legs.length; i++) {
+      final leg = legs[i];
+      final isFirst = i == 0;
+      final isLast = i == legs.length - 1;
+
+      steps.add(
+        step(
+          instruction: isFirst
+              ? 'Walk to boarding point: ${leg.boardStopName}.'
+              : 'Walk to connecting boarding point: ${leg.boardStopName}.',
+          mode: TravelMode.walking,
+          lat: isFirst ? widget.origin.latitude : legs[i - 1].alightStopLat,
+          lng: isFirst ? widget.origin.longitude : legs[i - 1].alightStopLon,
+        ),
+      );
+
+      steps.add(
+        step(
+          instruction:
+              'Board ${_vehicleLabel(leg.mode)}. Look for this signboard: ${leg.signboard}${leg.via.trim().isNotEmpty ? ' (${leg.viaLabel})' : ''}.',
+          mode: leg.mode,
+          lat: leg.boardStopLat,
+          lng: leg.boardStopLon,
+        ),
+      );
+
+      steps.add(
+        step(
+          instruction:
+              'Ride for about ${leg.stopCount} stop${leg.stopCount == 1 ? '' : 's'}. Get off at ${leg.alightStopName}.',
+          mode: leg.mode,
+          lat: leg.boardStopLat,
+          lng: leg.boardStopLon,
+        ),
+      );
+
+      if (!isLast) {
+        steps.add(
+          step(
+            instruction:
+                'Transfer: walk from ${leg.alightStopName} to ${legs[i + 1].boardStopName}.',
+            mode: TravelMode.walking,
+            lat: leg.alightStopLat,
+            lng: leg.alightStopLon,
+          ),
+        );
+      }
+    }
+
+    steps.add(
+      step(
+        instruction:
+            'Walk from ${legs.last.alightStopName} to your destination.',
+        mode: TravelMode.walking,
+        lat: legs.last.alightStopLat,
+        lng: legs.last.alightStopLon,
+      ),
+    );
+
+    return steps;
+  }
+
+  String _vehicleLabel(TravelMode mode) {
+    switch (mode) {
+      case TravelMode.jeepney:
+        return 'the jeepney';
+      case TravelMode.bus:
+        return 'the bus';
+      case TravelMode.fx:
+        return 'the FX/UV van';
+      case TravelMode.train:
+        return 'the train';
+      case TravelMode.walking:
+        return 'the route';
     }
   }
 
@@ -229,7 +415,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Live directions are unavailable. Using estimated route data.',
+                          widget.historicalMatch != null
+                              ? 'Using HalaPH GTFS route guidance. Google driving steps are hidden.'
+                              : 'Live directions are unavailable. Using estimated route data.',
                           style: TextStyle(
                             fontSize: 12,
                             color:
@@ -251,8 +439,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
             minChildSize: 0.12,
             maxChildSize: 0.72,
             builder: (context, scrollController) {
-              final hasSteps = widget.steps.isNotEmpty;
-              final itemCount = hasSteps ? widget.steps.length + 3 : 4;
+              final effectiveSteps = _effectiveRouteSteps();
+              final hasSteps = effectiveSteps.isNotEmpty;
+              final itemCount = hasSteps ? effectiveSteps.length + 3 : 4;
 
               return Container(
                 decoration: BoxDecoration(
@@ -396,7 +585,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                       ),
                                     ),
                                     Text(
-                                      '${widget.steps.length} steps',
+                                      '${effectiveSteps.length} steps',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Theme.of(context)
@@ -487,7 +676,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                 SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    'Detailed step-by-step directions are unavailable. Use the map preview and estimated route data.',
+                                    'Detailed step-by-step directions are unavailable for this route.',
                                     style: TextStyle(
                                       height: 1.35,
                                       color: Theme.of(context).brightness ==

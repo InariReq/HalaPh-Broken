@@ -261,7 +261,8 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           fareBreakdown: fareBreakdown,
           confidenceLabel: confidenceLabel,
           confidenceDetail: confidenceDetail,
-          isVerifiedTransit: hasLiveTransitStep,
+          isVerifiedTransit: hasLiveTransitStep || hasHistoricalMatch,
+          historicalMatch: historicalMatch,
           routeScore: _routeScore(
             mode: modeData.mode,
             fare: fare,
@@ -570,6 +571,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
               steps: fare.steps,
               fare: fare.fare,
               fareBreakdown: fare.fareBreakdown,
+              historicalMatch: fare.historicalMatch,
             ),
           ),
         );
@@ -737,6 +739,10 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (fare.historicalMatch != null) ...[
+                      const SizedBox(height: 8),
+                      _buildHistoricalMatchSummary(fare.historicalMatch!),
+                    ],
                     if (fare.steps.isNotEmpty) ...[
                       const SizedBox(height: 5),
                       Text(
@@ -842,6 +848,70 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildHistoricalMatchSummary(HistoricalRouteMatch match) {
+    final firstLeg = match.legs.isNotEmpty ? match.legs.first : null;
+    final lastLeg = match.legs.isNotEmpty ? match.legs.last : null;
+
+    final signboard = firstLeg?.signboard ?? match.signboard;
+    final boardStop = firstLeg?.boardStopName ?? match.boardStopName;
+    final alightStop = lastLeg?.alightStopName ?? match.alightStopName;
+
+    Widget row(IconData icon, String label, String value) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 5),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 14, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '$label: $value',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1.25,
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.25),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          row(Icons.directions_bus_filled_rounded, 'Signboard', signboard),
+          row(Icons.location_on_rounded, 'Board at', boardStop),
+          row(Icons.flag_rounded, 'Get off at', alightStop),
+          if (match.hasTransfer && match.legs.length >= 2)
+            row(
+              Icons.transfer_within_a_station_rounded,
+              'Transfer',
+              '${match.legs.first.alightStopName} → ${match.legs[1].boardStopName}',
+            ),
+        ],
       ),
     );
   }
@@ -1102,6 +1172,7 @@ class _TransportFare {
   final List<Map<String, dynamic>> steps;
   final String polyline;
   final List<String> fareBreakdown;
+  final HistoricalRouteMatch? historicalMatch;
   final String confidenceLabel;
   final String confidenceDetail;
   final bool isVerifiedTransit;
@@ -1118,6 +1189,7 @@ class _TransportFare {
     this.steps = const [],
     this.polyline = '',
     this.fareBreakdown = const [],
+    required this.historicalMatch,
     required this.confidenceLabel,
     required this.confidenceDetail,
     required this.isVerifiedTransit,
