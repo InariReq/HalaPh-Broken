@@ -103,14 +103,18 @@ class VerifiedRouteService {
   }) async {
     final index = await _loadGtfsIndex();
 
+    final candidateStops = mode == TravelMode.train
+        ? index.stops.values.where(_isRailStop)
+        : index.stops.values;
+
     final originStops = _nearestStops(
-      index.stops.values,
+      candidateStops,
       origin,
       maxWalkMeters,
       limit: 30,
     );
     final destinationStops = _nearestStops(
-      index.stops.values,
+      candidateStops,
       destination,
       maxWalkMeters,
       limit: 30,
@@ -388,6 +392,10 @@ class VerifiedRouteService {
   }
 
   static bool _modeMatches(TravelMode requestedMode, TravelMode routeMode) {
+    if (requestedMode == TravelMode.train) {
+      return routeMode == TravelMode.train;
+    }
+
     if (requestedMode == routeMode) return true;
 
     if (routeMode == TravelMode.bus &&
@@ -398,6 +406,13 @@ class VerifiedRouteService {
     }
 
     return false;
+  }
+
+  static bool _isRailStop(_GtfsStop stop) {
+    final name = stop.name.toLowerCase();
+    return name.contains('lrt') ||
+        name.contains('mrt') ||
+        name.contains('station');
   }
 
   static String _normalize(String value) {
