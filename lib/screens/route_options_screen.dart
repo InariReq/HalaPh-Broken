@@ -252,8 +252,11 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         final polyline = rawStepsMatchSelectedMode ? rawPolyline : '';
 
         if (rawSteps.isNotEmpty && !rawStepsMatchSelectedMode) {
+          final unsupported = _liveStepsUseUnsupportedPaidTransit(rawSteps);
           debugPrint(
-            'RouteOptions: ignored live transit steps for ${modeData.name}; steps do not include selected mode.',
+            unsupported
+                ? 'RouteOptions: ignored live transit steps for ${modeData.name}; unsupported paid transit mode found.'
+                : 'RouteOptions: ignored live transit steps for ${modeData.name}; steps do not include selected mode.',
           );
         }
 
@@ -1208,6 +1211,75 @@ TravelMode _effectiveRideModeForLeg(
   return leg.mode;
 }
 
+bool _liveStepUsesUnsupportedPaidTransit(Map<String, dynamic> step) {
+  final travelMode = (step['travel_mode'] ?? '').toString().toUpperCase();
+
+  if (travelMode == 'WALKING') return false;
+  if (travelMode != 'TRANSIT') return false;
+
+  final transitDetails = step['transit_details'];
+  if (transitDetails is! Map) return true;
+
+  final line = transitDetails['line'];
+  if (line is! Map) return true;
+
+  final vehicle = line['vehicle'];
+  final vehicleType =
+      vehicle is Map ? (vehicle['type'] ?? '').toString().toUpperCase() : '';
+  final vehicleName =
+      vehicle is Map ? (vehicle['name'] ?? '').toString().toUpperCase() : '';
+
+  final lineText = [
+    line['name'],
+    line['short_name'],
+    line['agency'],
+    vehicleType,
+    vehicleName,
+  ].whereType<Object>().join(' ').toUpperCase();
+
+  final supported = lineText.contains('MRT') ||
+      lineText.contains('LRT') ||
+      lineText.contains('PNR') ||
+      lineText.contains('TRAIN') ||
+      lineText.contains('RAIL') ||
+      lineText.contains('SUBWAY') ||
+      lineText.contains('TRAM') ||
+      lineText.contains('METRO') ||
+      lineText.contains('BUS') ||
+      lineText.contains('BUSWAY') ||
+      lineText.contains('CAROUSEL') ||
+      lineText.contains('P2P') ||
+      lineText.contains('JEEP') ||
+      lineText.contains('FX') ||
+      lineText.contains('UV') ||
+      lineText.contains('VAN');
+
+  if (supported) return false;
+
+  final explicitlyUnsupported = lineText.contains('FERRY') ||
+      lineText.contains('BOAT') ||
+      lineText.contains('SHIP') ||
+      lineText.contains('WATER') ||
+      lineText.contains('PIER') ||
+      lineText.contains('PORT') ||
+      lineText.contains('TRICYCLE') ||
+      lineText.contains('TRIKE') ||
+      lineText.contains('MOTORCYCLE') ||
+      lineText.contains('TAXI') ||
+      lineText.contains('RIDESHARE') ||
+      lineText.contains('RIDE SHARE');
+
+  return explicitlyUnsupported || !supported;
+}
+
+bool _liveStepsUseUnsupportedPaidTransit(List<Map<String, dynamic>> steps) {
+  for (final step in steps) {
+    if (_liveStepUsesUnsupportedPaidTransit(step)) return true;
+  }
+
+  return false;
+}
+
 TravelMode _travelModeForLiveStep(Map<String, dynamic> step) {
   final travelMode = (step['travel_mode'] ?? '').toString().toUpperCase();
 
@@ -1341,6 +1413,7 @@ Map<String, dynamic>? _bestLiveDirectionsForMode(
 
     if (steps.isEmpty) continue;
     if (!_hasLiveTransitStep(steps)) continue;
+    if (_liveStepsUseUnsupportedPaidTransit(steps)) continue;
     if (!_liveStepsContainSelectedMode(selectedMode, steps)) continue;
 
     final sequence = _liveModeSequence(steps);
