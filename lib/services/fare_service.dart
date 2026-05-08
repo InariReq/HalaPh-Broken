@@ -124,8 +124,8 @@ class FareService {
         return _estimateTerminalBasedCommute(
           mainMode: TravelMode.bus,
           mainLabel: 'Bus ride',
-          accessLabel: 'Jeep/bus to bus stop',
-          lastMileLabel: 'Last-mile jeep/bus/walk estimate',
+          accessLabel: 'Walk to bus stop',
+          lastMileLabel: 'Walk from drop-off point',
           totalDistance: totalDistance,
           type: type,
         );
@@ -133,8 +133,8 @@ class FareService {
         return _estimateTerminalBasedCommute(
           mainMode: TravelMode.train,
           mainLabel: 'MRT/LRT ride',
-          accessLabel: 'Jeep/bus to MRT/LRT station',
-          lastMileLabel: 'Last-mile jeep/bus/jeep/bus estimate',
+          accessLabel: 'Walk to MRT/LRT station',
+          lastMileLabel: 'Walk from MRT/LRT station',
           totalDistance: totalDistance,
           type: type,
         );
@@ -142,8 +142,8 @@ class FareService {
         return _estimateTerminalBasedCommute(
           mainMode: TravelMode.fx,
           mainLabel: 'FX/Van ride',
-          accessLabel: 'Jeep/bus to FX/UV terminal',
-          lastMileLabel: 'Last-mile jeep/bus/walk estimate',
+          accessLabel: 'Walk to FX pickup point',
+          lastMileLabel: 'Walk from drop-off point',
           totalDistance: totalDistance,
           type: type,
         );
@@ -241,13 +241,9 @@ class FareService {
       segments: [
         FareSegment(
           label: accessLabel,
-          mode: TravelMode.jeepney,
+          mode: TravelMode.walking,
           distanceKm: accessDistance,
-          fare: estimateFare(
-            TravelMode.jeepney,
-            accessDistance,
-            type: type,
-          ),
+          fare: 0,
         ),
         FareSegment(
           label: mainLabel,
@@ -257,13 +253,9 @@ class FareService {
         ),
         FareSegment(
           label: lastMileLabel,
-          mode: TravelMode.jeepney,
+          mode: TravelMode.walking,
           distanceKm: lastMileDistance,
-          fare: estimateFare(
-            TravelMode.jeepney,
-            lastMileDistance,
-            type: type,
-          ),
+          fare: 0,
         ),
       ],
     );
