@@ -111,7 +111,8 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
       for (var i = 0; i < legs.length; i++) {
         final leg = legs[i];
-        final isTrain = leg.mode == TravelMode.train;
+        final effectiveMode = _effectiveRideModeForLeg(leg);
+        final isTrain = effectiveMode == TravelMode.train;
         final isFirst = i == 0;
         final isLast = i == legs.length - 1;
 
@@ -158,7 +159,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                 BitmapDescriptor.hueCyan,
               ),
               infoWindow: InfoWindow(
-                title: nextLeg.mode == TravelMode.train
+                title: _effectiveRideModeForLeg(nextLeg) == TravelMode.train
                     ? 'Next rail station'
                     : 'Next boarding point',
                 snippet: nextLeg.boardStopName,
@@ -296,6 +297,49 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     return _historicalRouteSteps(match);
   }
 
+  bool _isRoadTransitMode(TravelMode mode) {
+    return mode == TravelMode.jeepney ||
+        mode == TravelMode.bus ||
+        mode == TravelMode.fx;
+  }
+
+  TravelMode? _inferRoadModeFromLegText(HistoricalRouteLeg leg) {
+    final source = [
+      leg.signboard,
+      leg.via,
+      leg.boardStopName,
+      leg.alightStopName,
+    ].join(' ').toLowerCase();
+
+    if (RegExp(r'\b(fx|uv|van)\b').hasMatch(source)) {
+      return TravelMode.fx;
+    }
+
+    if (RegExp(r'\b(jeepney|jeep)\b').hasMatch(source)) {
+      return TravelMode.jeepney;
+    }
+
+    if (RegExp(r'\b(bus|busway|carousel|p2p)\b').hasMatch(source)) {
+      return TravelMode.bus;
+    }
+
+    return null;
+  }
+
+  TravelMode _effectiveRideModeForLeg(HistoricalRouteLeg leg) {
+    if (leg.mode == TravelMode.train) return TravelMode.train;
+    if (leg.mode == TravelMode.walking) return TravelMode.walking;
+
+    final inferredMode = _inferRoadModeFromLegText(leg);
+    if (inferredMode != null) return inferredMode;
+
+    if (_isRoadTransitMode(widget.mode) && _isRoadTransitMode(leg.mode)) {
+      return widget.mode;
+    }
+
+    return leg.mode;
+  }
+
   List<Map<String, dynamic>> _historicalRouteSteps(HistoricalRouteMatch match) {
     Map<String, dynamic> step({
       required String instruction,
@@ -346,6 +390,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
     for (var i = 0; i < legs.length; i++) {
       final leg = legs[i];
+      final effectiveMode = _effectiveRideModeForLeg(leg);
       final isFirst = i == 0;
       final isLast = i == legs.length - 1;
 
@@ -370,10 +415,10 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
       steps.add(
         step(
-          instruction: leg.mode == TravelMode.train
-              ? 'Board ${_vehicleLabel(leg.mode)} at ${leg.boardStopName}. Follow the station signs for: ${leg.signboard}${leg.via.trim().isNotEmpty ? ' (${leg.viaLabel})' : ''}.'
-              : 'Board ${_vehicleLabel(leg.mode)}. Look for this signboard: ${leg.signboard}${leg.via.trim().isNotEmpty ? ' (${leg.viaLabel})' : ''}.',
-          mode: leg.mode,
+          instruction: effectiveMode == TravelMode.train
+              ? 'Board ${_vehicleLabel(effectiveMode)} at ${leg.boardStopName}. Follow the station signs for: ${leg.signboard}${leg.via.trim().isNotEmpty ? ' (${leg.viaLabel})' : ''}.'
+              : 'Board ${_vehicleLabel(effectiveMode)}. Look for this signboard: ${leg.signboard}${leg.via.trim().isNotEmpty ? ' (${leg.viaLabel})' : ''}.',
+          mode: effectiveMode,
           lat: leg.boardStopLat,
           lng: leg.boardStopLon,
         ),
@@ -381,10 +426,10 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
       steps.add(
         step(
-          instruction: leg.mode == TravelMode.train
+          instruction: effectiveMode == TravelMode.train
               ? 'Ride for about ${leg.stopCount} station${leg.stopCount == 1 ? '' : 's'}. Get off at ${leg.alightStopName} station.'
               : 'Ride for about ${leg.stopCount} stop${leg.stopCount == 1 ? '' : 's'}. Get off at ${leg.alightStopName}.',
-          mode: leg.mode,
+          mode: effectiveMode,
           lat: leg.boardStopLat,
           lng: leg.boardStopLon,
         ),
