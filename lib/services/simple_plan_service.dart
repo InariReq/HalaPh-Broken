@@ -1585,62 +1585,206 @@ class SimplePlanService {
     if (code.isNotEmpty && code != uid) identifiers.add(code);
 
     try {
-      final byUid = await _plansCollection
-          .where('participantUids', arrayContains: uid)
-          .get()
-          .timeout(const Duration(seconds: 8));
-      QuerySnapshot<Map<String, dynamic>>? byCode;
-      if (code.isNotEmpty && code != uid) {
+      final docs = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
+
+      Future<void> collectPlanDocs(
+        String label,
+        Query<Map<String, dynamic>> query,
+      ) async {
+        debugPrint('Account cleanup [$label]: start');
         try {
-          byCode = await _plansCollection
-              .where('participantUids', arrayContains: code)
-              .get()
-              .timeout(const Duration(seconds: 8));
+          final snapshot =
+              await query.get().timeout(const Duration(seconds: 8));
+          if (snapshot.docs.isEmpty) {
+            debugPrint('Account cleanup [$label]: empty section skipped');
+          }
+          debugPrint('Account cleanup [$label]: deleted count=0');
+          for (final doc in snapshot.docs) {
+            docs[doc.id] = doc;
+          }
+        } on TimeoutException catch (error) {
+          debugPrint('Account cleanup [$label]: failure reason=timeout $error');
+          rethrow;
+        } on FirebaseException catch (error) {
+          debugPrint(
+            'Account cleanup [$label]: failure reason=${error.code} ${error.message ?? ''}',
+          );
+          rethrow;
         } catch (error) {
-          debugPrint('Account cleanup code-based plan lookup skipped: $error');
+          debugPrint('Account cleanup [$label]: failure reason=$error');
+          rethrow;
         }
       }
 
-      final docs = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
-      for (final doc in byUid.docs) {
-        docs[doc.id] = doc;
-      }
-      for (final doc in byCode?.docs ?? const []) {
-        docs[doc.id] = doc;
+      await collectPlanDocs(
+        'sharedPlans createdBy=$uid',
+        _plansCollection.where('createdBy', isEqualTo: uid),
+      );
+      await collectPlanDocs(
+        'sharedPlans ownerUid=$uid',
+        _plansCollection.where('ownerUid', isEqualTo: uid),
+      );
+      await collectPlanDocs(
+        'sharedPlans ownerId=$uid',
+        _plansCollection.where('ownerId', isEqualTo: uid),
+      );
+      await collectPlanDocs(
+        'sharedPlans participantUids contains uid',
+        _plansCollection.where('participantUids', arrayContains: uid),
+      );
+      await collectPlanDocs(
+        'sharedPlans collaboratorUids contains uid',
+        _plansCollection.where('collaboratorUids', arrayContains: uid),
+      );
+      if (code.isNotEmpty && code != uid) {
+        await collectPlanDocs(
+          'sharedPlans participantUids contains code',
+          _plansCollection.where('participantUids', arrayContains: code),
+        );
+        await collectPlanDocs(
+          'sharedPlans collaboratorUids contains code',
+          _plansCollection.where('collaboratorUids', arrayContains: code),
+        );
       }
 
+      final ownedDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+      final joinedDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
       for (final doc in docs.values) {
         final data = doc.data();
-        final createdBy = data['createdBy'] as String? ?? '';
-        final ownerUid = data['ownerUid'] as String? ?? '';
-        final ownerId = data['ownerId'] as String? ?? '';
+        final createdBy = (data['createdBy'] as String? ?? '').trim();
+        final ownerUid = (data['ownerUid'] as String? ?? '').trim();
+        final ownerId = (data['ownerId'] as String? ?? '').trim();
         final isOwner = createdBy == uid || ownerUid == uid || ownerId == uid;
 
         if (isOwner) {
+          ownedDocs.add(doc);
+        } else {
+          joinedDocs.add(doc);
+        }
+      }
+
+      debugPrint('Account cleanup [sharedPlans owned plans]: start');
+      var deletedOwnedPlans = 0;
+      try {
+        for (final doc in ownedDocs) {
           await doc.reference.delete().timeout(const Duration(seconds: 8));
           _plans.remove(doc.id);
           _ownerUids.remove(doc.id);
           _participantUids.remove(doc.id);
-          continue;
+          deletedOwnedPlans++;
         }
-
-        final startLocations = Map<String, dynamic>.from(
-          data['participantStartLocations'] as Map? ?? const {},
+        if (deletedOwnedPlans == 0) {
+          debugPrint(
+            'Account cleanup [sharedPlans owned plans]: empty section skipped',
+          );
+        }
+        debugPrint(
+          'Account cleanup [sharedPlans owned plans]: deleted count=$deletedOwnedPlans',
         );
-        for (final id in identifiers) {
-          startLocations.remove(id);
+      } on TimeoutException catch (error) {
+        debugPrint(
+          'Account cleanup [sharedPlans owned plans]: failure reason=timeout $error',
+        );
+        rethrow;
+      } on FirebaseException catch (error) {
+        debugPrint(
+          'Account cleanup [sharedPlans owned plans]: failure reason=${error.code} ${error.message ?? ''}',
+        );
+        rethrow;
+      } catch (error) {
+        debugPrint(
+          'Account cleanup [sharedPlans owned plans]: failure reason=$error',
+        );
+        rethrow;
+      }
+
+      debugPrint('Account cleanup [sharedPlans joined plans]: start');
+      var updatedJoinedPlans = 0;
+      try {
+        for (final doc in joinedDocs) {
+          final data = doc.data();
+          final participantUids = (data['participantUids'] as List? ?? const [])
+              .whereType<String>()
+              .map((value) => value.trim())
+              .where((value) => value.isNotEmpty)
+              .toList();
+          final collaboratorUids =
+              (data['collaboratorUids'] as List? ?? const [])
+                  .whereType<String>()
+                  .map((value) => value.trim())
+                  .where((value) => value.isNotEmpty)
+                  .toList();
+
+          final nextParticipants = participantUids
+              .where(
+                (id) => !identifiers.any((value) => _sameIdentity(id, value)),
+              )
+              .toSet()
+              .toList();
+          final nextCollaborators = collaboratorUids
+              .where(
+                (id) => !identifiers.any((value) => _sameIdentity(id, value)),
+              )
+              .toSet()
+              .toList();
+          final startLocations = Map<String, dynamic>.from(
+            data['participantStartLocations'] as Map? ?? const {},
+          );
+          final originalStartLocationCount = startLocations.length;
+          startLocations.removeWhere(
+            (key, _) => identifiers.any(
+              (value) => _sameIdentity(key.toString(), value),
+            ),
+          );
+
+          final participantChanged =
+              nextParticipants.length != participantUids.toSet().length;
+          final collaboratorChanged =
+              nextCollaborators.length != collaboratorUids.toSet().length;
+          final startChanged =
+              startLocations.length != originalStartLocationCount;
+
+          if (!participantChanged && !collaboratorChanged && !startChanged) {
+            continue;
+          }
+
+          await doc.reference.update({
+            'participantUids': nextParticipants,
+            'collaboratorUids': nextCollaborators,
+            'participantStartLocations': startLocations,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }).timeout(const Duration(seconds: 8));
+
+          _plans.remove(doc.id);
+          _ownerUids.remove(doc.id);
+          _participantUids.remove(doc.id);
+          updatedJoinedPlans++;
         }
-
-        await doc.reference.update({
-          'participantUids': FieldValue.arrayRemove(identifiers.toList()),
-          'collaboratorUids': FieldValue.arrayRemove(identifiers.toList()),
-          'participantStartLocations': startLocations,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }).timeout(const Duration(seconds: 8));
-
-        _plans.remove(doc.id);
-        _ownerUids.remove(doc.id);
-        _participantUids.remove(doc.id);
+        if (updatedJoinedPlans == 0) {
+          debugPrint(
+            'Account cleanup [sharedPlans joined plans]: empty section skipped',
+          );
+        }
+        debugPrint(
+            'Account cleanup [sharedPlans joined plans]: deleted count=0');
+        debugPrint(
+          'Account cleanup [sharedPlans joined plans]: updated count=$updatedJoinedPlans',
+        );
+      } on TimeoutException catch (error) {
+        debugPrint(
+          'Account cleanup [sharedPlans joined plans]: failure reason=timeout $error',
+        );
+        rethrow;
+      } on FirebaseException catch (error) {
+        debugPrint(
+          'Account cleanup [sharedPlans joined plans]: failure reason=${error.code} ${error.message ?? ''}',
+        );
+        rethrow;
+      } catch (error) {
+        debugPrint(
+          'Account cleanup [sharedPlans joined plans]: failure reason=$error',
+        );
+        rethrow;
       }
 
       _notifyChanged();

@@ -9,45 +9,8 @@ import 'package:halaph/models/plan.dart';
 
 /// Centralized Firestore service layer that enforces production security rules
 class FirestoreService {
-  static Future<void> _deleteNestedFriendRequestDocIfAllowed(
-    FirebaseFirestore db,
-    String ownerUid,
-    String requestId,
-  ) async {
-    try {
-      await db
-          .collection('users')
-          .doc(ownerUid)
-          .collection('friend_requests')
-          .doc(requestId)
-          .delete();
-    } on FirebaseException catch (error) {
-      if (error.code == 'permission-denied') {
-        debugPrint(
-          'Account cleanup: skipped denied stale users/$ownerUid/friend_requests/$requestId',
-        );
-        return;
-      }
-      rethrow;
-    }
-  }
-
-  static Future<void> _deleteFriendRequestDocIfAllowed(
-    FirebaseFirestore db,
-    String requestId,
-  ) async {
-    try {
-      await db.collection('friendRequests').doc(requestId).delete();
-    } on FirebaseException catch (error) {
-      if (error.code == 'permission-denied') {
-        debugPrint(
-          'Account cleanup: skipped denied stale friendRequests/$requestId',
-        );
-        return;
-      }
-      rethrow;
-    }
-  }
+  static const Duration _accountCleanupTimeout = Duration(seconds: 8);
+  static const int _accountCleanupBatchLimit = 450;
 
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static firebase_auth.User? _currentUser;
@@ -133,6 +96,176 @@ class FirestoreService {
     if (trimmed == null || trimmed.isEmpty) return null;
     final prefix = trimmed.split('@').first.trim();
     return prefix.isEmpty ? null : prefix;
+  }
+
+  static String _normalizeFriendCode(String? code) {
+    final trimmed = code?.trim();
+    if (trimmed == null || trimmed.isEmpty) return '';
+
+    final compact = trimmed.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    if (RegExp(r'^[A-Z]{2}[0-9]{4}$').hasMatch(compact)) {
+      return '${compact.substring(0, 2)}-${compact.substring(2)}';
+    }
+
+    return trimmed.toUpperCase();
+  }
+
+  static void _addCleanupCode(Set<String> cleanupCodes, String? value) {
+    final code = _normalizeFriendCode(value);
+    if (code.isNotEmpty) cleanupCodes.add(code);
+  }
+
+  static void _addOtherUid(
+    Set<String> otherUids, {
+    required String currentUid,
+    String? value,
+  }) {
+    final uid = value?.trim();
+    if (uid == null || uid.isEmpty || uid == currentUid) return;
+    otherUids.add(uid);
+  }
+
+  static Future<int> _runAccountCleanupSection(
+    String label,
+    Future<int> Function() action,
+  ) async {
+    debugPrint('Account cleanup [$label]: start');
+    try {
+      final count = await action();
+      if (count >= 0) {
+        if (count == 0) {
+          debugPrint('Account cleanup [$label]: empty section skipped');
+        }
+        debugPrint('Account cleanup [$label]: deleted count=$count');
+      }
+      return count;
+    } on TimeoutException catch (error) {
+      debugPrint('Account cleanup [$label]: failure reason=timeout $error');
+      rethrow;
+    } on FirebaseException catch (error) {
+      debugPrint(
+        'Account cleanup [$label]: failure reason=${error.code} ${error.message ?? ''}',
+      );
+      rethrow;
+    } catch (error) {
+      debugPrint('Account cleanup [$label]: failure reason=$error');
+      rethrow;
+    }
+  }
+
+  static Future<int> _deleteQueryDocs(
+    Query<Map<String, dynamic>> query,
+    String label,
+  ) async {
+    final snapshot = await query.get().timeout(_accountCleanupTimeout);
+    if (snapshot.docs.isEmpty) {
+      debugPrint('Account cleanup [$label]: empty query snapshot');
+      return 0;
+    }
+
+    final batch = _AccountCleanupBatch(_db);
+    for (final doc in snapshot.docs) {
+      await batch.delete(doc.reference);
+    }
+    return batch.commit();
+  }
+
+  static Future<int> _deleteCollectionDocs(
+    Query<Map<String, dynamic>> query,
+    String label,
+  ) {
+    return _deleteQueryDocs(query, label);
+  }
+
+  static Future<int> _deleteDoc(
+    DocumentReference<Map<String, dynamic>> ref,
+    String label,
+  ) async {
+    await ref.delete().timeout(_accountCleanupTimeout);
+    return 1;
+  }
+
+  static Future<void> prepareAccountDeletionProfile({
+    required String uid,
+    required String friendCode,
+  }) async {
+    final code = _normalizeFriendCode(friendCode);
+    if (uid.trim().isEmpty) {
+      throw StateError('Cannot prepare account deletion without a uid.');
+    }
+    if (code.isEmpty || code == 'HP-0000') {
+      throw StateError(
+          'Cannot prepare account deletion without a friend code.');
+    }
+
+    final liveUser = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (liveUser == null || liveUser.uid != uid) {
+      throw StateError('Signed-in user changed before account cleanup.');
+    }
+
+    debugPrint('Account cleanup [profile preparation]: start');
+    try {
+      final friendCodeRef = _db.collection('friendCodes').doc(code);
+      final friendCodeDoc =
+          await friendCodeRef.get().timeout(_accountCleanupTimeout);
+      final mappedUid = (friendCodeDoc.data()?['uid'] as String? ?? '').trim();
+      if (friendCodeDoc.exists && mappedUid.isNotEmpty && mappedUid != uid) {
+        throw StateError('Friend code $code belongs to a different user.');
+      }
+
+      if (!friendCodeDoc.exists || friendCodeDoc.data()?['code'] != code) {
+        await friendCodeRef.set({
+          'uid': uid,
+          'code': code,
+          if (!friendCodeDoc.exists) 'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)).timeout(_accountCleanupTimeout);
+      }
+
+      final publicProfileRef = _db.collection('publicProfiles').doc(code);
+      final publicProfileDoc =
+          await publicProfileRef.get().timeout(_accountCleanupTimeout);
+      final profileUid =
+          (publicProfileDoc.data()?['uid'] as String? ?? '').trim();
+      if (publicProfileDoc.exists &&
+          profileUid.isNotEmpty &&
+          profileUid != uid) {
+        throw StateError('Public profile $code belongs to a different user.');
+      }
+
+      if (!publicProfileDoc.exists) {
+        await publicProfileRef.set({
+          'uid': uid,
+          'code': code,
+          'name': _bestEffortDisplayName(
+                displayName: liveUser.displayName,
+                email: liveUser.email,
+              ) ??
+              'Traveler',
+          'email': liveUser.email,
+          if (liveUser.photoURL?.trim().isNotEmpty == true)
+            'avatarUrl': liveUser.photoURL!.trim(),
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }).timeout(_accountCleanupTimeout);
+      }
+
+      debugPrint('Account cleanup [profile preparation]: deleted count=0');
+    } on TimeoutException catch (error) {
+      debugPrint(
+        'Account cleanup [profile preparation]: failure reason=timeout $error',
+      );
+      rethrow;
+    } on FirebaseException catch (error) {
+      debugPrint(
+        'Account cleanup [profile preparation]: failure reason=${error.code} ${error.message ?? ''}',
+      );
+      rethrow;
+    } catch (error) {
+      debugPrint(
+          'Account cleanup [profile preparation]: failure reason=$error');
+      rethrow;
+    }
   }
 
   static String? _bestEffortDisplayName({
@@ -354,153 +487,273 @@ class FirestoreService {
     required String uid,
     required String? friendCode,
   }) async {
-    final code = friendCode?.trim().toUpperCase();
+    final code = _normalizeFriendCode(friendCode);
     final cleanupCodes = <String>{};
-    final relationshipBatch = _AccountCleanupBatch(_db);
+    final friendCodeRefs = <String, DocumentReference<Map<String, dynamic>>>{};
+    final otherUids = <String>{};
+    _addCleanupCode(cleanupCodes, code);
 
     try {
       debugPrint('FirestoreService.cleanupAccountData: start uid=$uid');
-      if (code != null && code.isNotEmpty) {
-        try {
-          final directCodeDoc =
-              await _db.collection('friendCodes').doc(code).get();
-          final mappedUid =
-              (directCodeDoc.data()?['uid'] as String? ?? '').trim();
-          if (directCodeDoc.exists && mappedUid == uid) {
-            cleanupCodes.add(code);
-          } else {
-            debugPrint(
-              'FirestoreService.cleanupAccountData: skipping unowned friend code $code',
-            );
-          }
-        } catch (error) {
-          debugPrint(
-            'FirestoreService.cleanupAccountData: direct friend code check failed: $error',
-          );
-        }
-      }
 
-      final friendDocs =
-          await _db.collection('users').doc(uid).collection('friends').get();
-      final friendUids = <String>{};
-      for (final doc in friendDocs.docs) {
-        final data = doc.data();
-        final friendUid = (data['friendUid'] as String? ??
+      await _runAccountCleanupSection('users/$uid/friends', () async {
+        final snapshot = await _db
+            .collection('users')
+            .doc(uid)
+            .collection('friends')
+            .get()
+            .timeout(_accountCleanupTimeout);
+        if (snapshot.docs.isEmpty) {
+          debugPrint(
+              'Account cleanup [users/$uid/friends]: empty query snapshot');
+          return 0;
+        }
+
+        final batch = _AccountCleanupBatch(_db);
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          _addOtherUid(
+            otherUids,
+            currentUid: uid,
+            value: data['friendUid'] as String? ??
                 data['uid'] as String? ??
                 data['friendId'] as String? ??
-                doc.id)
-            .trim();
-        if (friendUid.isNotEmpty) friendUids.add(friendUid);
-        relationshipBatch.delete(doc.reference);
-      }
-
-      for (final friendUid in friendUids) {
-        relationshipBatch.delete(
-          _db.collection('users').doc(friendUid).collection('friends').doc(uid),
-        );
-        await _deleteFriendRequestDocIfAllowed(_db, '${uid}_$friendUid');
-        await _deleteFriendRequestDocIfAllowed(_db, '${friendUid}_$uid');
-        await _deleteNestedFriendRequestDocIfAllowed(_db, friendUid, uid);
-      }
-
-      final incomingRequests = await _db
-          .collection('users')
-          .doc(uid)
-          .collection('friend_requests')
-          .get();
-      for (final doc in incomingRequests.docs) {
-        final data = doc.data();
-        final fromUid = (data['fromUid'] as String? ?? doc.id).trim();
-        final toUid = (data['toUid'] as String? ?? uid).trim();
-        relationshipBatch.delete(doc.reference);
-        if (fromUid.isNotEmpty && toUid.isNotEmpty) {
-          await _deleteFriendRequestDocIfAllowed(_db, '${fromUid}_$toUid');
+                doc.id,
+          );
+          await batch.delete(doc.reference);
         }
-      }
+        return batch.commit();
+      });
 
-      final sentRequests = await _db
-          .collection('friendRequests')
-          .where('fromUid', isEqualTo: uid)
-          .get();
-      for (final doc in sentRequests.docs) {
-        final data = doc.data();
-        final toUid = (data['toUid'] as String? ?? '').trim();
-        relationshipBatch.delete(doc.reference);
-        if (toUid.isNotEmpty) {
-          relationshipBatch.delete(
+      await _runAccountCleanupSection('users/$uid/friend_requests', () async {
+        final snapshot = await _db
+            .collection('users')
+            .doc(uid)
+            .collection('friend_requests')
+            .get()
+            .timeout(_accountCleanupTimeout);
+        if (snapshot.docs.isEmpty) {
+          debugPrint(
+            'Account cleanup [users/$uid/friend_requests]: empty query snapshot',
+          );
+          return 0;
+        }
+
+        final batch = _AccountCleanupBatch(_db);
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          _addOtherUid(
+            otherUids,
+            currentUid: uid,
+            value: data['fromUid'] as String? ?? doc.id,
+          );
+          _addOtherUid(
+            otherUids,
+            currentUid: uid,
+            value: data['toUid'] as String?,
+          );
+          await batch.delete(doc.reference);
+        }
+        return batch.commit();
+      });
+
+      await _runAccountCleanupSection('friendRequests fromUid=$uid', () async {
+        final snapshot = await _db
+            .collection('friendRequests')
+            .where('fromUid', isEqualTo: uid)
+            .get()
+            .timeout(_accountCleanupTimeout);
+        if (snapshot.docs.isEmpty) {
+          debugPrint(
+            'Account cleanup [friendRequests fromUid=$uid]: empty query snapshot',
+          );
+          return 0;
+        }
+
+        final batch = _AccountCleanupBatch(_db);
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          _addOtherUid(
+            otherUids,
+            currentUid: uid,
+            value: data['toUid'] as String?,
+          );
+          await batch.delete(doc.reference);
+        }
+        return batch.commit();
+      });
+
+      await _runAccountCleanupSection('friendRequests toUid=$uid', () async {
+        final snapshot = await _db
+            .collection('friendRequests')
+            .where('toUid', isEqualTo: uid)
+            .get()
+            .timeout(_accountCleanupTimeout);
+        if (snapshot.docs.isEmpty) {
+          debugPrint(
+            'Account cleanup [friendRequests toUid=$uid]: empty query snapshot',
+          );
+          return 0;
+        }
+
+        final batch = _AccountCleanupBatch(_db);
+        for (final doc in snapshot.docs) {
+          final data = doc.data();
+          _addOtherUid(
+            otherUids,
+            currentUid: uid,
+            value: data['fromUid'] as String?,
+          );
+          await batch.delete(doc.reference);
+        }
+        return batch.commit();
+      });
+
+      await _runAccountCleanupSection('other user relationship mirrors',
+          () async {
+        if (otherUids.isEmpty) return 0;
+
+        final batch = _AccountCleanupBatch(_db);
+        for (final otherUid in otherUids) {
+          await batch.delete(
             _db
                 .collection('users')
-                .doc(toUid)
+                .doc(otherUid)
+                .collection('friends')
+                .doc(uid),
+          );
+          await batch.delete(
+            _db
+                .collection('users')
+                .doc(otherUid)
                 .collection('friend_requests')
                 .doc(uid),
           );
+          await batch
+              .delete(_db.collection('friendRequests').doc('${uid}_$otherUid'));
+          await batch
+              .delete(_db.collection('friendRequests').doc('${otherUid}_$uid'));
         }
-      }
+        return batch.commit();
+      });
 
-      final receivedRequests = await _db
-          .collection('friendRequests')
-          .where('toUid', isEqualTo: uid)
-          .get();
-      for (final doc in receivedRequests.docs) {
-        relationshipBatch.delete(doc.reference);
-      }
+      await _runAccountCleanupSection('users/$uid/sync', () {
+        return _deleteCollectionDocs(
+          _db.collection('users').doc(uid).collection('sync'),
+          'users/$uid/sync',
+        );
+      });
 
-      final syncDocs =
-          await _db.collection('users').doc(uid).collection('sync').get();
-      for (final doc in syncDocs.docs) {
-        relationshipBatch.delete(doc.reference);
-      }
+      await _runAccountCleanupSection('users/$uid/favorites', () {
+        return _deleteCollectionDocs(
+          _db.collection('users').doc(uid).collection('favorites'),
+          'users/$uid/favorites',
+        );
+      });
 
-      final favoriteDocs =
-          await _db.collection('users').doc(uid).collection('favorites').get();
-      for (final doc in favoriteDocs.docs) {
-        relationshipBatch.delete(doc.reference);
-      }
+      await _runAccountCleanupSection('users/$uid/notifications', () {
+        return _deleteCollectionDocs(
+          _db.collection('users').doc(uid).collection('notifications'),
+          'users/$uid/notifications',
+        );
+      });
 
-      try {
-        final mappedCodes = await _db
+      await _runAccountCleanupSection('users/$uid/activity', () {
+        return _deleteCollectionDocs(
+          _db.collection('users').doc(uid).collection('activity'),
+          'users/$uid/activity',
+        );
+      });
+
+      await _runAccountCleanupSection('friendCodes uid=$uid', () async {
+        final snapshot = await _db
             .collection('friendCodes')
             .where('uid', isEqualTo: uid)
-            .get();
-        for (final doc in mappedCodes.docs) {
-          final docCode = doc.id.trim();
-          if (docCode.isNotEmpty) {
-            cleanupCodes.add(docCode);
-            cleanupCodes.add(docCode.toUpperCase());
-          }
-          final mappedCode = (doc.data()['code'] as String?)?.trim();
-          if (mappedCode != null && mappedCode.isNotEmpty) {
-            cleanupCodes.add(mappedCode);
-            cleanupCodes.add(mappedCode.toUpperCase());
-          }
+            .get()
+            .timeout(_accountCleanupTimeout);
+        if (snapshot.docs.isEmpty) {
+          debugPrint(
+              'Account cleanup [friendCodes uid=$uid]: empty query snapshot');
+          return 0;
         }
-      } catch (error) {
-        developer
-            .log('FirestoreService: Friend code query cleanup skipped: $error');
+
+        for (final doc in snapshot.docs) {
+          _addCleanupCode(cleanupCodes, doc.id);
+          _addCleanupCode(cleanupCodes, doc.data()['code'] as String?);
+          friendCodeRefs[doc.reference.path] = doc.reference;
+        }
+        debugPrint('Account cleanup [friendCodes uid=$uid]: deleted count=0');
+        return -1;
+      });
+
+      await _runAccountCleanupSection('friendCodes/$code', () async {
+        if (code.isEmpty) return 0;
+
+        final ref = _db.collection('friendCodes').doc(code);
+        final doc = await ref.get().timeout(_accountCleanupTimeout);
+        if (!doc.exists) {
+          debugPrint('Account cleanup [friendCodes/$code]: missing doc no-op');
+          return 0;
+        }
+
+        final mappedUid = (doc.data()?['uid'] as String? ?? '').trim();
+        if (mappedUid.isNotEmpty && mappedUid != uid) {
+          throw StateError('Refusing to delete unowned friendCodes/$code.');
+        }
+
+        _addCleanupCode(cleanupCodes, doc.id);
+        _addCleanupCode(cleanupCodes, doc.data()?['code'] as String?);
+        friendCodeRefs[ref.path] = ref;
+        debugPrint('Account cleanup [friendCodes/$code]: deleted count=0');
+        return -1;
+      });
+
+      await _runAccountCleanupSection('publicProfiles uid=$uid', () async {
+        debugPrint(
+          'Account cleanup [publicProfiles uid=$uid]: query unsupported by current rules',
+        );
+        return 0;
+      });
+
+      for (final cleanupCode in cleanupCodes) {
+        await _runAccountCleanupSection(
+          'publicProfiles/$cleanupCode',
+          () async {
+            final ref = _db.collection('publicProfiles').doc(cleanupCode);
+            final doc = await ref.get().timeout(_accountCleanupTimeout);
+            if (!doc.exists) {
+              debugPrint(
+                'Account cleanup [publicProfiles/$cleanupCode]: missing doc no-op',
+              );
+              return 0;
+            }
+
+            final profileUid = (doc.data()?['uid'] as String? ?? '').trim();
+            if (profileUid.isNotEmpty && profileUid != uid) {
+              throw StateError(
+                'Refusing to delete unowned publicProfiles/$cleanupCode.',
+              );
+            }
+
+            return _deleteDoc(ref, 'publicProfiles/$cleanupCode');
+          },
+        );
       }
 
-      await relationshipBatch.commit();
+      await _runAccountCleanupSection('friendCodes owned docs', () async {
+        if (friendCodeRefs.isEmpty) return 0;
 
-      if (cleanupCodes.isNotEmpty) {
-        final publicProfileBatch = _AccountCleanupBatch(_db);
-        for (final friendCodeValue in cleanupCodes) {
-          publicProfileBatch.delete(
-            _db.collection('publicProfiles').doc(friendCodeValue),
-          );
+        final batch = _AccountCleanupBatch(_db);
+        for (final ref in friendCodeRefs.values) {
+          await batch.delete(ref);
         }
-        await publicProfileBatch.commit();
+        return batch.commit();
+      });
 
-        final friendCodeBatch = _AccountCleanupBatch(_db);
-        for (final friendCodeValue in cleanupCodes) {
-          friendCodeBatch
-              .delete(_db.collection('friendCodes').doc(friendCodeValue));
-        }
-        await friendCodeBatch.commit();
-      }
+      await _runAccountCleanupSection('users/$uid', () {
+        return _deleteDoc(_db.collection('users').doc(uid), 'users/$uid');
+      });
 
-      final userBatch = _AccountCleanupBatch(_db);
-      userBatch.delete(_db.collection('users').doc(uid));
-      await userBatch.commit();
       debugPrint('FirestoreService.cleanupAccountData: completed uid=$uid');
     } catch (error) {
       developer.log('FirestoreService: Account cleanup failed: $error');
@@ -1443,19 +1696,30 @@ class FirestoreService {
 class _AccountCleanupBatch {
   final FirebaseFirestore _db;
   WriteBatch _batch;
-  int _count = 0;
+  int _pendingCount = 0;
+  int _committedCount = 0;
 
   _AccountCleanupBatch(this._db) : _batch = _db.batch();
 
-  void delete(DocumentReference<Map<String, dynamic>> ref) {
+  Future<void> delete(DocumentReference<Map<String, dynamic>> ref) async {
     _batch.delete(ref);
-    _count++;
+    _pendingCount++;
+    if (_pendingCount >= FirestoreService._accountCleanupBatchLimit) {
+      await _commitPending();
+    }
   }
 
-  Future<void> commit() async {
-    if (_count == 0) return;
+  Future<int> commit() async {
+    await _commitPending();
+    return _committedCount;
+  }
+
+  Future<void> _commitPending() async {
+    if (_pendingCount == 0) return;
+    final count = _pendingCount;
     await _batch.commit();
+    _committedCount += count;
     _batch = _db.batch();
-    _count = 0;
+    _pendingCount = 0;
   }
 }

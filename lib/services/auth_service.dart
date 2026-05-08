@@ -266,11 +266,27 @@ class AuthService {
       await user.reauthenticateWithCredential(credential);
 
       final uid = user.uid;
-      String? friendCode;
+      final String friendCode;
       try {
-        friendCode = await FriendService().getMyCode();
+        friendCode = await FriendService().getMyCode(forceRefresh: true);
+        await FirestoreService.prepareAccountDeletionProfile(
+          uid: uid,
+          friendCode: friendCode,
+        );
       } catch (error) {
-        debugPrint('Could not load friend code before account cleanup: $error');
+        _lastAuthError =
+            'Could not prepare account cleanup. Please check your connection and try again.';
+        debugPrint('Delete account stopped before cleanup: $error');
+        return false;
+      }
+
+      if (friendCode.trim().isEmpty || friendCode.trim() == 'HP-0000') {
+        _lastAuthError =
+            'Could not load your account profile before deletion. Please try again.';
+        debugPrint(
+          'Delete account stopped before cleanup: invalid friend code $friendCode',
+        );
+        return false;
       }
 
       try {

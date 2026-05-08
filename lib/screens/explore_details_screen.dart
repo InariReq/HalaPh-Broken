@@ -11,7 +11,6 @@ import 'package:halaph/screens/route_options_screen.dart';
 import 'package:halaph/utils/navigation_utils.dart';
 import 'package:halaph/widgets/fullscreen_image_preview.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:halaph/widgets/demo_safe_panel.dart';
 
 class ExploreDetailsScreen extends StatefulWidget {
   final String destinationId;
@@ -255,19 +254,6 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
         ),
         backgroundColor: success ? Colors.green[600] : Colors.red,
       ),
-    );
-  }
-
-  Widget _buildDetailsLoadFallback() {
-    return DemoSafePanel(
-      icon: Icons.place_outlined,
-      title: 'Destination details could not load',
-      message:
-          'This place may still be loading or unavailable from the network. Go back and try again.',
-      onRetry: () {
-        setState(() {});
-      },
-      showHome: false,
     );
   }
 

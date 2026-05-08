@@ -8,7 +8,6 @@ import 'package:halaph/models/plan.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
-import 'package:halaph/widgets/demo_safe_panel.dart';
 
 class MyPlansScreen extends StatefulWidget {
   const MyPlansScreen({super.key});
@@ -57,20 +56,6 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     final sharedPlans = SimplePlanService.getCollaborativePlans();
     debugPrint(
       'Personal plans: ${personalPlans.length}, Shared plans: ${sharedPlans.length}',
-    );
-  }
-
-  Widget _buildPlansLoadFallback() {
-    return DemoSafePanel(
-      icon: Icons.map_outlined,
-      title: 'No plans could be loaded',
-      message:
-          'Your plans may still be syncing. Check your connection, then try again.',
-      onRetry: () {
-        setState(() {});
-        _loadPlans();
-      },
-      showHome: false,
     );
   }
 
