@@ -164,13 +164,29 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         final duration =
             BudgetRoutingService.estimateDuration(distance, modeData.mode);
 
-        final directions = await GoogleMapsService.getDirections(
-          startLat: origin.latitude,
-          startLon: origin.longitude,
-          endLat: destination.latitude,
-          endLon: destination.longitude,
-          profile: modeData.profile,
-        );
+        final isRoadPublicMode = modeData.mode == TravelMode.jeepney ||
+            modeData.mode == TravelMode.bus ||
+            modeData.mode == TravelMode.fx;
+        final isRailMode = modeData.mode == TravelMode.train;
+
+        final shouldCallGoogleDirections =
+            !isRoadPublicMode || historicalMatch == null;
+
+        final directions = shouldCallGoogleDirections
+            ? await GoogleMapsService.getDirections(
+                startLat: origin.latitude,
+                startLon: origin.longitude,
+                endLat: destination.latitude,
+                endLon: destination.longitude,
+                profile: modeData.profile,
+              )
+            : null;
+
+        if (!shouldCallGoogleDirections) {
+          debugPrint(
+            'RouteOptions: skipped Google driving directions for ${modeData.name}; using GTFS match.',
+          );
+        }
 
         final rawSteps =
             (directions?['steps'] as List?)?.cast<Map<String, dynamic>>() ??
@@ -178,10 +194,6 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         final rawPolyline = directions?['polyline'] as String? ?? '';
 
         final rawHasLiveRailTransitStep = _hasLiveRailTransitStep(rawSteps);
-        final isRoadPublicMode = modeData.mode == TravelMode.jeepney ||
-            modeData.mode == TravelMode.bus ||
-            modeData.mode == TravelMode.fx;
-        final isRailMode = modeData.mode == TravelMode.train;
 
         final steps = isRoadPublicMode
             ? <Map<String, dynamic>>[]
