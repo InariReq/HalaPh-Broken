@@ -66,6 +66,91 @@ class GoogleMapsService {
     return null;
   }
 
+  /// Get multiple Google Directions route alternatives.
+  /// Used only when comparing public transit options.
+  static Future<List<Map<String, dynamic>>> getDirectionAlternatives({
+    required double startLat,
+    required double startLon,
+    required double endLat,
+    required double endLon,
+    String profile = 'walking',
+  }) async {
+    if (!isConfigured) {
+      debugPrint('Google Maps API key not configured');
+      return const <Map<String, dynamic>>[];
+    }
+
+    try {
+      final mode = _mapProfileToMode(profile);
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/directions/json',
+      ).replace(queryParameters: {
+        'origin': '$startLat,$startLon',
+        'destination': '$endLat,$endLon',
+        'mode': mode,
+        'alternatives': 'true',
+        'key': _googleApiKey,
+      });
+
+      debugPrint(
+        '🌍 Google Directions: Getting $mode route alternatives (billable)',
+      );
+
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        if (data['status'] == 'OK') {
+          final routes = data['routes'] as List;
+          final results = <Map<String, dynamic>>[];
+
+          for (final route in routes) {
+            if (route is! Map) continue;
+
+            final legs = route['legs'];
+            if (legs is! List || legs.isEmpty) continue;
+
+            final leg = legs.first;
+            if (leg is! Map) continue;
+
+            final distance = leg['distance'];
+            final duration = leg['duration'];
+            final overviewPolyline = route['overview_polyline'];
+
+            if (distance is! Map ||
+                duration is! Map ||
+                overviewPolyline is! Map) {
+              continue;
+            }
+
+            final distanceValue = distance['value'];
+            final durationValue = duration['value'];
+            final polyline = overviewPolyline['points'];
+
+            if (distanceValue is! num ||
+                durationValue is! num ||
+                polyline is! String) {
+              continue;
+            }
+
+            results.add({
+              'distance': distanceValue.toDouble(),
+              'duration': durationValue.toDouble(),
+              'polyline': polyline,
+              'steps': leg['steps'],
+            });
+          }
+
+          return results;
+        }
+      }
+    } catch (e) {
+      debugPrint('Google Directions alternatives error: $e');
+    }
+
+    return const <Map<String, dynamic>>[];
+  }
+
   /// Geocode an address to LatLng using Google Geocoding API.
   /// Costs: ~$5 per 1,000 requests.
   static Future<LatLng?> geocodeAddress(String address) async {

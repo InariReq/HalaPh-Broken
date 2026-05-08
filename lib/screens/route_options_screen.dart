@@ -199,15 +199,37 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         final shouldCallGoogleDirections =
             isPublicTransportMode || historicalMatch == null;
 
-        final directions = shouldCallGoogleDirections
-            ? await GoogleMapsService.getDirections(
-                startLat: origin.latitude,
-                startLon: origin.longitude,
-                endLat: destination.latitude,
-                endLon: destination.longitude,
-                profile: googleProfile,
+        final directionCandidates = shouldCallGoogleDirections
+            ? isPublicTransportMode
+                ? await GoogleMapsService.getDirectionAlternatives(
+                    startLat: origin.latitude,
+                    startLon: origin.longitude,
+                    endLat: destination.latitude,
+                    endLon: destination.longitude,
+                    profile: googleProfile,
+                  )
+                : [
+                    if (await GoogleMapsService.getDirections(
+                      startLat: origin.latitude,
+                      startLon: origin.longitude,
+                      endLat: destination.latitude,
+                      endLon: destination.longitude,
+                      profile: googleProfile,
+                    )
+                        case final route?)
+                      route,
+                  ]
+            : const <Map<String, dynamic>>[];
+
+        final directions = isPublicTransportMode
+            ? _bestLiveDirectionsForMode(
+                modeData.mode,
+                directionCandidates,
+                type: _passengerType,
               )
-            : null;
+            : directionCandidates.isNotEmpty
+                ? directionCandidates.first
+                : null;
 
         if (!shouldCallGoogleDirections) {
           debugPrint(
@@ -1271,10 +1293,7 @@ bool _liveStepsContainSelectedMode(
   return false;
 }
 
-String _displayNameForLiveSteps(
-  _ModeData modeData,
-  List<Map<String, dynamic>> steps,
-) {
+List<TravelMode> _liveModeSequence(List<Map<String, dynamic>> steps) {
   final sequence = <TravelMode>[];
 
   for (final step in steps) {
@@ -1284,6 +1303,85 @@ String _displayNameForLiveSteps(
     sequence.add(mode);
   }
 
+  return sequence;
+}
+
+double _totalDistanceKmForLiveSteps(List<Map<String, dynamic>> steps) {
+  return steps.fold<double>(
+    0,
+    (total, step) => total + _distanceKmForLiveStep(step),
+  );
+}
+
+double _walkDistanceKmForLiveSteps(List<Map<String, dynamic>> steps) {
+  return steps.fold<double>(0, (total, step) {
+    final mode = _travelModeForLiveStep(step);
+    if (mode != TravelMode.walking) return total;
+    return total + _distanceKmForLiveStep(step);
+  });
+}
+
+double _durationMinutesForDirections(Map<String, dynamic> directions) {
+  final duration = directions['duration'];
+  if (duration is num) return duration.toDouble() / 60.0;
+  return 0;
+}
+
+Map<String, dynamic>? _bestLiveDirectionsForMode(
+  TravelMode selectedMode,
+  List<Map<String, dynamic>> candidates, {
+  required PassengerType type,
+}) {
+  Map<String, dynamic>? best;
+  var bestScore = double.infinity;
+
+  for (final candidate in candidates) {
+    final steps = (candidate['steps'] as List?)?.cast<Map<String, dynamic>>() ??
+        <Map<String, dynamic>>[];
+
+    if (steps.isEmpty) continue;
+    if (!_hasLiveTransitStep(steps)) continue;
+    if (!_liveStepsContainSelectedMode(selectedMode, steps)) continue;
+
+    final sequence = _liveModeSequence(steps);
+    if (sequence.isEmpty) continue;
+
+    final estimate = _estimateFareForLiveSteps(steps, type: type);
+    final fare = estimate.totalFare;
+    final durationMinutes = _durationMinutesForDirections(candidate);
+    final walkKm = _walkDistanceKmForLiveSteps(steps);
+    final totalKm = _totalDistanceKmForLiveSteps(steps);
+    final transfers = sequence.length > 1 ? sequence.length - 1 : 0;
+    final includesTrain = sequence.contains(TravelMode.train);
+
+    var score = 0.0;
+    score += fare * 1.4;
+    score += durationMinutes * 0.65;
+    score += walkKm * 18.0;
+    score += transfers * 8.0;
+
+    if (includesTrain && totalKm >= 8) {
+      score -= 18.0;
+    }
+
+    if (selectedMode == TravelMode.train && includesTrain) {
+      score -= 16.0;
+    }
+
+    if (score < bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+
+  return best;
+}
+
+String _displayNameForLiveSteps(
+  _ModeData modeData,
+  List<Map<String, dynamic>> steps,
+) {
+  final sequence = _liveModeSequence(steps);
   if (sequence.isEmpty) return modeData.name;
   return sequence.map(_vehicleTitleForMode).join(' + ');
 }
