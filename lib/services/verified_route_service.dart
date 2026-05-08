@@ -678,10 +678,104 @@ class VerifiedRouteService {
   }
 
   static bool _isRailStop(_GtfsStop stop) {
-    final name = stop.name.toLowerCase();
-    return name.contains('lrt') ||
-        name.contains('mrt') ||
-        name.contains('station');
+    final normalized = _normalize(stop.name);
+
+    final rejectedRoadTerms = {
+      'hall',
+      'terminal',
+      'bus',
+      'jeep',
+      'market',
+      'mall',
+      'avenue',
+      'ave',
+      'road',
+      'street',
+      'st',
+      'corner',
+      'barangay',
+      'brgy',
+      'city hall',
+      'qc hall',
+    };
+
+    if (rejectedRoadTerms.any(normalized.contains)) {
+      return false;
+    }
+
+    final railKeywords = {
+      'lrt',
+      'mrt',
+      'pnr',
+      'rail',
+    };
+
+    if (railKeywords.any(normalized.contains)) {
+      return true;
+    }
+
+    final knownRailStations = {
+      // MRT-3
+      'north avenue',
+      'quezon avenue',
+      'gma kamuning',
+      'araneta center cubao',
+      'cubao',
+      'santolan annapolis',
+      'ortigas',
+      'shaw boulevard',
+      'boni',
+      'guadalupe',
+      'buendia',
+      'ayala',
+      'magallanes',
+      'taft avenue',
+
+      // LRT-1
+      'baclaran',
+      'edsa',
+      'libertad',
+      'gil puyat',
+      'vito cruz',
+      'quirino',
+      'pedro gil',
+      'un avenue',
+      'central terminal',
+      'central',
+      'carriedo',
+      'doroteo jose',
+      'bambang',
+      'tayuman',
+      'blumentritt',
+      'abad santos',
+      'r papa',
+      '5th avenue',
+      'monumento',
+      'balintawak',
+      'roosevelt',
+      'fpj',
+
+      // LRT-2
+      'recto',
+      'legarda',
+      'pureza',
+      'v mapa',
+      'j ruiz',
+      'gilmore',
+      'betty go belmonte',
+      'anonas',
+      'katipunan',
+      'santolan',
+      'marikina pasig',
+      'antipolo',
+    };
+
+    return knownRailStations.any((station) {
+      return normalized == station ||
+          normalized.startsWith('$station ') ||
+          normalized.endsWith(' $station') ||
+          normalized.contains('$station station');
+    });
   }
 
   static String _normalize(String value) {

@@ -328,7 +328,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         final boardPoint = LatLng(leg.boardStopLat, leg.boardStopLon);
         steps.add(
           step(
-            instruction: 'Walk to boarding point: ${leg.boardStopName}.',
+            instruction: leg.mode == TravelMode.train
+                ? 'Walk to rail station: ${leg.boardStopName}.'
+                : 'Walk to boarding point: ${leg.boardStopName}.',
             mode: TravelMode.walking,
             lat: widget.origin.latitude,
             lng: widget.origin.longitude,
@@ -340,8 +342,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
       steps.add(
         step(
-          instruction:
-              'Board ${_vehicleLabel(leg.mode)}. Look for this signboard: ${leg.signboard}${leg.via.trim().isNotEmpty ? ' (${leg.viaLabel})' : ''}.',
+          instruction: leg.mode == TravelMode.train
+              ? 'Board ${_vehicleLabel(leg.mode)} at ${leg.boardStopName}. Follow the station signs for: ${leg.signboard}${leg.via.trim().isNotEmpty ? ' (${leg.viaLabel})' : ''}.'
+              : 'Board ${_vehicleLabel(leg.mode)}. Look for this signboard: ${leg.signboard}${leg.via.trim().isNotEmpty ? ' (${leg.viaLabel})' : ''}.',
           mode: leg.mode,
           lat: leg.boardStopLat,
           lng: leg.boardStopLon,
@@ -350,8 +353,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
       steps.add(
         step(
-          instruction:
-              'Ride for about ${leg.stopCount} stop${leg.stopCount == 1 ? '' : 's'}. Get off at ${leg.alightStopName}.',
+          instruction: leg.mode == TravelMode.train
+              ? 'Ride for about ${leg.stopCount} station${leg.stopCount == 1 ? '' : 's'}. Get off at ${leg.alightStopName} station.'
+              : 'Ride for about ${leg.stopCount} stop${leg.stopCount == 1 ? '' : 's'}. Get off at ${leg.alightStopName}.',
           mode: leg.mode,
           lat: leg.boardStopLat,
           lng: leg.boardStopLon,
