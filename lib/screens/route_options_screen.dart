@@ -1117,6 +1117,52 @@ bool _isNearbyDropOff(HistoricalRouteMatch match) {
 
 const double _stationAccessRideThresholdKm = 0.80;
 
+bool _isRoadTransitMode(TravelMode mode) {
+  return mode == TravelMode.jeepney ||
+      mode == TravelMode.bus ||
+      mode == TravelMode.fx;
+}
+
+TravelMode? _inferRoadModeFromLegText(HistoricalRouteLeg leg) {
+  final text = [
+    leg.signboard,
+    leg.via,
+    leg.boardStopName,
+    leg.alightStopName,
+  ].join(' ').toLowerCase();
+
+  if (RegExp(r'\b(fx|uv|van)\b').hasMatch(text)) {
+    return TravelMode.fx;
+  }
+
+  if (RegExp(r'\b(jeepney|jeep)\b').hasMatch(text)) {
+    return TravelMode.jeepney;
+  }
+
+  if (RegExp(r'\b(bus|busway|carousel|p2p)\b').hasMatch(text)) {
+    return TravelMode.bus;
+  }
+
+  return null;
+}
+
+TravelMode _effectiveRideModeForLeg(
+  TravelMode selectedMode,
+  HistoricalRouteLeg leg,
+) {
+  if (leg.mode == TravelMode.train) return TravelMode.train;
+  if (leg.mode == TravelMode.walking) return TravelMode.walking;
+
+  final inferredMode = _inferRoadModeFromLegText(leg);
+  if (inferredMode != null) return inferredMode;
+
+  if (_isRoadTransitMode(selectedMode) && _isRoadTransitMode(leg.mode)) {
+    return selectedMode;
+  }
+
+  return leg.mode;
+}
+
 String _displayNameForHistoricalMatch(
   _ModeData modeData,
   HistoricalRouteMatch? historicalMatch,
@@ -1133,7 +1179,7 @@ String _displayNameForHistoricalMatch(
     if (needsLocalRideToStation) {
       sequence.add(TravelMode.jeepney);
     }
-    sequence.add(leg.mode);
+    sequence.add(_effectiveRideModeForLeg(modeData.mode, leg));
   }
 
   final lastLeg = legs.last;
@@ -1293,6 +1339,7 @@ MultiSegmentFareEstimate _estimateFareForRoute(
   for (var i = 0; i < legs.length; i++) {
     final leg = legs[i];
     final rideKm = leg.rideDistanceKm;
+    final effectiveMode = _effectiveRideModeForLeg(mode, leg);
     segments.add(
       _accessSegmentForLeg(
         leg,
@@ -1302,10 +1349,10 @@ MultiSegmentFareEstimate _estimateFareForRoute(
     );
     segments.add(
       FareSegment(
-        label: _rideFareLabelForMode(leg.mode),
-        mode: leg.mode,
+        label: _rideFareLabelForMode(effectiveMode),
+        mode: effectiveMode,
         distanceKm: rideKm,
-        fare: FareService.estimateFare(leg.mode, rideKm, type: type),
+        fare: FareService.estimateFare(effectiveMode, rideKm, type: type),
       ),
     );
   }
