@@ -36,6 +36,8 @@ class RouteMapScreen extends StatefulWidget {
   State<RouteMapScreen> createState() => _RouteMapScreenState();
 }
 
+const double _stationAccessRideThresholdKm = 0.80;
+
 class _RouteMapScreenState extends State<RouteMapScreen> {
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
@@ -352,7 +354,10 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         steps.add(
           step(
             instruction: leg.mode == TravelMode.train
-                ? 'Walk to rail station: ${leg.boardStopName}.'
+                ? (leg.walkToBoardMeters / 1000.0 >
+                        _stationAccessRideThresholdKm
+                    ? 'Take a local ride to rail station: ${leg.boardStopName}. This access ride is included in the fare estimate.'
+                    : 'Walk to rail station: ${leg.boardStopName}.')
                 : 'Walk to boarding point: ${leg.boardStopName}.',
             mode: TravelMode.walking,
             lat: widget.origin.latitude,
@@ -391,8 +396,11 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         final transferEnd = LatLng(nextLeg.boardStopLat, nextLeg.boardStopLon);
         steps.add(
           step(
-            instruction:
-                'Transfer: walk from ${leg.alightStopName} to ${nextLeg.boardStopName}.',
+            instruction: nextLeg.mode == TravelMode.train &&
+                    nextLeg.walkToBoardMeters / 1000.0 >
+                        _stationAccessRideThresholdKm
+                ? 'Transfer: take a local ride from ${leg.alightStopName} to ${nextLeg.boardStopName}. This access ride is included in the fare estimate.'
+                : 'Transfer: walk from ${leg.alightStopName} to ${nextLeg.boardStopName}.',
             mode: TravelMode.walking,
             lat: leg.alightStopLat,
             lng: leg.alightStopLon,
@@ -409,8 +417,11 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     );
     steps.add(
       step(
-        instruction:
-            'Walk from ${legs.last.alightStopName} to your destination.',
+        instruction: match.route.mode == TravelMode.train &&
+                match.walkFromAlightMeters / 1000.0 >
+                    _stationAccessRideThresholdKm
+            ? 'Take a local ride from ${legs.last.alightStopName} station to your destination. This ride is included in the fare estimate.'
+            : 'Walk from ${legs.last.alightStopName} to your destination.',
         mode: TravelMode.walking,
         lat: legs.last.alightStopLat,
         lng: legs.last.alightStopLon,

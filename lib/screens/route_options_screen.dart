@@ -1111,6 +1111,73 @@ bool _isNearbyDropOff(HistoricalRouteMatch match) {
   return match.walkFromAlightMeters > _gtfsMatchRadiusForMode(match.route.mode);
 }
 
+const double _stationAccessRideThresholdKm = 0.80;
+
+FareSegment _accessSegmentForLeg(
+  HistoricalRouteLeg leg,
+  PassengerType type, {
+  required bool isFirstLeg,
+}) {
+  final distanceKm = leg.walkToBoardMeters / 1000.0;
+  final isTrain = leg.mode == TravelMode.train;
+  final needsLocalRide = isTrain && distanceKm > _stationAccessRideThresholdKm;
+
+  if (needsLocalRide) {
+    return FareSegment(
+      label: isFirstLeg
+          ? 'Estimated local ride to MRT/LRT station'
+          : 'Estimated local ride to connecting station',
+      mode: TravelMode.jeepney,
+      distanceKm: distanceKm,
+      fare: FareService.estimateFare(
+        TravelMode.jeepney,
+        distanceKm,
+        type: type,
+      ),
+    );
+  }
+
+  return FareSegment(
+    label: isTrain
+        ? (isFirstLeg
+            ? 'Walk to MRT/LRT station'
+            : 'Walk to connecting station')
+        : (isFirstLeg ? 'Walk to first boarding point' : 'Transfer walk'),
+    mode: TravelMode.walking,
+    distanceKm: distanceKm,
+    fare: 0,
+  );
+}
+
+FareSegment _finalAccessSegmentForMatch(
+  HistoricalRouteMatch match,
+  PassengerType type,
+) {
+  final distanceKm = match.walkFromAlightMeters / 1000.0;
+  final isTrain = match.route.mode == TravelMode.train;
+  final needsLocalRide = isTrain && distanceKm > _stationAccessRideThresholdKm;
+
+  if (needsLocalRide) {
+    return FareSegment(
+      label: 'Estimated local ride from MRT/LRT station',
+      mode: TravelMode.jeepney,
+      distanceKm: distanceKm,
+      fare: FareService.estimateFare(
+        TravelMode.jeepney,
+        distanceKm,
+        type: type,
+      ),
+    );
+  }
+
+  return FareSegment(
+    label: isTrain ? 'Walk from MRT/LRT station' : 'Walk from final drop-off',
+    mode: TravelMode.walking,
+    distanceKm: distanceKm,
+    fare: 0,
+  );
+}
+
 MultiSegmentFareEstimate _estimateFareForRoute(
   TravelMode mode,
   double fullDistanceKm,
@@ -1125,7 +1192,6 @@ MultiSegmentFareEstimate _estimateFareForRoute(
     );
   }
 
-  final lastWalkKm = historicalMatch.walkFromAlightMeters / 1000.0;
   final legs = historicalMatch.legs.isEmpty ? const [] : historicalMatch.legs;
 
   if (legs.length > 1) {
@@ -1133,11 +1199,10 @@ MultiSegmentFareEstimate _estimateFareForRoute(
     final secondLeg = legs[1];
     return MultiSegmentFareEstimate(
       segments: [
-        FareSegment(
-          label: 'Walk to first boarding point',
-          mode: TravelMode.walking,
-          distanceKm: firstLeg.walkToBoardMeters / 1000.0,
-          fare: 0,
+        _accessSegmentForLeg(
+          firstLeg,
+          type,
+          isFirstLeg: true,
         ),
         FareSegment(
           label: 'Matched first ride',
@@ -1149,11 +1214,10 @@ MultiSegmentFareEstimate _estimateFareForRoute(
             type: type,
           ),
         ),
-        FareSegment(
-          label: 'Transfer walk',
-          mode: TravelMode.walking,
-          distanceKm: secondLeg.walkToBoardMeters / 1000.0,
-          fare: 0,
+        _accessSegmentForLeg(
+          secondLeg,
+          type,
+          isFirstLeg: false,
         ),
         FareSegment(
           label: 'Matched second ride',
@@ -1165,26 +1229,36 @@ MultiSegmentFareEstimate _estimateFareForRoute(
             type: type,
           ),
         ),
-        FareSegment(
-          label: 'Walk from final drop-off',
-          mode: TravelMode.walking,
-          distanceKm: lastWalkKm,
-          fare: 0,
+        _finalAccessSegmentForMatch(
+          historicalMatch,
+          type,
         ),
       ],
     );
   }
 
-  final accessWalkKm = historicalMatch.walkToBoardMeters / 1000.0;
   final rideKm = historicalMatch.rideDistanceKm;
 
   return MultiSegmentFareEstimate(
     segments: [
-      FareSegment(
-        label: 'Walk to first boarding point',
-        mode: TravelMode.walking,
-        distanceKm: accessWalkKm,
-        fare: 0,
+      _accessSegmentForLeg(
+        HistoricalRouteLeg(
+          route: historicalMatch.route,
+          mode: mode,
+          signboard: historicalMatch.signboard,
+          via: historicalMatch.via,
+          boardStopName: historicalMatch.boardStopName,
+          boardStopLat: historicalMatch.boardStopLat,
+          boardStopLon: historicalMatch.boardStopLon,
+          alightStopName: historicalMatch.alightStopName,
+          alightStopLat: historicalMatch.alightStopLat,
+          alightStopLon: historicalMatch.alightStopLon,
+          walkToBoardMeters: historicalMatch.walkToBoardMeters,
+          rideDistanceMeters: historicalMatch.rideDistanceMeters,
+          stopCount: historicalMatch.stopCount,
+        ),
+        type,
+        isFirstLeg: true,
       ),
       FareSegment(
         label: 'Matched first ride',
@@ -1192,11 +1266,9 @@ MultiSegmentFareEstimate _estimateFareForRoute(
         distanceKm: rideKm,
         fare: FareService.estimateFare(mode, rideKm, type: type),
       ),
-      FareSegment(
-        label: 'Walk from final drop-off',
-        mode: TravelMode.walking,
-        distanceKm: lastWalkKm,
-        fare: 0,
+      _finalAccessSegmentForMatch(
+        historicalMatch,
+        type,
       ),
     ],
   );
