@@ -234,7 +234,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Live directions are unavailable. Using estimated route data.',
+                          _historicalRouteMatches.isNotEmpty
+                              ? 'Using historical GTFS commute guidance. Live turn-by-turn public transport directions are unavailable.'
+                              : 'Live public transport directions are unavailable. HalaPH will not show car-driving directions as commute steps.',
                           style: TextStyle(
                             fontSize: 12,
                             color:
