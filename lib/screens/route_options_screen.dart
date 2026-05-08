@@ -235,7 +235,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         final confidenceLabel = hasLiveTransitStep
             ? 'Verified live transit route'
             : hasHistoricalMatch
-                ? 'Historical route match'
+                ? historicalMatch.hasTransfer
+                    ? 'Historical route match, 1 transfer'
+                    : 'Historical route match'
                 : 'Live map route';
 
         final confidenceDetail = hasLiveTransitStep
@@ -750,38 +752,38 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                     ],
                     if (fare.fareBreakdown.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      ...fare.fareBreakdown.take(4).map(
-                            (line) => Padding(
-                              padding: const EdgeInsets.only(bottom: 3),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    Icons.payments_rounded,
-                                    size: 12,
+                      ...fare.fareBreakdown.map(
+                        (line) => Padding(
+                          padding: const EdgeInsets.only(bottom: 3),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.payments_rounded,
+                                size: 12,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  line,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
                                     color: Theme.of(context)
                                         .colorScheme
                                         .onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                  const SizedBox(width: 5),
-                                  Expanded(
-                                    child: Text(
-                                      line,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurfaceVariant,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
+                            ],
                           ),
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -962,10 +964,19 @@ double _routeScore({
   score += distanceKm * 1.5;
 
   if (historicalMatch != null) {
-    score += (historicalMatch.walkToBoardMeters / 1000.0) * 12.0;
-    score += (historicalMatch.walkFromAlightMeters / 1000.0) * 12.0;
+    final legWalkMeters = historicalMatch.legs.fold<double>(
+      0,
+      (total, leg) => total + leg.walkToBoardMeters,
+    );
+    final totalWalkMeters = historicalMatch.legs.isEmpty
+        ? historicalMatch.walkToBoardMeters +
+            historicalMatch.walkFromAlightMeters
+        : legWalkMeters + historicalMatch.walkFromAlightMeters;
+
+    score += (totalWalkMeters / 1000.0) * 12.0;
     score += historicalMatch.rideDistanceKm * 1.2;
-    score += historicalMatch.stopCount * 0.8;
+    score += historicalMatch.totalStopCount * 0.8;
+    score += historicalMatch.transferCount * 18.0;
     score -= 30.0;
   } else {
     score += 80.0;
@@ -993,34 +1004,75 @@ MultiSegmentFareEstimate _estimateFareForRoute(
     );
   }
 
+  final lastWalkKm = historicalMatch.walkFromAlightMeters / 1000.0;
+  final legs = historicalMatch.legs.isEmpty ? const [] : historicalMatch.legs;
+
+  if (legs.length > 1) {
+    final firstLeg = legs.first;
+    final secondLeg = legs[1];
+    return MultiSegmentFareEstimate(
+      segments: [
+        FareSegment(
+          label: 'Walk to first boarding point',
+          mode: TravelMode.walking,
+          distanceKm: firstLeg.walkToBoardMeters / 1000.0,
+          fare: 0,
+        ),
+        FareSegment(
+          label: 'Matched first ride',
+          mode: firstLeg.mode,
+          distanceKm: firstLeg.rideDistanceKm,
+          fare: FareService.estimateFare(
+            firstLeg.mode,
+            firstLeg.rideDistanceKm,
+            type: type,
+          ),
+        ),
+        FareSegment(
+          label: 'Transfer walk',
+          mode: TravelMode.walking,
+          distanceKm: secondLeg.walkToBoardMeters / 1000.0,
+          fare: 0,
+        ),
+        FareSegment(
+          label: 'Matched second ride',
+          mode: secondLeg.mode,
+          distanceKm: secondLeg.rideDistanceKm,
+          fare: FareService.estimateFare(
+            secondLeg.mode,
+            secondLeg.rideDistanceKm,
+            type: type,
+          ),
+        ),
+        FareSegment(
+          label: 'Walk from final drop-off',
+          mode: TravelMode.walking,
+          distanceKm: lastWalkKm,
+          fare: 0,
+        ),
+      ],
+    );
+  }
+
   final accessWalkKm = historicalMatch.walkToBoardMeters / 1000.0;
   final rideKm = historicalMatch.rideDistanceKm;
-  final lastWalkKm = historicalMatch.walkFromAlightMeters / 1000.0;
-
-  final rideLabel = switch (mode) {
-    TravelMode.jeepney => 'Matched jeepney ride',
-    TravelMode.bus => 'Matched bus ride',
-    TravelMode.train => 'Matched MRT/LRT ride',
-    TravelMode.fx => 'Matched FX/UV ride',
-    TravelMode.walking => 'Walk to destination',
-  };
 
   return MultiSegmentFareEstimate(
     segments: [
       FareSegment(
-        label: 'Walk to boarding point',
+        label: 'Walk to first boarding point',
         mode: TravelMode.walking,
         distanceKm: accessWalkKm,
         fare: 0,
       ),
       FareSegment(
-        label: rideLabel,
+        label: 'Matched first ride',
         mode: mode,
         distanceKm: rideKm,
         fare: FareService.estimateFare(mode, rideKm, type: type),
       ),
       FareSegment(
-        label: 'Walk from drop-off',
+        label: 'Walk from final drop-off',
         mode: TravelMode.walking,
         distanceKm: lastWalkKm,
         fare: 0,

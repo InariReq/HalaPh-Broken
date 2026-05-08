@@ -14,6 +14,11 @@ class VerifiedRouteService {
       'lib/Assets/gtfs-master/gtfs-master/trips.txt';
   static const String _stopTimesAssetPath =
       'lib/Assets/gtfs-master/gtfs-master/stop_times.txt';
+  static const double _maxTransferWalkMeters = 450;
+  static const int _directStopCandidateLimit = 30;
+  static const int _transferStopCandidateLimit = 20;
+  static const int _segmentCandidateLimit = 80;
+  static const int _rawSegmentCandidateLimit = _segmentCandidateLimit * 4;
 
   static List<VerifiedRouteReference>? _cachedRoutes;
   static _GtfsIndex? _cachedIndex;
@@ -111,13 +116,13 @@ class VerifiedRouteService {
       candidateStops,
       origin,
       maxWalkMeters,
-      limit: 30,
+      limit: _directStopCandidateLimit,
     );
     final destinationStops = _nearestStops(
       candidateStops,
       destination,
       maxWalkMeters,
-      limit: 30,
+      limit: _directStopCandidateLimit,
     );
 
     if (originStops.isEmpty || destinationStops.isEmpty) return const [];
@@ -134,7 +139,7 @@ class VerifiedRouteService {
         item.stop.stopId: item.distanceMeters,
     };
 
-    final matchesByRoute = <String, HistoricalRouteMatch>{};
+    final directMatchesByRoute = <String, HistoricalRouteMatch>{};
 
     for (final trip in index.trips.values) {
       final route = index.routes[trip.routeId];
@@ -168,79 +173,322 @@ class VerifiedRouteService {
 
       final walkToBoard = originDistanceByStop[boardStop.stopId] ?? 0;
       final walkFromAlight = destinationDistanceByStop[alightStop.stopId] ?? 0;
-      final stopCount = (alightTime.sequence - boardTime.sequence).abs();
-
-      final reference = VerifiedRouteReference(
-        routeName: route.displayName,
-        routeDescription: route.description,
-        mode: route.mode,
-        sourceLabel: 'Historical GTFS reference, confirm before riding',
-        sourceType: VerifiedRouteSourceType.historicalGtfs,
-        sourceDetail:
-            'Sakay.ph/LTFRB GTFS match. Agency: ${route.agencyId}. Route ID: ${route.routeId}. Use as a route clue only, not current operating proof.',
-        lastVerifiedAt: DateTime(2020, 6, 30),
-      );
-
-      final rideDistance = _distanceMeters(
-        boardStop.latitude,
-        boardStop.longitude,
-        alightStop.latitude,
-        alightStop.longitude,
-      );
-
-      final leg = HistoricalRouteLeg(
-        route: reference,
-        mode: route.mode,
-        signboard: route.displayName,
-        via: _extractVia(route.displayName, route.description),
-        boardStopName: boardStop.name,
-        boardStopLat: boardStop.latitude,
-        boardStopLon: boardStop.longitude,
-        alightStopName: alightStop.name,
-        alightStopLat: alightStop.latitude,
-        alightStopLon: alightStop.longitude,
+      final leg = _buildHistoricalRouteLeg(
+        route: route,
+        boardStop: boardStop,
+        alightStop: alightStop,
+        boardSequence: boardTime.sequence,
+        alightSequence: alightTime.sequence,
         walkToBoardMeters: walkToBoard,
-        rideDistanceMeters: rideDistance,
-        stopCount: stopCount,
       );
-
-      final match = HistoricalRouteMatch(
-        route: reference,
-        signboard: leg.signboard,
-        via: leg.via,
-        boardStopName: leg.boardStopName,
-        boardStopLat: leg.boardStopLat,
-        boardStopLon: leg.boardStopLon,
-        alightStopName: leg.alightStopName,
-        alightStopLat: leg.alightStopLat,
-        alightStopLon: leg.alightStopLon,
-        walkToBoardMeters: walkToBoard,
-        rideDistanceMeters: rideDistance,
-        walkFromAlightMeters: walkFromAlight,
-        stopCount: stopCount,
+      final match = _buildHistoricalRouteMatch(
         legs: [leg],
+        walkFromFinalAlightMeters: walkFromAlight,
       );
 
-      final previous = matchesByRoute[route.routeId];
+      final previous = directMatchesByRoute[route.routeId];
       if (previous == null ||
-          (match.walkToBoardMeters + match.walkFromAlightMeters) <
-              (previous.walkToBoardMeters + previous.walkFromAlightMeters)) {
-        matchesByRoute[route.routeId] = match;
+          _matchSortScore(match) < _matchSortScore(previous)) {
+        directMatchesByRoute[route.routeId] = match;
       }
     }
 
-    final matches = matchesByRoute.values.toList()
-      ..sort(
-        (a, b) {
-          final aWalk = a.walkToBoardMeters + a.walkFromAlightMeters;
-          final bWalk = b.walkToBoardMeters + b.walkFromAlightMeters;
-          final byWalk = aWalk.compareTo(bWalk);
-          if (byWalk != 0) return byWalk;
-          return a.stopCount.compareTo(b.stopCount);
-        },
-      );
+    final transferMatches = _findOneTransferMatches(
+      index: index,
+      mode: mode,
+      candidateStops: candidateStops,
+      origin: origin,
+      destination: destination,
+      maxWalkMeters: maxWalkMeters,
+    );
+
+    final matches = [
+      ...directMatchesByRoute.values,
+      ...transferMatches,
+    ]..sort(_compareHistoricalMatches);
 
     return matches.take(limit).toList(growable: false);
+  }
+
+  static List<HistoricalRouteMatch> _findOneTransferMatches({
+    required _GtfsIndex index,
+    required TravelMode mode,
+    required Iterable<_GtfsStop> candidateStops,
+    required LatLng origin,
+    required LatLng destination,
+    required double maxWalkMeters,
+  }) {
+    final originStops = _nearestStops(
+      candidateStops,
+      origin,
+      maxWalkMeters,
+      limit: _transferStopCandidateLimit,
+    );
+    final destinationStops = _nearestStops(
+      candidateStops,
+      destination,
+      maxWalkMeters,
+      limit: _transferStopCandidateLimit,
+    );
+
+    if (originStops.isEmpty || destinationStops.isEmpty) return const [];
+
+    final originStopIds = originStops.map((item) => item.stop.stopId).toSet();
+    final destinationStopIds =
+        destinationStops.map((item) => item.stop.stopId).toSet();
+    final originDistanceByStop = {
+      for (final item in originStops) item.stop.stopId: item.distanceMeters,
+    };
+    final destinationDistanceByStop = {
+      for (final item in destinationStops)
+        item.stop.stopId: item.distanceMeters,
+    };
+
+    final firstLegs = <_GtfsSegmentCandidate>[];
+    final secondLegs = <_GtfsSegmentCandidate>[];
+
+    for (final trip in index.trips.values) {
+      final route = index.routes[trip.routeId];
+      if (route == null || !_modeMatches(mode, route.mode)) continue;
+
+      final stopTimes = index.stopTimesByTripId[trip.tripId] ?? const [];
+      if (stopTimes.length < 2) continue;
+
+      _GtfsStopTime? firstBoardTime;
+      for (final stopTime in stopTimes) {
+        if (firstBoardTime == null && originStopIds.contains(stopTime.stopId)) {
+          firstBoardTime = stopTime;
+          continue;
+        }
+
+        if (firstBoardTime != null &&
+            stopTime.sequence > firstBoardTime.sequence) {
+          final boardStop = index.stops[firstBoardTime.stopId];
+          final alightStop = index.stops[stopTime.stopId];
+          if (boardStop == null || alightStop == null) continue;
+          if (mode == TravelMode.train && !_isRailStop(alightStop)) continue;
+          _addCappedSegmentCandidate(
+            firstLegs,
+            _GtfsSegmentCandidate(
+              route: route,
+              boardStop: boardStop,
+              alightStop: alightStop,
+              boardSequence: firstBoardTime.sequence,
+              alightSequence: stopTime.sequence,
+              walkToBoardMeters:
+                  originDistanceByStop[firstBoardTime.stopId] ?? 0,
+            ),
+          );
+        }
+      }
+
+      for (final boardTime in stopTimes) {
+        if (!destinationStopIds.contains(boardTime.stopId)) {
+          _GtfsStopTime? alightTime;
+          for (final stopTime in stopTimes) {
+            if (stopTime.sequence > boardTime.sequence &&
+                destinationStopIds.contains(stopTime.stopId)) {
+              alightTime = stopTime;
+              break;
+            }
+          }
+          if (alightTime == null) continue;
+
+          final boardStop = index.stops[boardTime.stopId];
+          final alightStop = index.stops[alightTime.stopId];
+          if (boardStop == null || alightStop == null) continue;
+          if (mode == TravelMode.train && !_isRailStop(boardStop)) continue;
+          _addCappedSegmentCandidate(
+            secondLegs,
+            _GtfsSegmentCandidate(
+              route: route,
+              boardStop: boardStop,
+              alightStop: alightStop,
+              boardSequence: boardTime.sequence,
+              alightSequence: alightTime.sequence,
+              walkToBoardMeters: 0,
+              walkFromAlightMeters:
+                  destinationDistanceByStop[alightTime.stopId] ?? 0,
+            ),
+          );
+        }
+      }
+    }
+
+    firstLegs.sort((a, b) => a.score.compareTo(b.score));
+    secondLegs.sort((a, b) => a.score.compareTo(b.score));
+
+    final cappedFirstLegs = firstLegs.take(_segmentCandidateLimit);
+    final cappedSecondLegs = secondLegs.take(_segmentCandidateLimit).toList();
+    final matchesByTransfer = <String, HistoricalRouteMatch>{};
+
+    for (final first in cappedFirstLegs) {
+      for (final second in cappedSecondLegs) {
+        if (first.route.routeId == second.route.routeId) continue;
+
+        final transferWalk = _distanceMeters(
+          first.alightStop.latitude,
+          first.alightStop.longitude,
+          second.boardStop.latitude,
+          second.boardStop.longitude,
+        );
+        if (transferWalk > _maxTransferWalkMeters) continue;
+
+        final firstLeg = _buildHistoricalRouteLeg(
+          route: first.route,
+          boardStop: first.boardStop,
+          alightStop: first.alightStop,
+          boardSequence: first.boardSequence,
+          alightSequence: first.alightSequence,
+          walkToBoardMeters: first.walkToBoardMeters,
+        );
+        final secondLeg = _buildHistoricalRouteLeg(
+          route: second.route,
+          boardStop: second.boardStop,
+          alightStop: second.alightStop,
+          boardSequence: second.boardSequence,
+          alightSequence: second.alightSequence,
+          walkToBoardMeters: transferWalk,
+        );
+        final match = _buildHistoricalRouteMatch(
+          legs: [firstLeg, secondLeg],
+          walkFromFinalAlightMeters: second.walkFromAlightMeters,
+        );
+        final key = [
+          first.route.routeId,
+          first.boardStop.stopId,
+          first.alightStop.stopId,
+          second.route.routeId,
+          second.boardStop.stopId,
+          second.alightStop.stopId,
+        ].join('|');
+        final previous = matchesByTransfer[key];
+        if (previous == null ||
+            _matchSortScore(match) < _matchSortScore(previous)) {
+          matchesByTransfer[key] = match;
+        }
+      }
+    }
+
+    final matches = matchesByTransfer.values.toList()
+      ..sort(_compareHistoricalMatches);
+    return matches.take(_segmentCandidateLimit).toList(growable: false);
+  }
+
+  static void _addCappedSegmentCandidate(
+    List<_GtfsSegmentCandidate> candidates,
+    _GtfsSegmentCandidate candidate,
+  ) {
+    candidates.add(candidate);
+    if (candidates.length <= _rawSegmentCandidateLimit) return;
+
+    candidates.sort((a, b) => a.score.compareTo(b.score));
+    candidates.removeRange(_rawSegmentCandidateLimit, candidates.length);
+  }
+
+  static HistoricalRouteLeg _buildHistoricalRouteLeg({
+    required _GtfsRoute route,
+    required _GtfsStop boardStop,
+    required _GtfsStop alightStop,
+    required int boardSequence,
+    required int alightSequence,
+    required double walkToBoardMeters,
+  }) {
+    final reference = _buildHistoricalRouteReference(route);
+    final rideDistance = _distanceMeters(
+      boardStop.latitude,
+      boardStop.longitude,
+      alightStop.latitude,
+      alightStop.longitude,
+    );
+
+    return HistoricalRouteLeg(
+      route: reference,
+      mode: route.mode,
+      signboard: route.displayName,
+      via: _extractVia(route.displayName, route.description),
+      boardStopName: boardStop.name,
+      boardStopLat: boardStop.latitude,
+      boardStopLon: boardStop.longitude,
+      alightStopName: alightStop.name,
+      alightStopLat: alightStop.latitude,
+      alightStopLon: alightStop.longitude,
+      walkToBoardMeters: walkToBoardMeters,
+      rideDistanceMeters: rideDistance,
+      stopCount: (alightSequence - boardSequence).abs(),
+    );
+  }
+
+  static HistoricalRouteMatch _buildHistoricalRouteMatch({
+    required List<HistoricalRouteLeg> legs,
+    required double walkFromFinalAlightMeters,
+  }) {
+    final firstLeg = legs.first;
+    final lastLeg = legs.last;
+    final totalRideDistance = legs.fold<double>(
+      0,
+      (total, leg) => total + leg.rideDistanceMeters,
+    );
+    final totalStopCount = legs.fold<int>(
+      0,
+      (total, leg) => total + leg.stopCount,
+    );
+
+    return HistoricalRouteMatch(
+      route: firstLeg.route,
+      signboard: firstLeg.signboard,
+      via: firstLeg.via,
+      boardStopName: firstLeg.boardStopName,
+      boardStopLat: firstLeg.boardStopLat,
+      boardStopLon: firstLeg.boardStopLon,
+      alightStopName: lastLeg.alightStopName,
+      alightStopLat: lastLeg.alightStopLat,
+      alightStopLon: lastLeg.alightStopLon,
+      walkToBoardMeters: firstLeg.walkToBoardMeters,
+      rideDistanceMeters: totalRideDistance,
+      walkFromAlightMeters: walkFromFinalAlightMeters,
+      stopCount: totalStopCount,
+      legs: legs,
+    );
+  }
+
+  static VerifiedRouteReference _buildHistoricalRouteReference(
+    _GtfsRoute route,
+  ) {
+    return VerifiedRouteReference(
+      routeName: route.displayName,
+      routeDescription: route.description,
+      mode: route.mode,
+      sourceLabel: 'Historical GTFS reference, confirm before riding',
+      sourceType: VerifiedRouteSourceType.historicalGtfs,
+      sourceDetail:
+          'Sakay.ph/LTFRB GTFS match. Agency: ${route.agencyId}. Route ID: ${route.routeId}. Use as a route clue only, not current operating proof.',
+      lastVerifiedAt: DateTime(2020, 6, 30),
+    );
+  }
+
+  static int _compareHistoricalMatches(
+    HistoricalRouteMatch a,
+    HistoricalRouteMatch b,
+  ) {
+    final byScore = _matchSortScore(a).compareTo(_matchSortScore(b));
+    if (byScore != 0) return byScore;
+    return a.transferCount.compareTo(b.transferCount);
+  }
+
+  static double _matchSortScore(HistoricalRouteMatch match) {
+    final legWalkMeters = match.legs.fold<double>(
+      0,
+      (total, leg) => total + leg.walkToBoardMeters,
+    );
+    final totalWalkMeters = match.legs.isEmpty
+        ? match.walkToBoardMeters + match.walkFromAlightMeters
+        : legWalkMeters + match.walkFromAlightMeters;
+
+    return (match.transferCount * 800) +
+        (totalWalkMeters * 1.4) +
+        (match.totalStopCount * 45) +
+        (match.totalRideDistanceMeters * 0.08);
   }
 
   static Future<_GtfsIndex> _loadGtfsIndex() async {
@@ -610,4 +858,30 @@ class _NearestStop {
     required this.stop,
     required this.distanceMeters,
   });
+}
+
+class _GtfsSegmentCandidate {
+  final _GtfsRoute route;
+  final _GtfsStop boardStop;
+  final _GtfsStop alightStop;
+  final int boardSequence;
+  final int alightSequence;
+  final double walkToBoardMeters;
+  final double walkFromAlightMeters;
+
+  const _GtfsSegmentCandidate({
+    required this.route,
+    required this.boardStop,
+    required this.alightStop,
+    required this.boardSequence,
+    required this.alightSequence,
+    required this.walkToBoardMeters,
+    this.walkFromAlightMeters = 0,
+  });
+
+  double get score {
+    return walkToBoardMeters +
+        walkFromAlightMeters +
+        ((alightSequence - boardSequence).abs() * 40);
+  }
 }

@@ -76,6 +76,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
       origin: widget.origin,
       destination: widget.destination,
       limit: 5,
+      maxWalkMeters: _gtfsMatchRadiusForMode(widget.mode),
     );
 
     if (!mounted) return;
@@ -106,42 +107,87 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
     if (_historicalRouteMatches.isNotEmpty) {
       final match = _historicalRouteMatches.first;
-      final boardPoint = LatLng(match.boardStopLat, match.boardStopLon);
-      final alightPoint = LatLng(match.alightStopLat, match.alightStopLon);
+      final firstLeg = match.legs.isNotEmpty ? match.legs.first : null;
+      final lastLeg = match.legs.isNotEmpty ? match.legs.last : null;
+      final boardPoint = LatLng(
+        firstLeg?.boardStopLat ?? match.boardStopLat,
+        firstLeg?.boardStopLon ?? match.boardStopLon,
+      );
+      final alightPoint = LatLng(
+        lastLeg?.alightStopLat ?? match.alightStopLat,
+        lastLeg?.alightStopLon ?? match.alightStopLon,
+      );
 
       _markers.addAll({
         Marker(
-          markerId: const MarkerId('board_stop'),
+          markerId: const MarkerId('first_board_stop'),
           position: boardPoint,
           icon:
               BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
           infoWindow: InfoWindow(
             title: 'Board here',
-            snippet: match.boardStopName,
+            snippet: firstLeg?.boardStopName ?? match.boardStopName,
           ),
         ),
         Marker(
-          markerId: const MarkerId('alight_stop'),
+          markerId: const MarkerId('final_alight_stop'),
           position: alightPoint,
           icon:
               BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
           infoWindow: InfoWindow(
             title: 'Get off here',
-            snippet: match.alightStopName,
+            snippet: lastLeg?.alightStopName ?? match.alightStopName,
           ),
         ),
       });
+
+      final guidePoints = <LatLng>[widget.origin, boardPoint];
+      if (match.hasTransfer && match.legs.length >= 2) {
+        final transferAlight = LatLng(
+          match.legs.first.alightStopLat,
+          match.legs.first.alightStopLon,
+        );
+        final transferBoard = LatLng(
+          match.legs[1].boardStopLat,
+          match.legs[1].boardStopLon,
+        );
+        _markers.add(
+          Marker(
+            markerId: const MarkerId('transfer_alight_stop'),
+            position: transferAlight,
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueOrange,
+            ),
+            infoWindow: InfoWindow(
+              title: 'Transfer get-off',
+              snippet: match.legs.first.alightStopName,
+            ),
+          ),
+        );
+        if (!_samePoint(transferAlight, transferBoard)) {
+          _markers.add(
+            Marker(
+              markerId: const MarkerId('transfer_board_stop'),
+              position: transferBoard,
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueAzure,
+              ),
+              infoWindow: InfoWindow(
+                title: 'Connecting board',
+                snippet: match.legs[1].boardStopName,
+              ),
+            ),
+          );
+        }
+        guidePoints.addAll([transferAlight, transferBoard]);
+      }
+      guidePoints.addAll([alightPoint, widget.destination]);
 
       if (_routePoints.isEmpty) {
         _polylines = {
           Polyline(
             polylineId: const PolylineId('historical_gtfs_guide'),
-            points: [
-              widget.origin,
-              boardPoint,
-              alightPoint,
-              widget.destination,
-            ],
+            points: guidePoints,
             color: _getModeColor(),
             width: 5,
             patterns: [PatternItem.dash(18), PatternItem.gap(10)],
@@ -164,6 +210,13 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   }
 
   Future<void> _reloadRoute() async {
+    final isRoadPublicMode = widget.mode == TravelMode.jeepney ||
+        widget.mode == TravelMode.bus ||
+        widget.mode == TravelMode.fx;
+    if (isRoadPublicMode && _historicalRouteMatches.isNotEmpty) {
+      return;
+    }
+
     final profile = _modeProfile(widget.mode);
     final directions = await GoogleMapsService.getDirections(
       startLat: widget.origin.latitude,
@@ -1026,6 +1079,67 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   }
 
   Widget _buildHistoricalInstructionSteps(HistoricalRouteMatch match) {
+    if (match.hasTransfer && match.legs.length >= 2) {
+      final firstLeg = match.legs.first;
+      final secondLeg = match.legs[1];
+      final transferAlight = LatLng(
+        firstLeg.alightStopLat,
+        firstLeg.alightStopLon,
+      );
+      final transferBoard = LatLng(
+        secondLeg.boardStopLat,
+        secondLeg.boardStopLon,
+      );
+      final hasTransferWalk = !_samePoint(transferAlight, transferBoard);
+      final steps = <_HistoricalInstructionStep>[
+        _HistoricalInstructionStep(
+          icon: Icons.directions_walk_rounded,
+          title: 'Walk to first boarding point',
+          body:
+              'Follow the map to the blue first boarding marker at ${firstLeg.boardStopName}. Estimated walk: ${_formatMeters(firstLeg.walkToBoardMeters)}.',
+        ),
+        _HistoricalInstructionStep(
+          icon: Icons.directions_bus_filled_rounded,
+          title: 'Board first vehicle',
+          body:
+              'Look for the signboard / route name: ${firstLeg.signboard}. ${firstLeg.via.trim().isNotEmpty ? 'Use the via clue: ${firstLeg.viaLabel}.' : 'No via point is listed in the GTFS route name.'}',
+        ),
+        _HistoricalInstructionStep(
+          icon: Icons.transfer_within_a_station_rounded,
+          title: 'Get off at transfer point',
+          body:
+              'Alight at ${firstLeg.alightStopName}. This is the transfer get-off point after about ${firstLeg.stopCount} stop${firstLeg.stopCount == 1 ? '' : 's'}.',
+        ),
+        _HistoricalInstructionStep(
+          icon: Icons.directions_walk_rounded,
+          title: 'Walk to connecting boarding point',
+          body: hasTransferWalk
+              ? 'Walk to ${secondLeg.boardStopName}. Estimated transfer walk: ${_formatMeters(secondLeg.walkToBoardMeters)}.'
+              : 'The connecting boarding point is the same matched stop.',
+        ),
+        _HistoricalInstructionStep(
+          icon: Icons.directions_bus_filled_rounded,
+          title: 'Board connecting vehicle',
+          body:
+              'Look for the signboard / route name: ${secondLeg.signboard}. ${secondLeg.via.trim().isNotEmpty ? 'Use the via clue: ${secondLeg.viaLabel}.' : 'No via point is listed in the GTFS route name.'}',
+        ),
+        _HistoricalInstructionStep(
+          icon: Icons.flag_rounded,
+          title: 'Get off near destination',
+          body:
+              'Alight at ${secondLeg.alightStopName} after about ${secondLeg.stopCount} stop${secondLeg.stopCount == 1 ? '' : 's'}.',
+        ),
+        _HistoricalInstructionStep(
+          icon: Icons.directions_walk_rounded,
+          title: 'Walk to destination',
+          body:
+              'Follow the map from the final drop-off marker to the red destination marker. Estimated walk: ${_formatMeters(match.walkFromAlightMeters)}.',
+        ),
+      ];
+
+      return _buildHistoricalStepList(steps);
+    }
+
     final steps = <_HistoricalInstructionStep>[
       _HistoricalInstructionStep(
         icon: Icons.directions_walk_rounded,
@@ -1059,6 +1173,10 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
       ),
     ];
 
+    return _buildHistoricalStepList(steps);
+  }
+
+  Widget _buildHistoricalStepList(List<_HistoricalInstructionStep> steps) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
       child: Container(
@@ -1204,6 +1322,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
   Widget _buildHistoricalRouteMatchCard(HistoricalRouteMatch match) {
     final alternativeCount = (_historicalRouteMatches.length - 1).clamp(0, 99);
+    final firstLeg = match.legs.isNotEmpty ? match.legs.first : null;
+    final secondLeg =
+        match.hasTransfer && match.legs.length >= 2 ? match.legs[1] : null;
 
     return Container(
       width: double.infinity,
@@ -1224,22 +1345,47 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
         children: [
           _buildHistoricalDetailRow(
             icon: Icons.directions_bus_filled_rounded,
-            label: 'Signboard / Route Name',
-            value: match.signboard,
+            label: secondLeg == null
+                ? 'Signboard / Route Name'
+                : 'First signboard / route name',
+            value: firstLeg?.signboard ?? match.signboard,
           ),
           const SizedBox(height: 8),
           _buildHistoricalDetailRow(
             icon: Icons.alt_route_rounded,
-            label: 'Via',
-            value: match.viaLabel,
+            label: secondLeg == null ? 'Via' : 'First via',
+            value: firstLeg?.viaLabel ?? match.viaLabel,
           ),
+          if (secondLeg != null) ...[
+            const SizedBox(height: 8),
+            _buildHistoricalDetailRow(
+              icon: Icons.directions_bus_filled_rounded,
+              label: 'Connecting signboard / route name',
+              value: secondLeg.signboard,
+            ),
+            const SizedBox(height: 8),
+            _buildHistoricalDetailRow(
+              icon: Icons.alt_route_rounded,
+              label: 'Connecting via',
+              value: secondLeg.viaLabel,
+            ),
+          ],
           const SizedBox(height: 8),
           _buildHistoricalDetailRow(
             icon: Icons.place_rounded,
             label: 'Board at',
             value:
-                '${match.boardStopName} (${_formatMeters(match.walkToBoardMeters)} walk)',
+                '${firstLeg?.boardStopName ?? match.boardStopName} (${_formatMeters(firstLeg?.walkToBoardMeters ?? match.walkToBoardMeters)} walk)',
           ),
+          if (secondLeg != null) ...[
+            const SizedBox(height: 8),
+            _buildHistoricalDetailRow(
+              icon: Icons.transfer_within_a_station_rounded,
+              label: 'Transfer',
+              value:
+                  '${match.legs.first.alightStopName} to ${secondLeg.boardStopName} (${_formatMeters(secondLeg.walkToBoardMeters)} walk)',
+            ),
+          ],
           const SizedBox(height: 8),
           _buildHistoricalDetailRow(
             icon: Icons.flag_rounded,
@@ -1252,7 +1398,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
             icon: Icons.format_list_numbered_rounded,
             label: 'Stops',
             value:
-                '${match.stopCount} stop${match.stopCount == 1 ? '' : 's'} between boarding and alighting',
+                '${match.totalStopCount} stop${match.totalStopCount == 1 ? '' : 's'} between boarding and final alighting',
           ),
           if (alternativeCount > 0) ...[
             const SizedBox(height: 8),
@@ -1319,6 +1465,26 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   String _formatMeters(double meters) {
     if (meters < 1000) return '${meters.round()}m';
     return '${(meters / 1000).toStringAsFixed(1)}km';
+  }
+
+  bool _samePoint(LatLng a, LatLng b) {
+    return (a.latitude - b.latitude).abs() < 0.00001 &&
+        (a.longitude - b.longitude).abs() < 0.00001;
+  }
+
+  double _gtfsMatchRadiusForMode(TravelMode mode) {
+    switch (mode) {
+      case TravelMode.jeepney:
+        return 1400;
+      case TravelMode.bus:
+        return 1800;
+      case TravelMode.fx:
+        return 1800;
+      case TravelMode.train:
+        return 1600;
+      case TravelMode.walking:
+        return 0;
+    }
   }
 
   LatLng? _extractStepLocation(Map<String, dynamic> step) {
