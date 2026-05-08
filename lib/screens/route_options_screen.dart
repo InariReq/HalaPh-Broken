@@ -168,41 +168,64 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           profile: modeData.profile,
         );
 
-        final steps =
+        final rawSteps =
             (directions?['steps'] as List?)?.cast<Map<String, dynamic>>() ??
                 <Map<String, dynamic>>[];
-        final polyline = directions?['polyline'] as String? ?? '';
-        final hasRouteShape = steps.isNotEmpty || polyline.trim().isNotEmpty;
-        final hasLiveTransitStep = _hasLiveTransitStep(steps);
+        final rawPolyline = directions?['polyline'] as String? ?? '';
+
+        final rawHasLiveRailTransitStep = _hasLiveRailTransitStep(rawSteps);
         final isRoadPublicMode = modeData.mode == TravelMode.jeepney ||
             modeData.mode == TravelMode.bus ||
             modeData.mode == TravelMode.fx;
         final isRailMode = modeData.mode == TravelMode.train;
 
-        if (!hasRouteShape) {
+        final steps = isRoadPublicMode
+            ? <Map<String, dynamic>>[]
+            : isRailMode && !rawHasLiveRailTransitStep
+                ? <Map<String, dynamic>>[]
+                : rawSteps;
+        final polyline = isRoadPublicMode
+            ? ''
+            : isRailMode && !rawHasLiveRailTransitStep
+                ? ''
+                : rawPolyline;
+
+        final hasRouteShape = steps.isNotEmpty || polyline.trim().isNotEmpty;
+        final hasLiveTransitStep = _hasLiveTransitStep(steps);
+        final hasLiveRailTransitStep = _hasLiveRailTransitStep(steps);
+        final hasHistoricalMatch = historicalMatch != null;
+
+        if (!hasRouteShape && !hasHistoricalMatch) {
           debugPrint(
-            'RouteOptions: skipped ${modeData.name}, no usable route shape.',
+            'RouteOptions: skipped ${modeData.name}, no live public transport steps or verified GTFS match.',
           );
           continue;
         }
 
-        if (isRailMode && !hasLiveTransitStep) {
+        if (isRoadPublicMode && !hasHistoricalMatch) {
           debugPrint(
-            'RouteOptions: skipped ${modeData.name}, no live train transit step.',
+            'RouteOptions: skipped ${modeData.name}, no verified public transport route match.',
+          );
+          continue;
+        }
+
+        if (isRailMode && !hasLiveRailTransitStep && !hasHistoricalMatch) {
+          debugPrint(
+            'RouteOptions: skipped ${modeData.name}, no live rail or historical rail route match.',
           );
           continue;
         }
 
         final confidenceLabel = hasLiveTransitStep
             ? 'Verified live transit route'
-            : isRoadPublicMode
-                ? 'General route guide'
+            : hasHistoricalMatch
+                ? 'Historical route match'
                 : 'Live map route';
 
         final confidenceDetail = hasLiveTransitStep
-            ? 'Google returned transit step data with route or stop details.'
-            : isRoadPublicMode
-                ? 'Estimated road guide only. Confirm the signboard, terminal, and drop-off before boarding.'
+            ? 'Google returned public transport step data with route or stop details.'
+            : hasHistoricalMatch
+                ? 'Matched against historical GTFS route data. Driving directions are hidden because they are not public transport instructions.'
                 : 'Google returned route geometry, but no public transport vehicle details.';
 
         _directionSteps[modeData.mode.toString()] = steps;
@@ -221,10 +244,19 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           confidenceLabel: confidenceLabel,
           confidenceDetail: confidenceDetail,
           isVerifiedTransit: hasLiveTransitStep,
+          routeScore: _routeScore(
+            mode: modeData.mode,
+            fare: fare,
+            duration: duration,
+            distanceKm: distance,
+            historicalMatch: historicalMatch,
+            hasLiveTransitStep: hasLiveTransitStep,
+            hasLiveRailTransitStep: hasLiveRailTransitStep,
+          ),
         ));
       }
 
-      _fares.sort((a, b) => a.fare.compareTo(b.fare));
+      _fares.sort((a, b) => a.routeScore.compareTo(b.routeScore));
 
       setState(() {
         _isLoading = false;
@@ -290,7 +322,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'No verified public transportation route found for the listed vehicle types. Try another origin, a nearer destination, or check local terminals.',
+            'No verified public transportation route found for the listed vehicle types. HalaPH will not invent jeepney, bus, FX/UV, or train routes when no supported route match exists.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -348,7 +380,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                 child: Text(
                   'Distance: ${_formatDistance(_fares.first.distance)} • '
                   'Fare type: ${CommuterTypeService.labelFor(_passengerType)} • '
-                  'Cheapest: ₱${_fares.first.fare.toStringAsFixed(0)}',
+                  'Best option: ₱${_fares.first.fare.toStringAsFixed(0)}',
                   style: TextStyle(
                     color: Theme.of(context).brightness == Brightness.dark
                         ? const Color(0xFFBFDBFE)
@@ -366,8 +398,8 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             itemCount: _fares.length,
             itemBuilder: (context, index) {
               final fare = _fares[index];
-              final isCheapest = index == 0;
-              return _buildFareCard(fare, isCheapest, index);
+              final isBestOption = index == 0;
+              return _buildFareCard(fare, isBestOption, index);
             },
           ),
         ),
@@ -499,7 +531,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     );
   }
 
-  Widget _buildFareCard(_TransportFare fare, bool isCheapest, int index) {
+  Widget _buildFareCard(_TransportFare fare, bool isBestOption, int index) {
     debugPrint('ROUTE OPTIONS CARD ANIMATION: ${fare.modeName} index=$index');
     final entranceDuration = Duration(
       milliseconds: 520 + (index * 140).clamp(0, 560),
@@ -544,7 +576,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       },
       child: _RouteOptionPressableCard(
         onTap: openRouteMap,
-        isCheapest: isCheapest,
+        isBestOption: isBestOption,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -564,12 +596,12 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                   height: 46,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isCheapest
+                    color: isBestOption
                         ? (Theme.of(context).brightness == Brightness.dark
                             ? const Color(0xFF16351F)
                             : Colors.green[100])
                         : Theme.of(context).colorScheme.surfaceContainerHighest,
-                    boxShadow: isCheapest
+                    boxShadow: isBestOption
                         ? [
                             BoxShadow(
                               color: Colors.green.withValues(alpha: 0.18),
@@ -581,7 +613,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                   ),
                   child: Icon(
                     fare.icon,
-                    color: isCheapest
+                    color: isBestOption
                         ? (Theme.of(context).brightness == Brightness.dark
                             ? Colors.green[300]
                             : Colors.green[700])
@@ -607,7 +639,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                             ),
                           ),
                         ),
-                        if (isCheapest) ...[
+                        if (isBestOption) ...[
                           const SizedBox(width: 8),
                           TweenAnimationBuilder<double>(
                             tween: Tween(begin: 0.30, end: 1),
@@ -635,7 +667,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                                 ),
                               ),
                               child: Text(
-                                'CHEAPEST',
+                                'BEST OPTION',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: Theme.of(context).brightness ==
@@ -763,7 +795,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: isCheapest
+                        color: isBestOption
                             ? (Theme.of(context).brightness == Brightness.dark
                                 ? Colors.green[300]
                                 : Colors.green[700])
@@ -812,12 +844,12 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
 class _RouteOptionPressableCard extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;
-  final bool isCheapest;
+  final bool isBestOption;
 
   const _RouteOptionPressableCard({
     required this.child,
     required this.onTap,
-    required this.isCheapest,
+    required this.isBestOption,
   });
 
   @override
@@ -849,7 +881,7 @@ class _RouteOptionPressableCardState extends State<_RouteOptionPressableCard> {
           color: Theme.of(context).colorScheme.surfaceContainer,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: widget.isCheapest
+            color: widget.isBestOption
                 ? Colors.green.withValues(alpha: 0.28)
                 : Theme.of(context)
                     .colorScheme
@@ -858,10 +890,10 @@ class _RouteOptionPressableCardState extends State<_RouteOptionPressableCard> {
           ),
           boxShadow: [
             BoxShadow(
-              color: widget.isCheapest
+              color: widget.isBestOption
                   ? Colors.green.withValues(alpha: 0.14)
                   : Colors.black.withValues(alpha: 0.06),
-              blurRadius: widget.isCheapest ? 26 : 18,
+              blurRadius: widget.isBestOption ? 26 : 18,
               offset: const Offset(0, 8),
             ),
           ],
@@ -881,6 +913,39 @@ class _RouteOptionPressableCardState extends State<_RouteOptionPressableCard> {
       ),
     );
   }
+}
+
+double _routeScore({
+  required TravelMode mode,
+  required double fare,
+  required Duration duration,
+  required double distanceKm,
+  required HistoricalRouteMatch? historicalMatch,
+  required bool hasLiveTransitStep,
+  required bool hasLiveRailTransitStep,
+}) {
+  var score = 0.0;
+
+  score += fare * 2.0;
+  score += duration.inMinutes * 0.8;
+  score += distanceKm * 1.5;
+
+  if (historicalMatch != null) {
+    score += (historicalMatch.walkToBoardMeters / 1000.0) * 12.0;
+    score += (historicalMatch.walkFromAlightMeters / 1000.0) * 12.0;
+    score += historicalMatch.rideDistanceKm * 1.2;
+    score += historicalMatch.stopCount * 0.8;
+    score -= 30.0;
+  } else {
+    score += 80.0;
+  }
+
+  if (hasLiveTransitStep) score -= 20.0;
+  if (mode == TravelMode.train && hasLiveRailTransitStep) score -= 25.0;
+
+  if (mode == TravelMode.walking) score += 100.0;
+
+  return score;
 }
 
 MultiSegmentFareEstimate _estimateFareForRoute(
@@ -957,6 +1022,7 @@ class _TransportFare {
   final String confidenceLabel;
   final String confidenceDetail;
   final bool isVerifiedTransit;
+  final double routeScore;
 
   _TransportFare({
     required this.mode,
@@ -972,6 +1038,7 @@ class _TransportFare {
     required this.confidenceLabel,
     required this.confidenceDetail,
     required this.isVerifiedTransit,
+    required this.routeScore,
   });
 }
 
@@ -980,6 +1047,35 @@ bool _hasLiveTransitStep(List<Map<String, dynamic>> steps) {
     final travelMode = (step['travel_mode'] ?? '').toString().toUpperCase();
     final transitDetails = step['transit_details'];
     if (travelMode == 'TRANSIT' && transitDetails is Map) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool _hasLiveRailTransitStep(List<Map<String, dynamic>> steps) {
+  for (final step in steps) {
+    final travelMode = (step['travel_mode'] ?? '').toString().toUpperCase();
+    final transitDetails = step['transit_details'];
+    if (travelMode != 'TRANSIT' || transitDetails is! Map) continue;
+
+    final line = transitDetails['line'];
+    if (line is! Map) continue;
+
+    final vehicle = line['vehicle'];
+    if (vehicle is! Map) continue;
+
+    final type = (vehicle['type'] ?? '').toString().toUpperCase();
+    final name = (vehicle['name'] ?? '').toString().toLowerCase();
+
+    if (type.contains('RAIL') ||
+        type == 'SUBWAY' ||
+        type == 'TRAIN' ||
+        type == 'TRAM' ||
+        name.contains('rail') ||
+        name.contains('train') ||
+        name.contains('lrt') ||
+        name.contains('mrt')) {
       return true;
     }
   }
