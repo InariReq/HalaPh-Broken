@@ -1617,33 +1617,12 @@ class SimplePlanService {
       }
 
       await collectPlanDocs(
-        'sharedPlans createdBy=$uid',
-        _plansCollection.where('createdBy', isEqualTo: uid),
-      );
-      await collectPlanDocs(
-        'sharedPlans ownerUid=$uid',
-        _plansCollection.where('ownerUid', isEqualTo: uid),
-      );
-      await collectPlanDocs(
-        'sharedPlans ownerId=$uid',
-        _plansCollection.where('ownerId', isEqualTo: uid),
-      );
-      await collectPlanDocs(
         'sharedPlans participantUids contains uid',
         _plansCollection.where('participantUids', arrayContains: uid),
       );
-      await collectPlanDocs(
-        'sharedPlans collaboratorUids contains uid',
-        _plansCollection.where('collaboratorUids', arrayContains: uid),
-      );
       if (code.isNotEmpty && code != uid) {
-        await collectPlanDocs(
-          'sharedPlans participantUids contains code',
-          _plansCollection.where('participantUids', arrayContains: code),
-        );
-        await collectPlanDocs(
-          'sharedPlans collaboratorUids contains code',
-          _plansCollection.where('collaboratorUids', arrayContains: code),
+        debugPrint(
+          'Account cleanup [sharedPlans participantUids contains code]: skipped unsupported query shape',
         );
       }
 
@@ -1654,7 +1633,9 @@ class SimplePlanService {
         final createdBy = (data['createdBy'] as String? ?? '').trim();
         final ownerUid = (data['ownerUid'] as String? ?? '').trim();
         final ownerId = (data['ownerId'] as String? ?? '').trim();
-        final isOwner = createdBy == uid || ownerUid == uid || ownerId == uid;
+        final isOwner = identifiers.contains(createdBy) ||
+            identifiers.contains(ownerUid) ||
+            identifiers.contains(ownerId);
 
         if (isOwner) {
           ownedDocs.add(doc);
