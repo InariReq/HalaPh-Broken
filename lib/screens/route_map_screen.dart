@@ -87,60 +87,83 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
     if (widget.historicalMatch != null) {
       final match = widget.historicalMatch!;
-      final firstLeg = match.legs.isNotEmpty ? match.legs.first : null;
-      final lastLeg = match.legs.isNotEmpty ? match.legs.last : null;
+      final legs = match.legs.isNotEmpty
+          ? match.legs
+          : <HistoricalRouteLeg>[
+              HistoricalRouteLeg(
+                route: match.route,
+                mode: match.route.mode,
+                signboard: match.signboard,
+                via: match.via,
+                boardStopName: match.boardStopName,
+                boardStopLat: match.boardStopLat,
+                boardStopLon: match.boardStopLon,
+                alightStopName: match.alightStopName,
+                alightStopLat: match.alightStopLat,
+                alightStopLon: match.alightStopLon,
+                walkToBoardMeters: match.walkToBoardMeters,
+                rideDistanceMeters: match.rideDistanceMeters,
+                stopCount: match.stopCount,
+              ),
+            ];
 
-      final boardPoint = LatLng(
-        firstLeg?.boardStopLat ?? match.boardStopLat,
-        firstLeg?.boardStopLon ?? match.boardStopLon,
-      );
-      final alightPoint = LatLng(
-        lastLeg?.alightStopLat ?? match.alightStopLat,
-        lastLeg?.alightStopLon ?? match.alightStopLon,
-      );
+      for (var i = 0; i < legs.length; i++) {
+        final leg = legs[i];
+        final isTrain = leg.mode == TravelMode.train;
+        final isFirst = i == 0;
+        final isLast = i == legs.length - 1;
 
-      _markers.addAll({
-        Marker(
-          markerId: const MarkerId('gtfs_board_stop'),
-          position: boardPoint,
-          icon:
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-          infoWindow: InfoWindow(
-            title: 'Board here',
-            snippet: firstLeg?.boardStopName ?? match.boardStopName,
-          ),
-        ),
-        Marker(
-          markerId: const MarkerId('gtfs_alight_stop'),
-          position: alightPoint,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueOrange,
-          ),
-          infoWindow: InfoWindow(
-            title: 'Get off here',
-            snippet: lastLeg?.alightStopName ?? match.alightStopName,
-          ),
-        ),
-      });
+        final boardTitle = isTrain
+            ? (isFirst ? 'Board at station' : 'Board connecting train')
+            : (isFirst ? 'Board here' : 'Board connecting ride');
 
-      if (match.hasTransfer && match.legs.length >= 2) {
-        _markers.add(
+        final alightTitle = isTrain
+            ? (isLast ? 'Get off at station' : 'Transfer at station')
+            : (isLast ? 'Get off here' : 'Transfer get off');
+
+        _markers.addAll({
           Marker(
-            markerId: const MarkerId('gtfs_transfer_stop'),
-            position: LatLng(
-              match.legs.first.alightStopLat,
-              match.legs.first.alightStopLon,
-            ),
+            markerId: MarkerId('gtfs_board_stop_$i'),
+            position: LatLng(leg.boardStopLat, leg.boardStopLon),
             icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueYellow,
+              isTrain ? BitmapDescriptor.hueViolet : BitmapDescriptor.hueAzure,
             ),
             infoWindow: InfoWindow(
-              title: 'Transfer here',
-              snippet:
-                  '${match.legs.first.alightStopName} → ${match.legs[1].boardStopName}',
+              title: boardTitle,
+              snippet: leg.boardStopName,
             ),
           ),
-        );
+          Marker(
+            markerId: MarkerId('gtfs_alight_stop_$i'),
+            position: LatLng(leg.alightStopLat, leg.alightStopLon),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              isLast ? BitmapDescriptor.hueOrange : BitmapDescriptor.hueYellow,
+            ),
+            infoWindow: InfoWindow(
+              title: alightTitle,
+              snippet: leg.alightStopName,
+            ),
+          ),
+        });
+
+        if (!isLast) {
+          final nextLeg = legs[i + 1];
+          _markers.add(
+            Marker(
+              markerId: MarkerId('gtfs_transfer_walk_$i'),
+              position: LatLng(nextLeg.boardStopLat, nextLeg.boardStopLon),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueCyan,
+              ),
+              infoWindow: InfoWindow(
+                title: nextLeg.mode == TravelMode.train
+                    ? 'Next rail station'
+                    : 'Next boarding point',
+                snippet: nextLeg.boardStopName,
+              ),
+            ),
+          );
+        }
       }
     }
 
