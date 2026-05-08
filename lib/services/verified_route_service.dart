@@ -105,8 +105,10 @@ class VerifiedRouteService {
     required LatLng destination,
     int limit = 6,
     double maxWalkMeters = 900,
+    double? destinationMaxWalkMeters,
   }) async {
     final index = await _loadGtfsIndex();
+    final destinationWalkLimit = destinationMaxWalkMeters ?? maxWalkMeters;
 
     final candidateStops = mode == TravelMode.train
         ? index.stops.values.where(_isRailStop)
@@ -121,7 +123,7 @@ class VerifiedRouteService {
     final destinationStops = _nearestStops(
       candidateStops,
       destination,
-      maxWalkMeters,
+      destinationWalkLimit,
       limit: _directStopCandidateLimit,
     );
 
@@ -200,6 +202,7 @@ class VerifiedRouteService {
       origin: origin,
       destination: destination,
       maxWalkMeters: maxWalkMeters,
+      destinationMaxWalkMeters: destinationWalkLimit,
     );
 
     final matches = [
@@ -217,6 +220,7 @@ class VerifiedRouteService {
     required LatLng origin,
     required LatLng destination,
     required double maxWalkMeters,
+    required double destinationMaxWalkMeters,
   }) {
     final originStops = _nearestStops(
       candidateStops,
@@ -227,7 +231,7 @@ class VerifiedRouteService {
     final destinationStops = _nearestStops(
       candidateStops,
       destination,
-      maxWalkMeters,
+      destinationMaxWalkMeters,
       limit: _transferStopCandidateLimit,
     );
 

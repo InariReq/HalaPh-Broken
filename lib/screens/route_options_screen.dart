@@ -130,14 +130,33 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       }
       _fares = [];
       for (final modeData in modes) {
-        final historicalMatches =
+        final exactWalkMeters = _gtfsMatchRadiusForMode(modeData.mode);
+        final nearbyDestinationWalkMeters =
+            _gtfsNearbyDestinationRadiusForMode(modeData.mode);
+
+        var historicalMatches =
             await VerifiedRouteService.findHistoricalRouteMatches(
           mode: modeData.mode,
           origin: origin,
           destination: destination,
           limit: 1,
-          maxWalkMeters: _gtfsMatchRadiusForMode(modeData.mode),
+          maxWalkMeters: exactWalkMeters,
+          destinationMaxWalkMeters: exactWalkMeters,
         );
+
+        if (historicalMatches.isEmpty &&
+            nearbyDestinationWalkMeters > exactWalkMeters) {
+          historicalMatches =
+              await VerifiedRouteService.findHistoricalRouteMatches(
+            mode: modeData.mode,
+            origin: origin,
+            destination: destination,
+            limit: 1,
+            maxWalkMeters: exactWalkMeters,
+            destinationMaxWalkMeters: nearbyDestinationWalkMeters,
+          );
+        }
+
         debugPrint(
           'RouteOptions: ${modeData.name} historical matches=${historicalMatches.length}',
         );
@@ -240,6 +259,8 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                     : 'Historical route match'
                 : 'Live map route';
 
+        final isNearbyDropOff =
+            historicalMatch != null && _isNearbyDropOff(historicalMatch);
         final confidenceDetail = hasLiveTransitStep
             ? 'Google returned public transport step data with route or stop details.'
             : hasHistoricalMatch
@@ -260,7 +281,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           polyline: polyline,
           fareBreakdown: fareBreakdown,
           confidenceLabel: confidenceLabel,
-          confidenceDetail: confidenceDetail,
+          confidenceDetail: isNearbyDropOff
+              ? '$confidenceDetail Nearby route: get off at the listed verified stop, then walk to the destination.'
+              : confidenceDetail,
           isVerifiedTransit: hasLiveTransitStep || hasHistoricalMatch,
           historicalMatch: historicalMatch,
           routeScore: _routeScore(
@@ -859,6 +882,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     final signboard = firstLeg?.signboard ?? match.signboard;
     final boardStop = firstLeg?.boardStopName ?? match.boardStopName;
     final alightStop = lastLeg?.alightStopName ?? match.alightStopName;
+    final isNearbyDropOff = _isNearbyDropOff(match);
 
     Widget row(IconData icon, String label, String value) {
       return Padding(
@@ -904,7 +928,17 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         children: [
           row(Icons.directions_bus_filled_rounded, 'Signboard', signboard),
           row(Icons.location_on_rounded, 'Board at', boardStop),
-          row(Icons.flag_rounded, 'Get off at', alightStop),
+          row(
+            Icons.flag_rounded,
+            isNearbyDropOff ? 'Get off near' : 'Get off at',
+            alightStop,
+          ),
+          if (isNearbyDropOff)
+            row(
+              Icons.directions_walk_rounded,
+              'Walk to destination',
+              'About ${_formatDistance(match.walkFromAlightMeters / 1000.0)}',
+            ),
           if (match.hasTransfer && match.legs.length >= 2)
             row(
               Icons.transfer_within_a_station_rounded,
@@ -1058,6 +1092,23 @@ double _routeScore({
   if (mode == TravelMode.walking) score += 100.0;
 
   return score;
+}
+
+double _gtfsNearbyDestinationRadiusForMode(TravelMode mode) {
+  switch (mode) {
+    case TravelMode.jeepney:
+    case TravelMode.bus:
+    case TravelMode.fx:
+      return 1200;
+    case TravelMode.train:
+      return 1500;
+    case TravelMode.walking:
+      return 0;
+  }
+}
+
+bool _isNearbyDropOff(HistoricalRouteMatch match) {
+  return match.walkFromAlightMeters > _gtfsMatchRadiusForMode(match.route.mode);
 }
 
 MultiSegmentFareEstimate _estimateFareForRoute(
