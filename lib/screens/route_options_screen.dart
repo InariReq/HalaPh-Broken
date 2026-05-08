@@ -163,23 +163,23 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         final historicalMatch =
             historicalMatches.isNotEmpty ? historicalMatches.first : null;
 
-        final commuteEstimate = _estimateFareForRoute(
+        var commuteEstimate = _estimateFareForRoute(
           modeData.mode,
           distance,
           historicalMatch,
           type: _passengerType,
         );
-        final regularCommuteEstimate = _estimateFareForRoute(
+        var regularCommuteEstimate = _estimateFareForRoute(
           modeData.mode,
           distance,
           historicalMatch,
           type: PassengerType.regular,
         );
 
-        final fare = commuteEstimate.totalFare;
-        final baseFare = regularCommuteEstimate.totalFare;
-        final fareBreakdown = commuteEstimate.displayLines;
-        final displayName = _displayNameForHistoricalMatch(
+        var fare = commuteEstimate.totalFare;
+        var baseFare = regularCommuteEstimate.totalFare;
+        var fareBreakdown = commuteEstimate.displayLines;
+        var displayName = _displayNameForHistoricalMatch(
           modeData,
           historicalMatch,
         );
@@ -233,6 +233,21 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         final hasLiveTransitStep = _hasLiveTransitStep(steps);
         final hasLiveRailTransitStep = _hasLiveRailTransitStep(steps);
         final hasHistoricalMatch = historicalMatch != null;
+
+        if (hasLiveTransitStep) {
+          commuteEstimate = _estimateFareForLiveSteps(
+            steps,
+            type: _passengerType,
+          );
+          regularCommuteEstimate = _estimateFareForLiveSteps(
+            steps,
+            type: PassengerType.regular,
+          );
+          fare = commuteEstimate.totalFare;
+          baseFare = regularCommuteEstimate.totalFare;
+          fareBreakdown = commuteEstimate.displayLines;
+          displayName = _displayNameForLiveSteps(modeData, steps);
+        }
 
         if (!hasRouteShape && !hasHistoricalMatch) {
           debugPrint(
@@ -1161,6 +1176,144 @@ TravelMode _effectiveRideModeForLeg(
   }
 
   return leg.mode;
+}
+
+TravelMode _travelModeForLiveStep(Map<String, dynamic> step) {
+  final travelMode = (step['travel_mode'] ?? '').toString().toUpperCase();
+
+  if (travelMode == 'WALKING') return TravelMode.walking;
+  if (travelMode != 'TRANSIT') return TravelMode.walking;
+
+  final transitDetails = step['transit_details'];
+  if (transitDetails is! Map) return TravelMode.walking;
+
+  final line = transitDetails['line'];
+  if (line is! Map) return TravelMode.walking;
+
+  final vehicle = line['vehicle'];
+  final vehicleType =
+      vehicle is Map ? (vehicle['type'] ?? '').toString().toUpperCase() : '';
+  final vehicleName =
+      vehicle is Map ? (vehicle['name'] ?? '').toString().toUpperCase() : '';
+
+  final lineText = [
+    line['name'],
+    line['short_name'],
+    line['agency'],
+    vehicleType,
+    vehicleName,
+  ].whereType<Object>().join(' ').toUpperCase();
+
+  if (lineText.contains('MRT') ||
+      lineText.contains('LRT') ||
+      lineText.contains('PNR') ||
+      lineText.contains('TRAIN') ||
+      lineText.contains('RAIL') ||
+      lineText.contains('SUBWAY') ||
+      lineText.contains('TRAM') ||
+      lineText.contains('METRO')) {
+    return TravelMode.train;
+  }
+
+  if (lineText.contains('FX') ||
+      lineText.contains('UV') ||
+      lineText.contains('VAN')) {
+    return TravelMode.fx;
+  }
+
+  if (lineText.contains('JEEP')) {
+    return TravelMode.jeepney;
+  }
+
+  return TravelMode.bus;
+}
+
+double _distanceKmForLiveStep(Map<String, dynamic> step) {
+  final distance = step['distance'];
+
+  if (distance is Map) {
+    final value = distance['value'];
+    if (value is num) return value.toDouble() / 1000.0;
+
+    final text = (distance['text'] ?? '').toString().toLowerCase();
+
+    final km = RegExp(r'([\d.]+)\s*km').firstMatch(text);
+    if (km != null) return double.tryParse(km.group(1) ?? '') ?? 0.0;
+
+    final meters = RegExp(r'([\d.]+)\s*m').firstMatch(text);
+    if (meters != null) {
+      return (double.tryParse(meters.group(1) ?? '') ?? 0.0) / 1000.0;
+    }
+  }
+
+  return 0.0;
+}
+
+String _displayNameForLiveSteps(
+  _ModeData modeData,
+  List<Map<String, dynamic>> steps,
+) {
+  final sequence = <TravelMode>[];
+
+  for (final step in steps) {
+    final mode = _travelModeForLiveStep(step);
+    if (mode == TravelMode.walking) continue;
+    if (sequence.isNotEmpty && sequence.last == mode) continue;
+    sequence.add(mode);
+  }
+
+  if (sequence.isEmpty) return modeData.name;
+  return sequence.map(_vehicleTitleForMode).join(' + ');
+}
+
+String _liveStepLabelForMode(TravelMode mode) {
+  switch (mode) {
+    case TravelMode.jeepney:
+      return 'Jeepney ride';
+    case TravelMode.bus:
+      return 'Bus ride';
+    case TravelMode.train:
+      return 'MRT/LRT ride';
+    case TravelMode.fx:
+      return 'FX ride';
+    case TravelMode.walking:
+      return 'Walk';
+  }
+}
+
+MultiSegmentFareEstimate _estimateFareForLiveSteps(
+  List<Map<String, dynamic>> steps, {
+  required PassengerType type,
+}) {
+  final segments = <FareSegment>[];
+
+  for (final step in steps) {
+    final mode = _travelModeForLiveStep(step);
+    final distanceKm = _distanceKmForLiveStep(step);
+
+    if (mode == TravelMode.walking) {
+      segments.add(
+        FareSegment(
+          label: 'Walk',
+          mode: TravelMode.walking,
+          distanceKm: distanceKm,
+          fare: 0,
+        ),
+      );
+      continue;
+    }
+
+    segments.add(
+      FareSegment(
+        label: _liveStepLabelForMode(mode),
+        mode: mode,
+        distanceKm: distanceKm,
+        fare: FareService.estimateFare(mode, distanceKm, type: type),
+      ),
+    );
+  }
+
+  return MultiSegmentFareEstimate(segments: segments);
 }
 
 String _displayNameForHistoricalMatch(
