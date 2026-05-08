@@ -43,6 +43,9 @@ flutter:
     - .env
     - assets/icons/
     - lib/Assets/gtfs-master/gtfs-master/routes.txt
+    - lib/Assets/gtfs-master/gtfs-master/stops.txt
+    - lib/Assets/gtfs-master/gtfs-master/trips.txt
+    - lib/Assets/gtfs-master/gtfs-master/stop_times.txt
 
 flutter_icons:
   android: true

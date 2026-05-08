@@ -95,6 +95,22 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   }
 
   Future<void> _reloadRoute() async {
+    final isRoadPublicMode = widget.mode == TravelMode.jeepney ||
+        widget.mode == TravelMode.bus ||
+        widget.mode == TravelMode.fx;
+
+    if (isRoadPublicMode) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Road public transport uses HalaPH route guidance. Driving directions are not shown as commute steps.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final profile = _modeProfile(widget.mode);
     final directions = await GoogleMapsService.getDirections(
       startLat: widget.origin.latitude,
