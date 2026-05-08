@@ -188,8 +188,9 @@ class VerifiedRouteService {
         alightStop.longitude,
       );
 
-      final match = HistoricalRouteMatch(
+      final leg = HistoricalRouteLeg(
         route: reference,
+        mode: route.mode,
         signboard: route.displayName,
         via: _extractVia(route.displayName, route.description),
         boardStopName: boardStop.name,
@@ -200,8 +201,24 @@ class VerifiedRouteService {
         alightStopLon: alightStop.longitude,
         walkToBoardMeters: walkToBoard,
         rideDistanceMeters: rideDistance,
+        stopCount: stopCount,
+      );
+
+      final match = HistoricalRouteMatch(
+        route: reference,
+        signboard: leg.signboard,
+        via: leg.via,
+        boardStopName: leg.boardStopName,
+        boardStopLat: leg.boardStopLat,
+        boardStopLon: leg.boardStopLon,
+        alightStopName: leg.alightStopName,
+        alightStopLat: leg.alightStopLat,
+        alightStopLon: leg.alightStopLon,
+        walkToBoardMeters: walkToBoard,
+        rideDistanceMeters: rideDistance,
         walkFromAlightMeters: walkFromAlight,
         stopCount: stopCount,
+        legs: [leg],
       );
 
       final previous = matchesByRoute[route.routeId];
