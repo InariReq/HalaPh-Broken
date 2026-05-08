@@ -40,6 +40,7 @@ class HistoricalRouteMatch {
   final String boardStopName;
   final String alightStopName;
   final double walkToBoardMeters;
+  final double rideDistanceMeters;
   final double walkFromAlightMeters;
   final int stopCount;
 
@@ -50,9 +51,12 @@ class HistoricalRouteMatch {
     required this.boardStopName,
     required this.alightStopName,
     required this.walkToBoardMeters,
+    required this.rideDistanceMeters,
     required this.walkFromAlightMeters,
     required this.stopCount,
   });
+
+  double get rideDistanceKm => rideDistanceMeters / 1000.0;
 
   String get sourceWarning =>
       'Historical GTFS reference only. Confirm route status, signboard, and drop-off before riding.';

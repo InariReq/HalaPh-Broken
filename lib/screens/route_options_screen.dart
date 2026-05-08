@@ -4,6 +4,8 @@ import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/budget_routing_service.dart';
 import 'package:halaph/services/google_maps_service.dart';
 import 'package:halaph/services/fare_service.dart';
+import 'package:halaph/models/verified_route.dart';
+import 'package:halaph/services/verified_route_service.dart';
 import 'package:halaph/services/commuter_type_service.dart';
 import 'package:halaph/screens/route_map_screen.dart';
 
@@ -128,14 +130,26 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       }
       _fares = [];
       for (final modeData in modes) {
-        final commuteEstimate = FareService.estimateCommuteTotal(
+        final historicalMatches =
+            await VerifiedRouteService.findHistoricalRouteMatches(
+          mode: modeData.mode,
+          origin: origin,
+          destination: destination,
+          limit: 1,
+        );
+        final historicalMatch =
+            historicalMatches.isNotEmpty ? historicalMatches.first : null;
+
+        final commuteEstimate = _estimateFareForRoute(
           modeData.mode,
           distance,
+          historicalMatch,
           type: _passengerType,
         );
-        final regularCommuteEstimate = FareService.estimateCommuteTotal(
+        final regularCommuteEstimate = _estimateFareForRoute(
           modeData.mode,
           distance,
+          historicalMatch,
           type: PassengerType.regular,
         );
 
@@ -867,6 +881,56 @@ class _RouteOptionPressableCardState extends State<_RouteOptionPressableCard> {
       ),
     );
   }
+}
+
+MultiSegmentFareEstimate _estimateFareForRoute(
+  TravelMode mode,
+  double fullDistanceKm,
+  HistoricalRouteMatch? historicalMatch, {
+  required PassengerType type,
+}) {
+  if (historicalMatch == null || historicalMatch.rideDistanceKm <= 0) {
+    return FareService.estimateCommuteTotal(
+      mode,
+      fullDistanceKm,
+      type: type,
+    );
+  }
+
+  final accessWalkKm = historicalMatch.walkToBoardMeters / 1000.0;
+  final rideKm = historicalMatch.rideDistanceKm;
+  final lastWalkKm = historicalMatch.walkFromAlightMeters / 1000.0;
+
+  final rideLabel = switch (mode) {
+    TravelMode.jeepney => 'Matched jeepney ride',
+    TravelMode.bus => 'Matched bus ride',
+    TravelMode.train => 'Matched MRT/LRT ride',
+    TravelMode.fx => 'Matched FX/UV ride',
+    TravelMode.walking => 'Walk to destination',
+  };
+
+  return MultiSegmentFareEstimate(
+    segments: [
+      FareSegment(
+        label: 'Walk to boarding point',
+        mode: TravelMode.walking,
+        distanceKm: accessWalkKm,
+        fare: 0,
+      ),
+      FareSegment(
+        label: rideLabel,
+        mode: mode,
+        distanceKm: rideKm,
+        fare: FareService.estimateFare(mode, rideKm, type: type),
+      ),
+      FareSegment(
+        label: 'Walk from drop-off',
+        mode: TravelMode.walking,
+        distanceKm: lastWalkKm,
+        fare: 0,
+      ),
+    ],
+  );
 }
 
 class _ModeData {

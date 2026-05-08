@@ -177,6 +177,13 @@ class VerifiedRouteService {
         lastVerifiedAt: DateTime(2020, 6, 30),
       );
 
+      final rideDistance = _distanceMeters(
+        boardStop.latitude,
+        boardStop.longitude,
+        alightStop.latitude,
+        alightStop.longitude,
+      );
+
       final match = HistoricalRouteMatch(
         route: reference,
         signboard: route.displayName,
@@ -184,6 +191,7 @@ class VerifiedRouteService {
         boardStopName: boardStop.name,
         alightStopName: alightStop.name,
         walkToBoardMeters: walkToBoard,
+        rideDistanceMeters: rideDistance,
         walkFromAlightMeters: walkFromAlight,
         stopCount: stopCount,
       );
