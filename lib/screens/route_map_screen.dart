@@ -677,11 +677,6 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     );
   }
 
-  String get _destinationLabel {
-    final value = widget.destinationName.trim();
-    return value.isEmpty ? 'your destination' : value;
-  }
-
   Widget _buildRoutePanelEntrance({
     required int order,
     required Widget child,
@@ -714,45 +709,44 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   }
 
   String _routeDirectionInstruction(String lineName) {
-    final destination = _destinationLabel;
     final historicalReference = _historicalRouteReference;
     final historicalRouteName = historicalReference?.displayName ?? '';
 
     switch (widget.mode) {
       case TravelMode.jeepney:
         if (lineName.isNotEmpty) {
-          return 'Ride the $lineName route heading toward $destination.';
+          return 'Signboard / route name: $lineName. Use this route name when checking the jeepney signboard.';
         }
         if (historicalRouteName.isNotEmpty) {
-          return 'Historical GTFS clue: $historicalRouteName. Use it as a signboard clue only, then confirm with the driver before boarding.';
+          return 'Historical signboard / route name: $historicalRouteName. Use this as a route clue only, then confirm with the driver before boarding.';
         }
-        return 'Look for a jeepney signboard heading toward $destination. Confirm with the driver that it passes your drop-off before boarding.';
+        return 'No verified jeepney signboard found for this trip. Use the route estimate as a general guide only. Ask the driver if the jeepney passes your exact drop-off before boarding.';
       case TravelMode.bus:
         if (lineName.isNotEmpty) {
-          return 'Ride the $lineName bus route heading toward $destination.';
+          return 'Bus route name: $lineName. Check this route name on the bus signboard or terminal board.';
         }
         if (historicalRouteName.isNotEmpty) {
-          return 'Historical GTFS clue: $historicalRouteName. Use it as a direction clue only, then confirm the active route with the conductor.';
+          return 'Historical bus route name: $historicalRouteName. Use this as a route clue only, then confirm the active route with the conductor.';
         }
-        return 'Look for a bus route heading toward $destination or the nearest terminal. Confirm the drop-off point with the conductor before boarding.';
+        return 'No verified bus signboard found for this trip. Use the route estimate as a general guide only. Confirm the terminal and drop-off point with the conductor.';
       case TravelMode.train:
         if (lineName.isNotEmpty) {
-          return 'Take $lineName toward the station serving $destination.';
+          return 'Rail line: $lineName. Follow the station direction signs and alight at the listed stop when available.';
         }
         if (historicalRouteName.isNotEmpty) {
-          return 'Historical GTFS rail clue: $historicalRouteName. Confirm the current station direction before boarding.';
+          return 'Historical rail line: $historicalRouteName. Confirm the current station direction before boarding.';
         }
-        return 'Take the MRT/LRT line toward the station nearest $destination, then use the last-mile ride shown in the fare breakdown.';
+        return 'No verified rail line found for this trip. Check the station line map and direction signs before entering the platform.';
       case TravelMode.fx:
         if (lineName.isNotEmpty) {
-          return 'Ride the $lineName FX/UV route heading toward $destination.';
+          return 'FX/UV route name: $lineName. Check this route name on the terminal board or vehicle signboard.';
         }
         if (historicalRouteName.isNotEmpty) {
-          return 'Historical GTFS road-route clue: $historicalRouteName. Confirm the active FX/UV terminal route before boarding.';
+          return 'Historical FX/UV route clue: $historicalRouteName. Confirm the active terminal route with the dispatcher before boarding.';
         }
-        return 'Look for an FX/UV terminal route heading toward $destination. Confirm the terminal and drop-off point before boarding.';
+        return 'No verified FX/UV terminal route found for this trip. Use the route estimate as a general guide only. Ask the dispatcher for the correct van and drop-off.';
       case TravelMode.walking:
-        return 'Walk toward $destination using the map preview and available step list.';
+        return 'Walk using the map preview and available step list.';
     }
   }
 
@@ -778,23 +772,27 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     switch (widget.mode) {
       case TravelMode.jeepney:
         return [
-          'Use the destination area as your signboard guide.',
-          'Ask if the jeepney passes your exact drop-off before paying.',
+          'No exact signboard is verified for this route.',
+          'Use this as a general commute guide, not a guaranteed active route.',
+          'Ask the driver if the jeepney passes your exact drop-off before paying.',
         ];
       case TravelMode.bus:
         return [
-          'Use the destination area or nearest terminal as your route direction.',
+          'No exact bus signboard is verified for this route.',
+          'Use the nearest terminal or major road direction only as a guide.',
           'Ask the conductor where to alight for the closest transfer or destination point.',
         ];
       case TravelMode.train:
         return [
-          'Use the rail line and station direction available in the station signboards.',
+          'No exact rail direction is verified for this route.',
+          'Check the station line map and platform direction signs.',
           'After alighting, follow the last-mile ride estimate in the fare breakdown.',
         ];
       case TravelMode.fx:
         return [
-          'Use the terminal or destination area written on the FX/UV signboard.',
-          'Confirm the exact drop-off point before boarding.',
+          'No exact FX/UV terminal signboard is verified for this route.',
+          'Check the terminal board or ask the dispatcher before boarding.',
+          'Confirm the exact drop-off point before paying.',
         ];
       case TravelMode.walking:
         return [
@@ -833,10 +831,10 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                 Expanded(
                   child: Text(
                     hasExactLine
-                        ? 'Specific route to look for'
+                        ? 'Verified route name'
                         : hasHistoricalReference
-                            ? 'Historical GTFS clue'
-                            : 'Route direction to look for',
+                            ? 'Historical signboard clue'
+                            : 'No verified signboard found',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
