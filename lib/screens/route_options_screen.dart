@@ -179,6 +179,10 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         final fare = commuteEstimate.totalFare;
         final baseFare = regularCommuteEstimate.totalFare;
         final fareBreakdown = commuteEstimate.displayLines;
+        final displayName = _displayNameForHistoricalMatch(
+          modeData,
+          historicalMatch,
+        );
 
         final duration =
             BudgetRoutingService.estimateDuration(distance, modeData.mode);
@@ -271,7 +275,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
 
         _fares.add(_TransportFare(
           mode: modeData.mode,
-          modeName: modeData.name,
+          modeName: displayName,
           icon: modeData.icon,
           fare: fare,
           baseFare: baseFare,
@@ -1113,6 +1117,96 @@ bool _isNearbyDropOff(HistoricalRouteMatch match) {
 
 const double _stationAccessRideThresholdKm = 0.80;
 
+String _displayNameForHistoricalMatch(
+  _ModeData modeData,
+  HistoricalRouteMatch? historicalMatch,
+) {
+  if (historicalMatch == null) return modeData.name;
+
+  final legs = _historicalFareLegs(historicalMatch);
+  if (legs.isEmpty) return modeData.name;
+
+  final sequence = <TravelMode>[];
+  for (final leg in legs) {
+    final needsLocalRideToStation = leg.mode == TravelMode.train &&
+        leg.walkToBoardMeters / 1000.0 > _stationAccessRideThresholdKm;
+    if (needsLocalRideToStation) {
+      sequence.add(TravelMode.jeepney);
+    }
+    sequence.add(leg.mode);
+  }
+
+  final lastLeg = legs.last;
+  final needsLocalRideFromStation = lastLeg.mode == TravelMode.train &&
+      historicalMatch.walkFromAlightMeters / 1000.0 >
+          _stationAccessRideThresholdKm;
+  if (needsLocalRideFromStation) {
+    sequence.add(TravelMode.jeepney);
+  }
+
+  final deduped = <TravelMode>[];
+  for (final mode in sequence) {
+    if (mode == TravelMode.walking) continue;
+    if (deduped.isNotEmpty && deduped.last == mode) continue;
+    deduped.add(mode);
+  }
+
+  if (deduped.isEmpty) return modeData.name;
+  return deduped.map(_vehicleTitleForMode).join(' + ');
+}
+
+List<HistoricalRouteLeg> _historicalFareLegs(HistoricalRouteMatch match) {
+  if (match.legs.isNotEmpty) return match.legs;
+
+  return [
+    HistoricalRouteLeg(
+      route: match.route,
+      mode: match.route.mode,
+      signboard: match.signboard,
+      via: match.via,
+      boardStopName: match.boardStopName,
+      boardStopLat: match.boardStopLat,
+      boardStopLon: match.boardStopLon,
+      alightStopName: match.alightStopName,
+      alightStopLat: match.alightStopLat,
+      alightStopLon: match.alightStopLon,
+      walkToBoardMeters: match.walkToBoardMeters,
+      rideDistanceMeters: match.rideDistanceMeters,
+      stopCount: match.stopCount,
+    ),
+  ];
+}
+
+String _vehicleTitleForMode(TravelMode mode) {
+  switch (mode) {
+    case TravelMode.jeepney:
+      return 'Jeepney';
+    case TravelMode.bus:
+      return 'Bus';
+    case TravelMode.train:
+      return 'Train';
+    case TravelMode.fx:
+      return 'FX';
+    case TravelMode.walking:
+      return 'Walking';
+  }
+}
+
+String _rideFareLabelForMode(TravelMode mode) {
+  switch (mode) {
+    case TravelMode.jeepney:
+      return 'Jeepney ride';
+    case TravelMode.bus:
+      return 'Bus ride';
+    case TravelMode.train:
+      return 'Train ride';
+    case TravelMode.fx:
+      return 'FX ride';
+    case TravelMode.walking:
+      return 'Walk';
+  }
+}
+
 FareSegment _accessSegmentForLeg(
   HistoricalRouteLeg leg,
   PassengerType type, {
@@ -1125,8 +1219,8 @@ FareSegment _accessSegmentForLeg(
   if (needsLocalRide) {
     return FareSegment(
       label: isFirstLeg
-          ? 'Estimated local ride to MRT/LRT station'
-          : 'Estimated local ride to connecting station',
+          ? 'Estimated local jeepney ride to MRT/LRT station'
+          : 'Estimated local jeepney ride to connecting station',
       mode: TravelMode.jeepney,
       distanceKm: distanceKm,
       fare: FareService.estimateFare(
@@ -1154,12 +1248,13 @@ FareSegment _finalAccessSegmentForMatch(
   PassengerType type,
 ) {
   final distanceKm = match.walkFromAlightMeters / 1000.0;
-  final isTrain = match.route.mode == TravelMode.train;
+  final legs = _historicalFareLegs(match);
+  final isTrain = legs.isNotEmpty && legs.last.mode == TravelMode.train;
   final needsLocalRide = isTrain && distanceKm > _stationAccessRideThresholdKm;
 
   if (needsLocalRide) {
     return FareSegment(
-      label: 'Estimated local ride from MRT/LRT station',
+      label: 'Estimated local jeepney ride from MRT/LRT station',
       mode: TravelMode.jeepney,
       distanceKm: distanceKm,
       fare: FareService.estimateFare(
@@ -1192,86 +1287,32 @@ MultiSegmentFareEstimate _estimateFareForRoute(
     );
   }
 
-  final legs = historicalMatch.legs.isEmpty ? const [] : historicalMatch.legs;
+  final legs = _historicalFareLegs(historicalMatch);
+  final segments = <FareSegment>[];
 
-  if (legs.length > 1) {
-    final firstLeg = legs.first;
-    final secondLeg = legs[1];
-    return MultiSegmentFareEstimate(
-      segments: [
-        _accessSegmentForLeg(
-          firstLeg,
-          type,
-          isFirstLeg: true,
-        ),
-        FareSegment(
-          label: 'Matched first ride',
-          mode: firstLeg.mode,
-          distanceKm: firstLeg.rideDistanceKm,
-          fare: FareService.estimateFare(
-            firstLeg.mode,
-            firstLeg.rideDistanceKm,
-            type: type,
-          ),
-        ),
-        _accessSegmentForLeg(
-          secondLeg,
-          type,
-          isFirstLeg: false,
-        ),
-        FareSegment(
-          label: 'Matched second ride',
-          mode: secondLeg.mode,
-          distanceKm: secondLeg.rideDistanceKm,
-          fare: FareService.estimateFare(
-            secondLeg.mode,
-            secondLeg.rideDistanceKm,
-            type: type,
-          ),
-        ),
-        _finalAccessSegmentForMatch(
-          historicalMatch,
-          type,
-        ),
-      ],
+  for (var i = 0; i < legs.length; i++) {
+    final leg = legs[i];
+    final rideKm = leg.rideDistanceKm;
+    segments.add(
+      _accessSegmentForLeg(
+        leg,
+        type,
+        isFirstLeg: i == 0,
+      ),
+    );
+    segments.add(
+      FareSegment(
+        label: _rideFareLabelForMode(leg.mode),
+        mode: leg.mode,
+        distanceKm: rideKm,
+        fare: FareService.estimateFare(leg.mode, rideKm, type: type),
+      ),
     );
   }
 
-  final rideKm = historicalMatch.rideDistanceKm;
+  segments.add(_finalAccessSegmentForMatch(historicalMatch, type));
 
-  return MultiSegmentFareEstimate(
-    segments: [
-      _accessSegmentForLeg(
-        HistoricalRouteLeg(
-          route: historicalMatch.route,
-          mode: mode,
-          signboard: historicalMatch.signboard,
-          via: historicalMatch.via,
-          boardStopName: historicalMatch.boardStopName,
-          boardStopLat: historicalMatch.boardStopLat,
-          boardStopLon: historicalMatch.boardStopLon,
-          alightStopName: historicalMatch.alightStopName,
-          alightStopLat: historicalMatch.alightStopLat,
-          alightStopLon: historicalMatch.alightStopLon,
-          walkToBoardMeters: historicalMatch.walkToBoardMeters,
-          rideDistanceMeters: historicalMatch.rideDistanceMeters,
-          stopCount: historicalMatch.stopCount,
-        ),
-        type,
-        isFirstLeg: true,
-      ),
-      FareSegment(
-        label: 'Matched first ride',
-        mode: mode,
-        distanceKm: rideKm,
-        fare: FareService.estimateFare(mode, rideKm, type: type),
-      ),
-      _finalAccessSegmentForMatch(
-        historicalMatch,
-        type,
-      ),
-    ],
-  );
+  return MultiSegmentFareEstimate(segments: segments);
 }
 
 class _ModeData {
