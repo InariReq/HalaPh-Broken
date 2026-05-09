@@ -13,6 +13,7 @@ import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/commuter_type_service.dart';
 import 'package:halaph/services/fare_service.dart';
 import 'package:halaph/services/budget_routing_service.dart';
+import 'package:halaph/services/route_fare_estimator_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/screens/add_place_screen.dart';
 import 'package:halaph/screens/friends_screen.dart';
@@ -105,6 +106,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   Map<String, ParticipantStartLocation> _participantStartLocations = {};
   String? _myParticipantStartKey;
   LatLng? _budgetFallbackOrigin;
+  final Map<String, double> _routeBudgetFareCache = {};
+  bool _isRouteBudgetLoading = false;
+  int _routeBudgetRequestId = 0;
   bool _isSavingMyStartingPoint = false;
 
   bool get _isPlanOwner =>
@@ -203,6 +207,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         await _loadBudgetPassengerTypes();
         await _loadMyParticipantStartKey();
         await _loadBudgetFallbackOrigin();
+        unawaited(_refreshRouteBudgetFareCache());
       }
     } catch (error) {
       debugPrint('Plan details load failed: $error');
@@ -963,7 +968,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       _meetingPointAddress = destination.location;
       _meetingPointLatitude = destination.coordinates?.latitude;
       _meetingPointLongitude = destination.coordinates?.longitude;
+      _routeBudgetFareCache.clear();
     });
+    unawaited(_refreshRouteBudgetFareCache());
   }
 
   void _clearMeetingPoint() {
@@ -977,7 +984,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       _meetingPointAddress = null;
       _meetingPointLatitude = null;
       _meetingPointLongitude = null;
+      _routeBudgetFareCache.clear();
     });
+    unawaited(_refreshRouteBudgetFareCache());
   }
 
   Future<void> _loadMyParticipantStartKey() async {
@@ -1685,6 +1694,13 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
   double _estimatedTransportTotal() {
     final originPoint = _meetingPointLatLng() ?? _budgetFallbackOrigin;
+
+    if (originPoint != null && _routeBudgetFareCache.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_refreshRouteBudgetFareCache());
+      });
+    }
+
     return _estimatedRouteTotalFrom(originPoint);
   }
 
@@ -1709,13 +1725,21 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         continue;
       }
 
-      final distanceKm = BudgetRoutingService.calculateDistance(
-        currentPoint,
-        destinationPoint,
-      );
+      final key = _routeBudgetLegKey(currentPoint, destinationPoint);
+      final cachedFare = _routeBudgetFareCache[key];
 
-      final legFare = _regularMeetingPointLegFare(distanceKm);
-      total += legFare <= 0 ? minimumLocalFarePerStop : legFare;
+      if (cachedFare != null) {
+        total += cachedFare;
+      } else {
+        final distanceKm = BudgetRoutingService.calculateDistance(
+          currentPoint,
+          destinationPoint,
+        );
+
+        final legFare = _regularMeetingPointLegFare(distanceKm);
+        total += legFare <= 0 ? minimumLocalFarePerStop : legFare;
+      }
+
       currentPoint = destinationPoint;
     }
 
@@ -1747,6 +1771,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       return 0;
     }
 
+    final key = _routeBudgetLegKey(origin, destination);
+    final cachedFare = _routeBudgetFareCache[key];
+    if (cachedFare != null) return cachedFare;
+
     final distanceKm = BudgetRoutingService.calculateDistance(
       origin,
       destination,
@@ -1761,6 +1789,99 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       for (final day in orderedDays)
         ..._itinerary[day] ?? const <Destination>[],
     ];
+  }
+
+  String _routeBudgetLegKey(LatLng origin, LatLng destination) {
+    return '${origin.latitude.toStringAsFixed(5)},'
+        '${origin.longitude.toStringAsFixed(5)}->'
+        '${destination.latitude.toStringAsFixed(5)},'
+        '${destination.longitude.toStringAsFixed(5)}';
+  }
+
+  List<({LatLng origin, LatLng destination})> _routeBudgetLegsFrom(
+    LatLng? originPoint,
+  ) {
+    final stops = _orderedBudgetDestinations();
+    if (originPoint == null ||
+        BudgetRoutingService.isInvalidLocation(originPoint)) {
+      return const [];
+    }
+
+    final legs = <({LatLng origin, LatLng destination})>[];
+    var currentPoint = originPoint;
+
+    for (final destination in stops) {
+      final destinationPoint = destination.coordinates;
+      if (destinationPoint == null ||
+          BudgetRoutingService.isInvalidLocation(destinationPoint)) {
+        continue;
+      }
+
+      legs.add((origin: currentPoint, destination: destinationPoint));
+      currentPoint = destinationPoint;
+    }
+
+    return legs;
+  }
+
+  Future<void> _refreshRouteBudgetFareCache() async {
+    final requestId = ++_routeBudgetRequestId;
+    final originPoint = _meetingPointLatLng() ?? _budgetFallbackOrigin;
+    final sharedLegs = _routeBudgetLegsFrom(originPoint);
+
+    final participantLegs = <({LatLng origin, LatLng destination})>[];
+    final meetingPoint = _meetingPointLatLng();
+    if (meetingPoint != null) {
+      for (final start in _participantStartLocations.values) {
+        final startPoint = _participantStartLatLng(start);
+        if (startPoint != null) {
+          participantLegs.add((origin: startPoint, destination: meetingPoint));
+        }
+      }
+    }
+
+    final allLegs = <({LatLng origin, LatLng destination})>[
+      ...sharedLegs,
+      ...participantLegs,
+    ];
+
+    if (allLegs.isEmpty) return;
+
+    if (mounted) {
+      setState(() {
+        _isRouteBudgetLoading = true;
+      });
+    }
+
+    final updates = <String, double>{};
+
+    for (final leg in allLegs) {
+      if (requestId != _routeBudgetRequestId) return;
+
+      final key = _routeBudgetLegKey(leg.origin, leg.destination);
+      if (_routeBudgetFareCache.containsKey(key)) continue;
+
+      try {
+        final estimate = await RouteFareEstimatorService.estimateBestRouteFare(
+          origin: leg.origin,
+          destination: leg.destination,
+          type: PassengerType.regular,
+        ).timeout(const Duration(seconds: 12));
+
+        if (estimate.isAvailable) {
+          updates[key] = estimate.totalFare;
+        }
+      } catch (error) {
+        debugPrint('Plan route budget estimate skipped: $error');
+      }
+    }
+
+    if (!mounted || requestId != _routeBudgetRequestId) return;
+
+    setState(() {
+      _routeBudgetFareCache.addAll(updates);
+      _isRouteBudgetLoading = false;
+    });
   }
 
   double _regularMeetingPointLegFare(double distanceKm) {
@@ -2002,7 +2123,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Transport fares only',
+                        _isRouteBudgetLoading
+                            ? 'Transport fares only • updating route fares'
+                            : 'Transport fares only',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -2101,8 +2224,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   const SizedBox(height: 7),
                   _buildBudgetDetailLine(
                     icon: Icons.info_outline_rounded,
-                    text:
-                        'Unknown participant fare types default to Regular. Actual fares may change by route, transfers, discounts, passenger type, and live transport availability.',
+                    text: _isRouteBudgetLoading
+                        ? 'Updating budget using the same route fare logic as View Route.'
+                        : 'Unknown participant fare types default to Regular. Actual fares may change by route, transfers, discounts, passenger type, and live transport availability.',
                   ),
                 ],
               ),
@@ -2446,6 +2570,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       setState(() {
         _itinerary[dayNumber] ??= [];
         _itinerary[dayNumber]!.add(result);
+        _routeBudgetFareCache.clear();
         _destinationStartTimes[result.id] = _defaultDestinationTimeLabel();
         _destinationEndTimes[result.id] =
             _defaultDestinationTimeLabel(offsetHours: 1);
@@ -2462,6 +2587,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
     setState(() {
       _itinerary[dayNumber]?.remove(destination);
+      _routeBudgetFareCache.clear();
       if (_itinerary[dayNumber]?.isEmpty == true) {
         _itinerary.remove(dayNumber);
       }
@@ -2486,6 +2612,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       // Insert at new position
       _itinerary[toDay] ??= [];
       _itinerary[toDay]!.insert(toIndex, data.destination);
+      _routeBudgetFareCache.clear();
 
       // If moving to a different day, update the day structure
       if (data.fromDay != toDay) {
@@ -3277,6 +3404,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         _itinerary[day] ??= [];
         // Insert the new destination after the specified index
         _itinerary[day]!.insert(index + 1, result);
+        _routeBudgetFareCache.clear();
         // Set a default time for the new destination
         _destinationStartTimes[result.id] =
             _defaultDestinationTimeLabel(offsetHours: 1);
