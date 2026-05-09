@@ -1522,6 +1522,7 @@ class SimplePlanService {
         await doc.reference.update({
           'participantUids': nextParticipants,
           'collaboratorUids': nextCollaborators,
+          'isShared': nextParticipants.length > 1,
           'participantStartLocations': startLocations,
           'updatedAt': FieldValue.serverTimestamp(),
         }).timeout(const Duration(seconds: 8));
@@ -1885,20 +1886,26 @@ class SimplePlanService {
   }
 
   static bool _isCollaborative(TravelPlan plan) {
-    final participantCodes = plan.participantUids
+    final owner = (_ownerUids[plan.id] ?? plan.createdBy).trim();
+
+    final participants = <String>{
+      ...plan.participantUids
+          .map((id) => id.trim())
+          .where((id) => id.isNotEmpty),
+      ...(_participantUids[plan.id] ?? const <String>[])
+          .map((id) => id.trim())
+          .where((id) => id.isNotEmpty),
+    };
+
+    final collaborators = plan.collaboratorUids
         .map((id) => id.trim())
-        .where((id) => id.isNotEmpty)
-        .toSet();
-    final remoteParticipants = (_participantUids[plan.id] ?? const <String>[])
-        .map((id) => id.trim())
-        .where((id) => id.isNotEmpty)
+        .where((id) => id.isNotEmpty && id != owner)
         .toSet();
 
-    return plan.isShared ||
-        participantCodes.length > 1 ||
-        remoteParticipants.length > 1 ||
-        (plan.participantUids.isNotEmpty &&
-            plan.participantUids.first != plan.createdBy);
+    final nonOwnerParticipants =
+        participants.where((id) => id.isNotEmpty && id != owner).toSet();
+
+    return nonOwnerParticipants.isNotEmpty || collaborators.isNotEmpty;
   }
 
   static List<TravelPlan> _visibleCurrentOrFuturePlans(Set<String> identities) {
