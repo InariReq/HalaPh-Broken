@@ -108,6 +108,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   LatLng? _budgetFallbackOrigin;
   final Map<String, double> _routeBudgetFareCache = {};
   bool _isRouteBudgetLoading = false;
+  bool _routeBudgetRefreshScheduled = false;
   int _routeBudgetRequestId = 0;
   bool _isSavingMyStartingPoint = false;
 
@@ -1694,13 +1695,6 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
   double _estimatedTransportTotal() {
     final originPoint = _meetingPointLatLng() ?? _budgetFallbackOrigin;
-
-    if (originPoint != null && _routeBudgetFareCache.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_refreshRouteBudgetFareCache());
-      });
-    }
-
     return _estimatedRouteTotalFrom(originPoint);
   }
 
@@ -1825,6 +1819,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   }
 
   Future<void> _refreshRouteBudgetFareCache() async {
+    if (_isRouteBudgetLoading || _routeBudgetRefreshScheduled) return;
+
+    _routeBudgetRefreshScheduled = true;
     final requestId = ++_routeBudgetRequestId;
     final originPoint = _meetingPointLatLng() ?? _budgetFallbackOrigin;
     final sharedLegs = _routeBudgetLegsFrom(originPoint);
@@ -1845,18 +1842,34 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       ...participantLegs,
     ];
 
-    if (allLegs.isEmpty) return;
+    if (allLegs.isEmpty) {
+      _routeBudgetRefreshScheduled = false;
+      return;
+    }
 
     if (mounted) {
       setState(() {
         _isRouteBudgetLoading = true;
       });
+    } else {
+      _isRouteBudgetLoading = true;
     }
+
+    _routeBudgetRefreshScheduled = false;
 
     final updates = <String, double>{};
 
     for (final leg in allLegs) {
-      if (requestId != _routeBudgetRequestId) return;
+      if (requestId != _routeBudgetRequestId) {
+        if (mounted) {
+          setState(() {
+            _isRouteBudgetLoading = false;
+          });
+        } else {
+          _isRouteBudgetLoading = false;
+        }
+        return;
+      }
 
       final key = _routeBudgetLegKey(leg.origin, leg.destination);
       if (_routeBudgetFareCache.containsKey(key)) continue;
@@ -1876,7 +1889,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       }
     }
 
-    if (!mounted || requestId != _routeBudgetRequestId) return;
+    if (!mounted || requestId != _routeBudgetRequestId) {
+      _isRouteBudgetLoading = false;
+      return;
+    }
 
     setState(() {
       _routeBudgetFareCache.addAll(updates);
@@ -2154,9 +2170,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     label: 'Per passenger',
                     value: hasStops ? perPassengerDisplay : 'Pending',
                     onTap: hasStops
-                        ? () => _showPassengerBudgetBreakdown(
-                              passengerEstimates,
-                            )
+                        ? () => unawaited(_openPassengerBudgetBreakdown())
                         : null,
                   ),
                 ),
@@ -2298,6 +2312,18 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         child: metric,
       ),
     );
+  }
+
+  Future<void> _openPassengerBudgetBreakdown() async {
+    await _refreshRouteBudgetFareCache();
+
+    if (!mounted) return;
+
+    final regularPassengerEstimate = _estimatedTransportTotal();
+    final freshPassengerEstimates =
+        _budgetPassengerEstimates(regularPassengerEstimate);
+
+    _showPassengerBudgetBreakdown(freshPassengerEstimates);
   }
 
   void _showPassengerBudgetBreakdown(
