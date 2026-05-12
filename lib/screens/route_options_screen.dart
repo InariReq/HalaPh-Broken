@@ -303,12 +303,10 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         }
 
         final confidenceLabel = hasLiveTransitStep
-            ? 'Verified live transit route'
+            ? 'Live transit estimate'
             : hasHistoricalMatch
-                ? historicalMatch.hasTransfer
-                    ? 'Historical route match, 1 transfer'
-                    : 'Historical route match'
-                : 'Live map route';
+                ? 'Verified route'
+                : 'Estimate only';
 
         final displayHistoricalMatch =
             hasLiveTransitStep ? null : historicalMatch;
@@ -320,10 +318,10 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         final isNearbyDropOff = displayHistoricalMatch != null &&
             _isNearbyDropOff(displayHistoricalMatch);
         final confidenceDetail = hasLiveTransitStep
-            ? 'Google returned public transport step data with route or stop details.'
+            ? 'Based on returned public transport step data with route or stop details.'
             : hasHistoricalMatch
-                ? 'Matched against historical GTFS route data. Driving directions are hidden because they are not public transport instructions.'
-                : 'Google returned route geometry, but no public transport vehicle details.';
+                ? 'Matched against HalaPH historical route data. Driving steps are hidden because they are not commute instructions.'
+                : 'Estimated from available route data. Public transport details may vary.';
 
         _directionSteps[modeData.mode.toString()] = steps;
 
@@ -803,22 +801,26 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      fare.confidenceLabel,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: fare.isVerifiedTransit
-                            ? (Theme.of(context).brightness == Brightness.dark
-                                ? Colors.green[300]
-                                : Colors.green[700])
-                            : (Theme.of(context).brightness == Brightness.dark
-                                ? const Color(0xFFF6D58A)
-                                : const Color(0xFFB45309)),
-                        fontWeight: FontWeight.w800,
-                      ),
+                    const SizedBox(height: 7),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _RouteInfoChip(
+                          icon: _sourceIconFor(fare),
+                          label: fare.confidenceLabel,
+                          color: _sourceColorFor(fare),
+                        ),
+                        _RouteInfoChip(
+                          icon: Icons.tips_and_updates_rounded,
+                          label: _routeReasonLabel(fare, isBestOption),
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? const Color(0xFF93C5FD)
+                              : const Color(0xFF2563EB),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 5),
                     Text(
                       fare.confidenceDetail,
                       maxLines: 2,
@@ -847,41 +849,8 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                         ),
                       ),
                     ],
-                    if (fare.fareBreakdown.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      ...fare.fareBreakdown.map(
-                        (line) => Padding(
-                          padding: const EdgeInsets.only(bottom: 3),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.payments_rounded,
-                                size: 12,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 5),
-                              Expanded(
-                                child: Text(
-                                  line,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                    const SizedBox(height: 8),
+                    _buildFareBreakdownPreview(fare),
                   ],
                 ),
               ),
@@ -1033,6 +1002,251 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       return '${duration.inHours}h ${duration.inMinutes.remainder(60)}m';
     }
     return '${duration.inMinutes}m';
+  }
+
+  Widget _buildFareBreakdownPreview(_TransportFare fare) {
+    final lines = fare.fareBreakdown
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: isDark ? 0.65 : 0.85),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.26),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.receipt_long_rounded,
+                size: 15,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Fare breakdown',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                fare.mode == TravelMode.walking
+                    ? 'Total: ₱0'
+                    : fare.fare > 0
+                        ? 'Total: ₱${fare.fare.toStringAsFixed(0)}'
+                        : 'Estimate',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          if (lines.isEmpty)
+            Text(
+              'Fare estimate only. Actual fare may vary.',
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.25,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else
+            ...lines.map(_buildFareBreakdownLine),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFareBreakdownLine(String line) {
+    final parts = _splitFareBreakdownLine(line);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(
+            Icons.circle,
+            size: 5,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              parts.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (parts.amount != null) ...[
+            const SizedBox(width: 8),
+            Text(
+              parts.amount!,
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  _FareBreakdownParts _splitFareBreakdownLine(String line) {
+    final amountMatch = RegExp(r'₱\s*\d+(?:\.\d+)?').firstMatch(line);
+    if (amountMatch == null) return _FareBreakdownParts(line, null);
+
+    final amount = amountMatch.group(0)!.replaceAll(' ', '');
+    final label = line
+        .replaceFirst(amountMatch.group(0)!, '')
+        .replaceAll(RegExp(r'\s*[-:•]\s*$'), '')
+        .trim();
+
+    return _FareBreakdownParts(label.isEmpty ? line : label, amount);
+  }
+
+  String _routeReasonLabel(_TransportFare fare, bool isBestOption) {
+    if (fare.mode == TravelMode.walking) {
+      return fare.distance <= _recommendedWalkingThresholdKm
+          ? 'Best for nearby places'
+          : 'Walking, ₱0 fare';
+    }
+
+    if (_isLowestPaidFare(fare)) return 'Lowest estimated fare';
+
+    final paidModeCount =
+        fare.modeSequence.where((mode) => mode != TravelMode.walking).length;
+    final transferCount = fare.historicalMatch?.transferCount;
+    if ((transferCount != null && transferCount == 0) ||
+        (transferCount == null && paidModeCount <= 1)) {
+      return 'Fewer transfers';
+    }
+
+    if (fare.modeSequence.contains(TravelMode.train) && fare.distance >= 8) {
+      return 'Uses rail for longer trips';
+    }
+
+    return isBestOption ? 'Balanced fare and travel time' : 'Estimate only';
+  }
+
+  bool _isLowestPaidFare(_TransportFare fare) {
+    if (fare.mode == TravelMode.walking || fare.fare <= 0) return false;
+
+    double? lowestFare;
+    for (final option in _fares) {
+      if (option.mode == TravelMode.walking || option.fare <= 0) continue;
+      lowestFare = lowestFare == null || option.fare < lowestFare
+          ? option.fare
+          : lowestFare;
+    }
+
+    if (lowestFare == null) return false;
+    return (fare.fare - lowestFare).abs() < 0.01;
+  }
+
+  IconData _sourceIconFor(_TransportFare fare) {
+    if (fare.mode == TravelMode.walking) return Icons.directions_walk_rounded;
+    if (fare.confidenceLabel == 'Verified route') {
+      return Icons.verified_rounded;
+    }
+    if (fare.confidenceLabel == 'Live transit estimate') {
+      return Icons.transit_enterexit_rounded;
+    }
+    return Icons.info_outline_rounded;
+  }
+
+  Color _sourceColorFor(_TransportFare fare) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (fare.mode == TravelMode.walking) {
+      return isDark ? Colors.green[300]! : Colors.green[700]!;
+    }
+    if (fare.confidenceLabel == 'Verified route') {
+      return isDark ? Colors.green[300]! : Colors.green[700]!;
+    }
+    if (fare.confidenceLabel == 'Live transit estimate') {
+      return isDark ? const Color(0xFF93C5FD) : const Color(0xFF2563EB);
+    }
+    return isDark ? const Color(0xFFF6D58A) : const Color(0xFFB45309);
+  }
+}
+
+class _FareBreakdownParts {
+  final String label;
+  final String? amount;
+
+  const _FareBreakdownParts(this.label, this.amount);
+}
+
+class _RouteInfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _RouteInfoChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.20)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10.5,
+                color: color,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1203,8 +1417,6 @@ _TransportFare _walkingFareOption(
   LatLng origin,
   LatLng destination,
 ) {
-  final isRecommended = distanceKm <= _recommendedWalkingThresholdKm;
-
   return _TransportFare(
     mode: TravelMode.walking,
     modeName: 'Walking',
@@ -1235,13 +1447,14 @@ _TransportFare _walkingFareOption(
     ],
     polyline: '',
     fareBreakdown: const ['Walking fare: ₱0'],
-    confidenceLabel:
-        isRecommended ? 'Best for nearby places' : 'Available walking route',
+    confidenceLabel: 'Walking route',
     confidenceDetail:
         'Estimated locally from straight-line distance. No route lookup needed.',
     historicalMatch: null,
     isVerifiedTransit: true,
-    routeScore: isRecommended ? -1000 + distanceKm : 45 + distanceKm,
+    routeScore: distanceKm <= _recommendedWalkingThresholdKm
+        ? -1000 + distanceKm
+        : 45 + distanceKm,
   );
 }
 

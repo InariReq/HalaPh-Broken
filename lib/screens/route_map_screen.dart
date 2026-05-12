@@ -526,6 +526,96 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     return html.replaceAll(RegExp(r'<[^>]*>'), '');
   }
 
+  Widget _buildFareBreakdownSummary() {
+    final lines = widget.fareBreakdown
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+
+    if (lines.isEmpty) {
+      return Text(
+        'Fare estimate only. Actual fare may vary.',
+        style: TextStyle(
+          fontSize: 12,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          height: 1.25,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Fare breakdown',
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        ...lines.map(_buildFareBreakdownLine),
+      ],
+    );
+  }
+
+  Widget _buildFareBreakdownLine(String line) {
+    final parts = _splitFareBreakdownLine(line);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(
+            Icons.circle,
+            size: 5,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              parts.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.25,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (parts.amount != null) ...[
+            const SizedBox(width: 8),
+            Text(
+              parts.amount!,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  _FareBreakdownParts _splitFareBreakdownLine(String line) {
+    final amountMatch = RegExp(r'₱\s*\d+(?:\.\d+)?').firstMatch(line);
+    if (amountMatch == null) return _FareBreakdownParts(line, null);
+
+    final amount = amountMatch.group(0)!.replaceAll(' ', '');
+    final label = line
+        .replaceFirst(amountMatch.group(0)!, '')
+        .replaceAll(RegExp(r'\s*[-:•]\s*$'), '')
+        .trim();
+
+    return _FareBreakdownParts(label.isEmpty ? line : label, amount);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -769,39 +859,8 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                     ),
                                   ],
                                 ),
-                                if (widget.fareBreakdown.isNotEmpty) ...[
-                                  const SizedBox(height: 10),
-                                  ...widget.fareBreakdown.map(
-                                    (line) => Padding(
-                                      padding: const EdgeInsets.only(bottom: 4),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Icon(
-                                            Icons.circle,
-                                            size: 6,
-                                            color: Colors.green[700],
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              line,
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                                height: 1.25,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                const SizedBox(height: 10),
+                                _buildFareBreakdownSummary(),
                               ],
                             ),
                           ),
@@ -1586,4 +1645,11 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     );
     _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
   }
+}
+
+class _FareBreakdownParts {
+  final String label;
+  final String? amount;
+
+  const _FareBreakdownParts(this.label, this.amount);
 }
