@@ -107,7 +107,7 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
           if (_locationMessage == 'Checking location') {
             _locationMessage = 'Location checked';
           }
-          _accountMessage = 'Checking account session';
+          _accountMessage = 'Account session checked';
           _accountChecked = true;
         });
         return <void>[];
@@ -124,6 +124,7 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
       if (_locationMessage == 'Checking location') {
         _locationMessage = 'Location checked';
       }
+      _accountMessage = 'Account session checked';
     });
   }
 
@@ -187,7 +188,7 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
     if (!mounted) return;
     setState(() {
       _accountChecked = true;
-      _accountMessage = 'Checking account session';
+      _accountMessage = 'Account session checked';
     });
   }
 
@@ -209,7 +210,7 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
           isDark ? const Color(0xFF08111F) : const Color(0xFFF7FBFF),
       body: SafeArea(
         child: AnimatedBuilder(
-          animation: _routeController,
+          animation: Listenable.merge([_introController, _routeController]),
           builder: (context, child) {
             return Center(
               child: SingleChildScrollView(
@@ -220,24 +221,12 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SizedBox(
-                        height: 210,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Positioned.fill(
-                              child: _RouteMotionMap(
-                                progress: _routeController.value,
-                                colorScheme: colorScheme,
-                                isDark: isDark,
-                              ),
-                            ),
-                            ScaleTransition(
-                              scale: _logoScale,
-                              child: _LogoCard(colorScheme: colorScheme),
-                            ),
-                          ],
-                        ),
+                      _LaunchRouteBoard(
+                        introProgress: _introController.value,
+                        routeProgress: _routeController.value,
+                        logoScale: _logoScale,
+                        colorScheme: colorScheme,
+                        isDark: isDark,
                       ),
                       const SizedBox(height: 16),
                       FadeTransition(
@@ -274,7 +263,9 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
                                     iconColor: _animationComplete
                                         ? Colors.green[700]!
                                         : colorScheme.primary,
-                                    label: 'Preparing route guide',
+                                    label: _animationComplete
+                                        ? 'Route guide ready'
+                                        : 'Preparing route guide',
                                   ),
                                   _StatusRow(
                                     icon: _notificationsReady
@@ -309,6 +300,31 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 260),
                                 switchInCurve: Curves.easeOutBack,
+                                transitionBuilder: (child, animation) {
+                                  final offset = Tween<Offset>(
+                                    begin: const Offset(0, 0.14),
+                                    end: Offset.zero,
+                                  ).animate(
+                                    CurvedAnimation(
+                                      parent: animation,
+                                      curve: Curves.easeOutCubic,
+                                    ),
+                                  );
+                                  final scale = Tween<double>(
+                                    begin: 0.96,
+                                    end: 1,
+                                  ).animate(animation);
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: SlideTransition(
+                                      position: offset,
+                                      child: ScaleTransition(
+                                        scale: scale,
+                                        child: child,
+                                      ),
+                                    ),
+                                  );
+                                },
                                 child: _canStart
                                     ? SizedBox(
                                         key: const ValueKey('start-ready'),
@@ -344,18 +360,23 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
 
 class _LogoCard extends StatelessWidget {
   final ColorScheme colorScheme;
+  final double size;
 
-  const _LogoCard({required this.colorScheme});
+  const _LogoCard({
+    required this.colorScheme,
+    this.size = 110,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final radius = size * 0.25;
     return Container(
-      width: 110,
-      height: 110,
-      padding: const EdgeInsets.all(12),
+      width: size,
+      height: size,
+      padding: EdgeInsets.all(size * 0.11),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(radius),
         border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
         boxShadow: [
@@ -367,7 +388,7 @@ class _LogoCard extends StatelessWidget {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(size * 0.18),
         child: Image.asset(
           'assets/icons/app_icon.png',
           fit: BoxFit.contain,
@@ -375,7 +396,7 @@ class _LogoCard extends StatelessWidget {
             return Icon(
               Icons.explore_rounded,
               color: colorScheme.primary,
-              size: 58,
+              size: size * 0.52,
             );
           },
         ),
@@ -384,41 +405,410 @@ class _LogoCard extends StatelessWidget {
   }
 }
 
-class _RouteMotionMap extends StatelessWidget {
-  final double progress;
+class _LaunchRouteBoard extends StatelessWidget {
+  final double introProgress;
+  final double routeProgress;
+  final Animation<double> logoScale;
   final ColorScheme colorScheme;
   final bool isDark;
 
-  const _RouteMotionMap({
-    required this.progress,
+  const _LaunchRouteBoard({
+    required this.introProgress,
+    required this.routeProgress,
+    required this.logoScale,
     required this.colorScheme,
     required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _RouteMotionPainter(
-        progress: progress,
-        primary: colorScheme.primary,
-        secondary: colorScheme.secondary,
-        surface: isDark ? const Color(0xFF101B2B) : Colors.white,
-        lineBase: isDark ? const Color(0xFF2B3A55) : const Color(0xFFD6E8FF),
+    final theme = Theme.of(context);
+    final routeDraw = _phase(introProgress, 0.20, 0.72);
+    final pinsIn = _phase(introProgress, 0.08, 0.36);
+    final chipsIn = _phase(introProgress, 0.48, 0.86);
+    final cardsIn = _phase(introProgress, 0.62, 1);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: isDark ? 0.88 : 0.96),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.10),
+            blurRadius: 26,
+            offset: const Offset(0, 14),
+          ),
+        ],
       ),
-      child: const SizedBox.expand(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              ScaleTransition(
+                scale: logoScale,
+                child: _LogoCard(colorScheme: colorScheme, size: 60),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Commute preflight',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Route, fare, and trip tools are getting ready.',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _BoardBadge(
+                colorScheme: colorScheme,
+                progress: routeDraw,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 145,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final size = constraints.biggest;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _RouteBoardPainter(
+                          drawProgress: routeDraw,
+                          pulseProgress: routeProgress,
+                          primary: colorScheme.primary,
+                          secondary: colorScheme.secondary,
+                          surface:
+                              isDark ? const Color(0xFF101B2B) : Colors.white,
+                          lineBase: isDark
+                              ? const Color(0xFF2B3A55)
+                              : const Color(0xFFD6E8FF),
+                        ),
+                      ),
+                    ),
+                    _BoardPin(
+                      left: size.width * 0.05,
+                      top: size.height * 0.63,
+                      progress: pinsIn,
+                      icon: Icons.location_on_rounded,
+                      label: 'Origin',
+                      color: colorScheme.primary,
+                    ),
+                    _BoardPin(
+                      left: size.width * 0.73,
+                      top: size.height * 0.08,
+                      progress: _phase(introProgress, 0.18, 0.42),
+                      icon: Icons.flag_rounded,
+                      label: 'Destination',
+                      color: colorScheme.tertiary,
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _ModePrepChip(
+                icon: Icons.directions_walk_rounded,
+                label: 'Walk',
+                progress: chipsIn,
+                color: colorScheme.primary,
+              ),
+              _ModePrepChip(
+                icon: Icons.directions_bus_filled_rounded,
+                label: 'Jeepney',
+                progress: _phase(introProgress, 0.54, 0.88),
+                color: colorScheme.secondary,
+              ),
+              _ModePrepChip(
+                icon: Icons.train_rounded,
+                label: 'Train',
+                progress: _phase(introProgress, 0.60, 0.92),
+                color: colorScheme.tertiary,
+              ),
+              _ModePrepChip(
+                icon: Icons.payments_rounded,
+                label: 'Fare',
+                progress: _phase(introProgress, 0.66, 0.96),
+                color: Colors.green[700]!,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _ReadyPreviewCard(
+                  icon: Icons.alt_route_rounded,
+                  label: 'Route guide',
+                  progress: cardsIn,
+                  colorScheme: colorScheme,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ReadyPreviewCard(
+                  icon: Icons.local_atm_rounded,
+                  label: 'Fare tools',
+                  progress: _phase(introProgress, 0.68, 1),
+                  colorScheme: colorScheme,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ReadyPreviewCard(
+                  icon: Icons.event_available_rounded,
+                  label: 'Plans',
+                  progress: _phase(introProgress, 0.74, 1),
+                  colorScheme: colorScheme,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _RouteMotionPainter extends CustomPainter {
+class _BoardBadge extends StatelessWidget {
+  final ColorScheme colorScheme;
   final double progress;
+
+  const _BoardBadge({
+    required this.colorScheme,
+    required this.progress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = progress >= 0.98;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: (ready ? Colors.green : colorScheme.primary)
+            .withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: (ready ? Colors.green : colorScheme.primary)
+              .withValues(alpha: 0.25),
+        ),
+      ),
+      child: Icon(
+        ready ? Icons.check_rounded : Icons.route_rounded,
+        size: 18,
+        color: ready ? Colors.green[700] : colorScheme.primary,
+      ),
+    );
+  }
+}
+
+class _BoardPin extends StatelessWidget {
+  final double left;
+  final double top;
+  final double progress;
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _BoardPin({
+    required this.left,
+    required this.top,
+    required this.progress,
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final clamped = progress.clamp(0.0, 1.0);
+    return Positioned(
+      left: left,
+      top: top - (1 - clamped) * 8,
+      child: Opacity(
+        opacity: clamped,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: color.withValues(alpha: 0.28)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.10),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 17),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModePrepChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final double progress;
+  final Color color;
+
+  const _ModePrepChip({
+    required this.icon,
+    required this.label,
+    required this.progress,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final clamped = progress.clamp(0.0, 1.0);
+    return Opacity(
+      opacity: clamped,
+      child: Transform.translate(
+        offset: Offset(0, (1 - clamped) * 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: color.withValues(alpha: 0.22)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReadyPreviewCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final double progress;
+  final ColorScheme colorScheme;
+
+  const _ReadyPreviewCard({
+    required this.icon,
+    required this.label,
+    required this.progress,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final clamped = progress.clamp(0.0, 1.0);
+    return Opacity(
+      opacity: clamped,
+      child: Transform.translate(
+        offset: Offset(0, (1 - clamped) * 10),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 58),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: colorScheme.primary),
+              const SizedBox(height: 5),
+              Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RouteBoardPainter extends CustomPainter {
+  final double drawProgress;
+  final double pulseProgress;
   final Color primary;
   final Color secondary;
   final Color surface;
   final Color lineBase;
 
-  const _RouteMotionPainter({
-    required this.progress,
+  const _RouteBoardPainter({
+    required this.drawProgress,
+    required this.pulseProgress,
     required this.primary,
     required this.secondary,
     required this.surface,
@@ -427,29 +817,48 @@ class _RouteMotionPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final panel = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      const Radius.circular(22),
+    );
+    canvas.drawRRect(
+      panel,
+      Paint()..color = surface.withValues(alpha: 0.62),
+    );
+
+    final gridPaint = Paint()
+      ..color = lineBase.withValues(alpha: 0.32)
+      ..strokeWidth = 1;
+    for (var x = size.width * 0.12; x < size.width; x += size.width * 0.18) {
+      canvas.drawLine(Offset(x, 10), Offset(x, size.height - 10), gridPaint);
+    }
+    for (var y = size.height * 0.18; y < size.height; y += size.height * 0.24) {
+      canvas.drawLine(Offset(10, y), Offset(size.width - 10, y), gridPaint);
+    }
+
     final route = Path()
-      ..moveTo(size.width * 0.10, size.height * 0.72)
+      ..moveTo(size.width * 0.15, size.height * 0.74)
       ..cubicTo(
-        size.width * 0.23,
-        size.height * 0.36,
-        size.width * 0.36,
+        size.width * 0.28,
+        size.height * 0.42,
+        size.width * 0.40,
         size.height * 0.86,
-        size.width * 0.50,
-        size.height * 0.52,
+        size.width * 0.53,
+        size.height * 0.55,
       )
       ..cubicTo(
         size.width * 0.64,
+        size.height * 0.30,
+        size.width * 0.73,
+        size.height * 0.28,
+        size.width * 0.86,
         size.height * 0.20,
-        size.width * 0.76,
-        size.height * 0.74,
-        size.width * 0.90,
-        size.height * 0.34,
       );
 
     final shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.05)
+      ..color = Colors.black.withValues(alpha: 0.08)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 18
+      ..strokeWidth = 16
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(route.shift(const Offset(0, 8)), shadowPaint);
 
@@ -461,7 +870,7 @@ class _RouteMotionPainter extends CustomPainter {
     canvas.drawPath(route, basePaint);
 
     final metric = route.computeMetrics().first;
-    final activeLength = metric.length * progress;
+    final activeLength = metric.length * drawProgress.clamp(0.0, 1.0);
     final activePath = metric.extractPath(0, activeLength);
     final activePaint = Paint()
       ..shader = LinearGradient(colors: [primary, secondary]).createShader(
@@ -472,14 +881,15 @@ class _RouteMotionPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(activePath, activePaint);
 
-    final waypoints = const [0.0, 0.32, 0.62, 1.0];
+    final waypoints = const [0.0, 0.30, 0.55, 0.76, 1.0];
     for (var i = 0; i < waypoints.length; i++) {
       final tangent = metric.getTangentForOffset(metric.length * waypoints[i]);
       if (tangent == null) continue;
-      final localPulse = (math.sin((progress * 2 * math.pi) + i * 1.1) + 1) / 2;
-      final reached = progress >= waypoints[i] || progress < 0.05 && i == 0;
+      final localPulse =
+          (math.sin((pulseProgress * 2 * math.pi) - i * 1.05) + 1) / 2;
+      final reached = drawProgress >= waypoints[i] || i == 0;
       final dotPaint = Paint()
-        ..color = reached ? primary : surface
+        ..color = reached ? primary : surface.withValues(alpha: 0.95)
         ..style = PaintingStyle.fill;
       final ringPaint = Paint()
         ..color = reached
@@ -498,8 +908,11 @@ class _RouteMotionPainter extends CustomPainter {
       );
     }
 
+    final markerProgress = drawProgress < 0.98
+        ? drawProgress.clamp(0.06, 0.94)
+        : (0.08 + pulseProgress * 0.84) % 1.0;
     final vehicleTangent =
-        metric.getTangentForOffset(metric.length * ((progress + 0.03) % 1));
+        metric.getTangentForOffset(metric.length * markerProgress);
     if (vehicleTangent != null) {
       _drawVehicle(canvas, vehicleTangent.position, vehicleTangent.angle);
     }
@@ -510,36 +923,55 @@ class _RouteMotionPainter extends CustomPainter {
     canvas.translate(center.dx, center.dy);
     canvas.rotate(angle);
     final body = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset.zero, width: 30, height: 18),
-      const Radius.circular(7),
+      Rect.fromCenter(center: Offset.zero, width: 34, height: 20),
+      const Radius.circular(8),
     );
     canvas.drawRRect(
       body.shift(const Offset(0, 2)),
       Paint()..color = Colors.black.withValues(alpha: 0.12),
     );
     canvas.drawRRect(body, Paint()..color = secondary);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-15, -11, 30, 6),
+        const Radius.circular(4),
+      ),
+      Paint()..color = primary,
+    );
     canvas.drawRect(
-      const Rect.fromLTWH(-8, -6, 8, 5),
+      const Rect.fromLTWH(-10, -6, 7, 5),
       Paint()..color = Colors.white.withValues(alpha: 0.82),
     );
     canvas.drawRect(
-      const Rect.fromLTWH(2, -6, 8, 5),
+      const Rect.fromLTWH(0, -6, 7, 5),
+      Paint()..color = Colors.white.withValues(alpha: 0.82),
+    );
+    canvas.drawRect(
+      const Rect.fromLTWH(9, -6, 5, 5),
       Paint()..color = Colors.white.withValues(alpha: 0.82),
     );
     canvas.drawCircle(
-        const Offset(-9, 8), 2.5, Paint()..color = Colors.black87);
-    canvas.drawCircle(const Offset(9, 8), 2.5, Paint()..color = Colors.black87);
+        const Offset(-10, 9), 2.7, Paint()..color = Colors.black87);
+    canvas.drawCircle(
+        const Offset(10, 9), 2.7, Paint()..color = Colors.black87);
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _RouteMotionPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
+  bool shouldRepaint(covariant _RouteBoardPainter oldDelegate) {
+    return oldDelegate.drawProgress != drawProgress ||
+        oldDelegate.pulseProgress != pulseProgress ||
         oldDelegate.primary != primary ||
         oldDelegate.secondary != secondary ||
         oldDelegate.surface != surface ||
         oldDelegate.lineBase != lineBase;
   }
+}
+
+double _phase(double value, double start, double end) {
+  if (value <= start) return 0;
+  if (value >= end) return 1;
+  return Curves.easeOutCubic.transform((value - start) / (end - start));
 }
 
 class _StatusPanel extends StatelessWidget {
