@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/destination.dart';
@@ -73,9 +75,12 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   Destination? _selectedDestination;
   GuideModeDemoRouteOption? _selectedRoute;
   final Set<String> _completedActions = <String>{};
+  int _transitionToken = 0;
 
   bool get _isFirst => _index == 0;
   bool get _isLast => _index == _steps.length - 1;
+  bool get _isStandaloneReplay =>
+      widget.launchedFromSettings && widget.presenterController == null;
 
   @override
   void initState() {
@@ -148,9 +153,18 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     controller?.clearSignal();
   }
 
-  Future<void> _close({required bool skipped}) async {
+  Future<void> _close({
+    required bool skipped,
+    required String reason,
+  }) async {
     if (_closing) return;
-    setState(() => _closing = true);
+    debugPrint('Guide Mode closed: $reason');
+    _transitionToken++;
+    setState(() {
+      _closing = true;
+      _actionBusy = false;
+      _liveLoading = false;
+    });
     await AppTutorialService.setTutorialCompleted(true);
     if (!mounted) return;
     if (skipped) {
@@ -162,7 +176,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
 
   Future<void> _advance() async {
     if (_isLast) {
-      _close(skipped: false);
+      _close(skipped: false, reason: 'finish');
       return;
     }
     setState(() {
@@ -176,18 +190,31 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   }
 
   void _back() {
-    if (_isFirst) return;
+    final canGoBack = !_isFirst && !_actionBusy && !_closing;
+    if (!canGoBack) {
+      debugPrint(
+        'Guide Mode back: currentStep=$_index, canGoBack=$canGoBack, '
+        'result=${_actionBusy ? 'blocked loading' : 'first step'}',
+      );
+      return;
+    }
+    final nextIndex = (_index - 1).clamp(0, _steps.length - 1);
+    debugPrint(
+      'Guide Mode back: currentStep=$_index, canGoBack=true, '
+      'result=previousStep $nextIndex',
+    );
+    _transitionToken++;
     setState(() {
-      _index -= 1;
-      _showObjectiveComplete = false;
-      _statusMessage = null;
-      _guideCardExpanded = true;
+      _index = nextIndex;
+      _resetTransientStateForStep(nextIndex);
+      _clearCompletedActionsFrom(nextIndex);
       _syncSceneForIndex();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
   }
 
   void _restartGuide() {
+    _transitionToken++;
     setState(() {
       _index = 0;
       _showObjectiveComplete = false;
@@ -212,6 +239,53 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
   }
 
+  void _resetTransientStateForStep(int targetIndex) {
+    _showObjectiveComplete = false;
+    _statusMessage = null;
+    _guideCardExpanded = true;
+    _actionBusy = false;
+    _liveLoading = false;
+
+    if (targetIndex < 3) {
+      _destinationPreviewVisible = false;
+    }
+    if (targetIndex < 4) {
+      _routeOptionsVisible = false;
+      _selectedRoute = null;
+      _fallbackReason = null;
+    }
+    if (targetIndex < 5) {
+      _routeGuideVisible = false;
+    }
+    if (targetIndex < 6) {
+      _fareBreakdownVisible = false;
+    }
+    if (targetIndex < 7) {
+      _destinationSaved = false;
+    }
+    if (targetIndex < 8) {
+      _addedToPlan = false;
+    }
+    if (targetIndex < 9) {
+      _collaborationShown = false;
+    }
+    if (targetIndex < 10) {
+      _reminderShown = false;
+    }
+    if (targetIndex < 11) {
+      _historyShown = false;
+    }
+  }
+
+  void _clearCompletedActionsFrom(int targetIndex) {
+    for (var i = targetIndex; i < _steps.length; i++) {
+      final actionId = _steps[i].actionId;
+      if (actionId != null) {
+        _completedActions.remove(actionId);
+      }
+    }
+  }
+
   void _syncSceneForIndex() {
     final sceneIndex = _index.clamp(
       0,
@@ -225,7 +299,11 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     final actionId = step.actionId;
     if (step.type == GuideQuestStepType.finish ||
         actionId == GuideQuestActionId.finish) {
-      _close(skipped: false);
+      _close(skipped: false, reason: 'finish');
+      return;
+    }
+    if (_isStandaloneReplay && _shouldCompleteFromCardInReplay(step)) {
+      _completeReplayFallbackStep(step);
       return;
     }
     if (!step.requiresUserAction) {
@@ -237,6 +315,29 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       _statusMessage = null;
       _showObjectiveComplete = false;
     });
+  }
+
+  bool _shouldCompleteFromCardInReplay(GuideQuestStep step) {
+    return step.actionId == GuideQuestActionId.openExplore ||
+        step.actionId == GuideQuestActionId.selectIntramuros;
+  }
+
+  void _completeReplayFallbackStep(GuideQuestStep step) {
+    final actionId = step.actionId ?? step.title;
+    switch (step.actionId) {
+      case GuideQuestActionId.openExplore:
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      case GuideQuestActionId.selectIntramuros:
+        setState(() {
+          _selectedDestination = GuideModeDemoData.destinationsForApp().first;
+          _destinationPreviewVisible = true;
+        });
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      default:
+        _completeObjective(actionId, step.completionMessage);
+    }
   }
 
   Future<void> _handleGuideAction(String actionId) async {
@@ -350,15 +451,59 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
 
   void _completeObjective(String actionId, String message) {
     if (!mounted || _completedActions.contains(actionId)) return;
+    final token = ++_transitionToken;
     setState(() {
       _completedActions.add(actionId);
       _showObjectiveComplete = true;
       _statusMessage = message;
     });
     Future<void>.delayed(const Duration(milliseconds: 650), () {
-      if (!mounted || _closing) return;
+      if (!mounted || _closing || token != _transitionToken) return;
       _advance();
     });
+  }
+
+  Future<void> _handleSystemBack() async {
+    if (_closing) return;
+    if (_actionBusy) {
+      debugPrint(
+        'Guide Mode back: currentStep=$_index, canGoBack=false, '
+        'result=blocked loading',
+      );
+      return;
+    }
+    if (!_isFirst) {
+      _back();
+      return;
+    }
+
+    debugPrint(
+      'Guide Mode back: currentStep=$_index, canGoBack=false, '
+      'result=confirm exit',
+    );
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Exit Guide Mode?'),
+          content: const Text(
+            'You can replay Guide Mode later from Settings.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Stay'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Exit'),
+            ),
+          ],
+        );
+      },
+    );
+    if (!mounted || shouldExit != true) return;
+    await _close(skipped: true, reason: 'back');
   }
 
   Future<void> _previewLiveRouteOptions() async {
@@ -450,32 +595,40 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     final step = _steps[_index];
     final stage = _stageBuilderFor(step.actionId);
 
-    return Material(
-      type: MaterialType.transparency,
-      child: Stack(
-        key: ValueKey(_currentScene),
-        children: [
-          if (!_guideCardExpanded && stage != null) stage(context),
-          GuideQuestOverlay(
-            step: step,
-            stepIndex: _index,
-            totalSteps: _steps.length,
-            targetKey: _targetKeyFor(step),
-            demoBuilder: _demoBuilderFor(step.demoCardType),
-            expanded: _guideCardExpanded,
-            isFirst: _isFirst,
-            isLast: _isLast,
-            isBusy: _closing || _actionBusy,
-            showObjectiveComplete: _showObjectiveComplete,
-            statusMessage: _statusMessage,
-            onSkip: () => _close(skipped: true),
-            onBack: _back,
-            onFinish: () => _close(skipped: false),
-            onPrimaryAction: () => _handleCardPrimary(step),
-            onReminderTap: () => setState(() => _guideCardExpanded = true),
-            onPracticeAgain: _restartGuide,
-          ),
-        ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          unawaited(_handleSystemBack());
+        }
+      },
+      child: Material(
+        type: MaterialType.transparency,
+        child: Stack(
+          key: ValueKey(_currentScene),
+          children: [
+            if (!_guideCardExpanded && stage != null) stage(context),
+            GuideQuestOverlay(
+              step: step,
+              stepIndex: _index,
+              totalSteps: _steps.length,
+              targetKey: _targetKeyFor(step),
+              demoBuilder: _demoBuilderFor(step.demoCardType),
+              expanded: _guideCardExpanded,
+              isFirst: _isFirst,
+              isLast: _isLast,
+              isBusy: _closing || _actionBusy,
+              showObjectiveComplete: _showObjectiveComplete,
+              statusMessage: _statusMessage,
+              onSkip: () => _close(skipped: true, reason: 'skip'),
+              onBack: _back,
+              onFinish: () => _close(skipped: false, reason: 'finish'),
+              onPrimaryAction: () => _handleCardPrimary(step),
+              onReminderTap: () => setState(() => _guideCardExpanded = true),
+              onPracticeAgain: _restartGuide,
+            ),
+          ],
+        ),
       ),
     );
   }

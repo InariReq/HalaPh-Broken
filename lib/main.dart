@@ -117,7 +117,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
         _loading = false;
         if (sessionChanged) {
           _guideModeStartupEvaluated = false;
-          _showGuideMode = false;
+          _guideModeStartupInFlight = false;
+          _checkingGuideMode = false;
+          if (nextUid == null) {
+            _showGuideMode = false;
+            _guideModeShownThisSession = false;
+          } else if (!_showGuideMode) {
+            _guideModeShownThisSession = false;
+          }
         }
       });
     });
@@ -135,6 +142,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
         _sessionUid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
         _loading = false;
         _guideModeStartupEvaluated = false;
+        if (user == null) {
+          _showGuideMode = false;
+          _guideModeShownThisSession = false;
+        }
       });
     }
   }
@@ -145,6 +156,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
       _isLoggedIn = true;
       _sessionUid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
       _guideModeStartupEvaluated = false;
+      _guideModeStartupInFlight = false;
+      _checkingGuideMode = false;
     });
   }
 
@@ -154,9 +167,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
     });
   }
 
-  void _continueAfterTutorial() {
+  void _continueAfterTutorial(String reason) {
+    debugPrint('Guide Mode closed: $reason');
     setState(() {
       _showGuideMode = false;
+      _guideModeShownThisSession = true;
+      _guideModeStartupEvaluated = true;
+      _guideModeStartupInFlight = false;
+      _checkingGuideMode = false;
     });
   }
 
@@ -181,17 +199,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (_guideModeStartupInFlight) return;
 
     if (!_launchAccepted) {
-      debugPrint('Guide Mode startup: skipped because launch not accepted');
+      _logGuideModeDecisionSkip('launch not accepted');
       return;
     }
     if (!_isLoggedIn) {
-      debugPrint('Guide Mode startup: skipped because user is logged out');
+      _logGuideModeDecisionSkip('user is logged out');
       return;
     }
     if (_guideModeShownThisSession) {
-      debugPrint(
-        'Guide Mode startup: skipped because already shown this session',
-      );
+      _logGuideModeDecisionSkip('already shown this session');
       _guideModeStartupEvaluated = true;
       return;
     }
@@ -219,12 +235,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (!mounted) return;
 
     debugPrint(
-      'Guide Mode startup: enabledEveryStart=$enabledEveryStart, '
-      'completed=$completed, loggedIn=$_isLoggedIn, '
-      'shownThisSession=$_guideModeShownThisSession',
+      'Guide Mode decision: loggedIn=$_isLoggedIn, loading=$_loading, '
+      'showEveryStart=$enabledEveryStart, completed=$completed, '
+      'shownThisSession=$_guideModeShownThisSession, forceReplay=false',
     );
 
     if (failed) {
+      debugPrint('Guide Mode decision: skipped because settings failed');
       setState(() {
         _checkingGuideMode = false;
         _guideModeStartupInFlight = false;
@@ -234,7 +251,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
 
     if (!enabledEveryStart) {
-      debugPrint('Guide Mode startup: skipped because every start is off');
+      debugPrint('Guide Mode decision: skipped because every start is off');
       setState(() {
         _checkingGuideMode = false;
         _guideModeStartupInFlight = false;
@@ -243,14 +260,22 @@ class _AuthWrapperState extends State<AuthWrapper> {
       return;
     }
 
-    debugPrint('Guide Mode startup: showing guide');
+    debugPrint('Guide Mode decision: showing because every start is on');
     setState(() {
       _checkingGuideMode = false;
       _guideModeStartupInFlight = false;
       _guideModeStartupEvaluated = true;
-      _guideModeShownThisSession = true;
       _showGuideMode = true;
     });
+  }
+
+  void _logGuideModeDecisionSkip(String reason) {
+    debugPrint(
+      'Guide Mode decision: loggedIn=$_isLoggedIn, loading=$_loading, '
+      'showEveryStart=unknown, completed=unknown, '
+      'shownThisSession=$_guideModeShownThisSession, forceReplay=false',
+    );
+    debugPrint('Guide Mode decision: skipped because $reason');
   }
 
   @override
@@ -287,8 +312,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
     return MainNavigation(
       key: ValueKey(_sessionUid ?? 'signed-in'),
       showGuideMode: _showGuideMode,
-      onGuideModeFinished: _continueAfterTutorial,
-      onGuideModeSkipped: _continueAfterTutorial,
+      onGuideModeFinished: () => _continueAfterTutorial('finish'),
+      onGuideModeSkipped: () => _continueAfterTutorial('skip'),
     );
   }
 }

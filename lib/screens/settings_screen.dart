@@ -20,6 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = false;
   bool _tutorialEnabledOnStart = true;
   bool _deletingAccount = false;
+  bool _replayingGuideMode = false;
   ThemeMode _themeMode = ThemeMode.system;
 
   @override
@@ -68,25 +69,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _replayTutorial() async {
-    await Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        opaque: false,
-        barrierColor: Colors.transparent,
-        pageBuilder: (context, animation, secondaryAnimation) {
-          return FadeTransition(
-            opacity: animation,
-            child: AppTutorialScreen(
-              launchedFromSettings: true,
-              onFinish: () => Navigator.of(context).pop(),
-              onSkip: () => Navigator.of(context).pop(),
-            ),
-          );
-        },
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return child;
-        },
-      ),
-    );
+    if (_replayingGuideMode) return;
+    debugPrint('Guide Mode replay: requested from Settings');
+    setState(() {
+      _replayingGuideMode = true;
+    });
+    try {
+      await Navigator.of(context).push(
+        PageRouteBuilder<void>(
+          opaque: false,
+          barrierColor: Colors.transparent,
+          pageBuilder: (routeContext, animation, secondaryAnimation) {
+            void closeReplay() {
+              if (Navigator.of(routeContext).canPop()) {
+                Navigator.of(routeContext).pop();
+              }
+            }
+
+            return FadeTransition(
+              opacity: animation,
+              child: AppTutorialScreen(
+                launchedFromSettings: true,
+                onFinish: closeReplay,
+                onSkip: closeReplay,
+              ),
+            );
+          },
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return child;
+          },
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _replayingGuideMode = false;
+        });
+      }
+    }
   }
 
   Future<void> _setThemeMode(ThemeMode mode) async {
@@ -871,7 +891,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        onPressed: _replayTutorial,
+        onPressed: _replayingGuideMode ? null : _replayTutorial,
         icon: const Icon(Icons.replay_rounded),
         label: const Text(
           'Replay Guide Mode',
