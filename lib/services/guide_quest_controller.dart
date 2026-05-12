@@ -12,6 +12,8 @@ enum GuideQuestDemoCardType {
   routeOptions,
   routeGuide,
   fareBreakdown,
+  plan,
+  collaboration,
   reminders,
   tripHistory,
   finish,
@@ -128,6 +130,7 @@ class GuideQuestController {
         icon: Icons.event_note_rounded,
         type: GuideQuestStepType.target,
         targetKeyId: plansTarget,
+        demoCardType: GuideQuestDemoCardType.plan,
         isTapTargetStep: true,
       ),
       GuideQuestStep(
@@ -138,6 +141,7 @@ class GuideQuestController {
         icon: Icons.groups_rounded,
         type: GuideQuestStepType.target,
         targetKeyId: friendsTarget,
+        demoCardType: GuideQuestDemoCardType.collaboration,
         isTapTargetStep: true,
       ),
       GuideQuestStep(
