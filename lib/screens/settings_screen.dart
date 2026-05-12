@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:halaph/services/auth_service.dart';
+import 'package:halaph/services/app_tutorial_service.dart';
 import 'package:halaph/services/plan_notification_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/services/theme_mode_service.dart';
+import 'package:halaph/screens/app_tutorial_screen.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -16,6 +18,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _auth = AuthService();
   bool _notificationsEnabled = false;
+  bool _tutorialEnabledOnStart = true;
   bool _deletingAccount = false;
   ThemeMode _themeMode = ThemeMode.system;
 
@@ -23,6 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadPlanReminderSetting();
+    _loadTutorialSetting();
     _loadThemeModeSetting();
   }
 
@@ -38,6 +42,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _themeMode = ThemeModeService.themeMode.value;
     });
+  }
+
+  Future<void> _loadTutorialSetting() async {
+    final enabled = await AppTutorialService.isTutorialEnabledOnStart();
+    if (!mounted) return;
+    setState(() {
+      _tutorialEnabledOnStart = enabled;
+    });
+  }
+
+  Future<void> _toggleTutorialOnStart(bool value) async {
+    setState(() {
+      _tutorialEnabledOnStart = value;
+    });
+    await AppTutorialService.setTutorialEnabledOnStart(value);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(value
+            ? 'App tutorial can show after Start'
+            : 'App tutorial will be skipped on start'),
+      ),
+    );
+  }
+
+  Future<void> _replayTutorial() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => AppTutorialScreen(
+          launchedFromSettings: true,
+          onFinish: () => Navigator.of(context).pop(),
+          onSkip: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
   }
 
   Future<void> _setThemeMode(ThemeMode mode) async {
@@ -390,6 +429,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             SlideFadeIn(
               order: 4,
               child: _section(
+                title: 'App Tutorial',
+                icon: Icons.school_outlined,
+                iconColor: const Color(0xFF1976D2),
+                children: [
+                  _tutorialToggle(),
+                  const SizedBox(height: 12),
+                  _replayTutorialButton(),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SlideFadeIn(
+              order: 5,
+              child: _section(
                 title: 'Privacy and Account',
                 icon: Icons.lock_outline_rounded,
                 iconColor: Colors.red,
@@ -405,7 +458,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 16),
             SlideFadeIn(
-              order: 5,
+              order: 6,
               child: _section(
                 title: 'App',
                 icon: Icons.info_outline_rounded,
@@ -741,6 +794,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
             activeThumbColor: Colors.blue,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _tutorialToggle() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _softCardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _softBorderColor),
+      ),
+      child: Row(
+        children: [
+          Container(
+            height: 42,
+            width: 42,
+            decoration: BoxDecoration(
+              color: Colors.blue.withValues(alpha: _isDark ? 0.14 : 0.08),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              Icons.route_rounded,
+              color: Colors.blue[700],
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Show app tutorial on start',
+                  style: TextStyle(
+                    color: _titleColor,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Show the HalaPH feature guide after the launch Start button until completed.',
+                  style: TextStyle(
+                    color: _subtitleColor,
+                    fontSize: 12,
+                    height: 1.3,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Switch(
+            value: _tutorialEnabledOnStart,
+            onChanged: _toggleTutorialOnStart,
+            activeThumbColor: Colors.blue,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _replayTutorialButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _replayTutorial,
+        icon: const Icon(Icons.replay_rounded),
+        label: const Text(
+          'Replay app tutorial',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.blue[700],
+          side: BorderSide(color: Colors.blue.withValues(alpha: 0.45)),
+          backgroundColor: Colors.blue.withValues(alpha: _isDark ? 0.10 : 0.04),
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
       ),
     );
   }

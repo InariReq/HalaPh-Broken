@@ -13,6 +13,7 @@ import 'services/auth_service.dart';
 import 'services/firebase_app_service.dart';
 import 'services/plan_notification_service.dart';
 import 'services/theme_mode_service.dart';
+import 'services/app_tutorial_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/favorites_screen.dart';
 
@@ -37,6 +38,7 @@ import 'screens/route_options_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/add_place_screen.dart';
 import 'screens/friends_screen.dart';
+import 'screens/app_tutorial_screen.dart';
 import 'widgets/halaph_launch_preflight.dart';
 import 'widgets/halaph_logo_loading.dart';
 
@@ -82,6 +84,8 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _launchAccepted = false;
+  bool _checkingTutorial = false;
+  bool _showTutorial = false;
   bool _isLoggedIn = false;
   bool _loading = true;
   String? _sessionUid;
@@ -132,6 +136,33 @@ class _AuthWrapperState extends State<AuthWrapper> {
     });
   }
 
+  Future<void> _onLaunchStart() async {
+    setState(() {
+      _launchAccepted = true;
+      _checkingTutorial = true;
+    });
+
+    var shouldShowTutorial = false;
+    try {
+      shouldShowTutorial = await AppTutorialService.shouldShowTutorialOnStart()
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {
+      shouldShowTutorial = false;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _checkingTutorial = false;
+      _showTutorial = shouldShowTutorial;
+    });
+  }
+
+  void _continueAfterTutorial() {
+    setState(() {
+      _showTutorial = false;
+    });
+  }
+
   @override
   void dispose() {
     _authSubscription?.cancel();
@@ -142,11 +173,22 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Widget build(BuildContext context) {
     if (!_launchAccepted) {
       return HalaPhLaunchPreflight(
-        onStart: () {
-          setState(() {
-            _launchAccepted = true;
-          });
-        },
+        onStart: _onLaunchStart,
+      );
+    }
+
+    if (_checkingTutorial) {
+      return const HalaPhLogoLoading(
+        label: 'Preparing HalaPH...',
+        fullScreen: true,
+      );
+    }
+
+    if (_showTutorial) {
+      return AppTutorialScreen(
+        launchedFromSettings: false,
+        onFinish: _continueAfterTutorial,
+        onSkip: _continueAfterTutorial,
       );
     }
 
