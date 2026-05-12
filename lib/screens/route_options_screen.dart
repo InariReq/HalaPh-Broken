@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/destination.dart';
@@ -9,6 +11,11 @@ import 'package:halaph/services/verified_route_service.dart';
 import 'package:halaph/services/commuter_type_service.dart';
 import 'package:halaph/screens/route_map_screen.dart';
 import 'package:halaph/widgets/transport_mode_widgets.dart';
+
+const int _maxRouteOptionCacheEntries = 40;
+
+final LinkedHashMap<String, _RouteOptionsCacheEntry> _routeOptionsCache =
+    LinkedHashMap<String, _RouteOptionsCacheEntry>();
 
 class RouteOptionsScreen extends StatefulWidget {
   final String destinationId;
@@ -80,6 +87,32 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         throw Exception('Destination is too close or location unavailable.');
       }
 
+      final cacheKey = _routeOptionCacheKey(
+        origin: origin,
+        destination: destination,
+        passengerType: _passengerType,
+        destinationId: widget.destinationId,
+        destinationName: widget.destinationName,
+      );
+      final cachedEntry = _routeOptionsCache[cacheKey];
+      if (cachedEntry != null) {
+        try {
+          debugPrint('Route options cache hit: $cacheKey');
+          setState(() {
+            _origin = cachedEntry.origin;
+            _destination = cachedEntry.destination;
+            _fares = cachedEntry.fares.map((fare) => fare.copy()).toList();
+            _directionSteps.clear();
+            _isLoading = false;
+          });
+          return;
+        } catch (e) {
+          debugPrint('Route options cache hit failed: $cacheKey $e');
+        }
+      }
+
+      debugPrint('Route options billable route build: $cacheKey');
+
       _origin = origin;
       _destination = destination;
 
@@ -130,6 +163,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         modes.removeWhere((m) => m.mode == TravelMode.walking);
       }
       _fares = [];
+      _directionSteps.clear();
       for (final modeData in modes) {
         final exactWalkMeters = _gtfsMatchRadiusForMode(modeData.mode);
         final nearbyDestinationWalkMeters =
@@ -360,6 +394,14 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       }
 
       _fares.sort((a, b) => a.routeScore.compareTo(b.routeScore));
+      _rememberRouteOptions(
+        cacheKey,
+        _RouteOptionsCacheEntry(
+          origin: origin,
+          destination: destination,
+          fares: _fares,
+        ),
+      );
 
       setState(() {
         _isLoading = false;
@@ -2055,6 +2097,35 @@ MultiSegmentFareEstimate _estimateFareForRoute(
   return MultiSegmentFareEstimate(segments: segments);
 }
 
+String _routeOptionCacheKey({
+  required LatLng origin,
+  required LatLng destination,
+  required PassengerType passengerType,
+  required String destinationId,
+  required String destinationName,
+}) {
+  final displayKey = destinationId.trim().isNotEmpty
+      ? destinationId.trim()
+      : destinationName.trim().toLowerCase();
+
+  return '${passengerType.name}:'
+      '${origin.latitude.toStringAsFixed(5)},'
+      '${origin.longitude.toStringAsFixed(5)}->'
+      '${destination.latitude.toStringAsFixed(5)},'
+      '${destination.longitude.toStringAsFixed(5)}'
+      '${displayKey.isEmpty ? '' : ':$displayKey'}';
+}
+
+void _rememberRouteOptions(String key, _RouteOptionsCacheEntry entry) {
+  if (_routeOptionsCache.length >= _maxRouteOptionCacheEntries &&
+      !_routeOptionsCache.containsKey(key)) {
+    _routeOptionsCache.remove(_routeOptionsCache.keys.first);
+  }
+
+  _routeOptionsCache[key] = entry.copy();
+  debugPrint('Route options cache stored: $key');
+}
+
 class _ModeData {
   final TravelMode mode;
   final String name;
@@ -2063,6 +2134,26 @@ class _ModeData {
   final String profile;
 
   _ModeData(this.mode, this.name, this.icon, this.fareFn, this.profile);
+}
+
+class _RouteOptionsCacheEntry {
+  final LatLng origin;
+  final LatLng destination;
+  final List<_TransportFare> fares;
+
+  _RouteOptionsCacheEntry({
+    required this.origin,
+    required this.destination,
+    required this.fares,
+  });
+
+  _RouteOptionsCacheEntry copy() {
+    return _RouteOptionsCacheEntry(
+      origin: origin,
+      destination: destination,
+      fares: fares.map((fare) => fare.copy()).toList(),
+    );
+  }
 }
 
 class _TransportFare {
@@ -2101,6 +2192,48 @@ class _TransportFare {
     required this.isVerifiedTransit,
     required this.routeScore,
   });
+
+  _TransportFare copy() {
+    return _TransportFare(
+      mode: mode,
+      modeName: modeName,
+      icon: icon,
+      modeSequence: List<TravelMode>.of(modeSequence),
+      fare: fare,
+      baseFare: baseFare,
+      distance: distance,
+      duration: duration,
+      steps: _copyRouteSteps(steps),
+      polyline: polyline,
+      fareBreakdown: List<String>.of(fareBreakdown),
+      historicalMatch: historicalMatch,
+      confidenceLabel: confidenceLabel,
+      confidenceDetail: confidenceDetail,
+      isVerifiedTransit: isVerifiedTransit,
+      routeScore: routeScore,
+    );
+  }
+}
+
+List<Map<String, dynamic>> _copyRouteSteps(List<Map<String, dynamic>> steps) {
+  return steps.map(_copyRouteMap).toList();
+}
+
+Map<String, dynamic> _copyRouteMap(Map<String, dynamic> source) {
+  return source.map(
+    (key, value) => MapEntry(key, _copyRouteValue(value)),
+  );
+}
+
+dynamic _copyRouteValue(dynamic value) {
+  if (value is Map<String, dynamic>) return _copyRouteMap(value);
+  if (value is Map) {
+    return value.map(
+      (key, nested) => MapEntry(key.toString(), _copyRouteValue(nested)),
+    );
+  }
+  if (value is List) return value.map(_copyRouteValue).toList();
+  return value;
 }
 
 bool _hasLiveTransitStep(List<Map<String, dynamic>> steps) {
