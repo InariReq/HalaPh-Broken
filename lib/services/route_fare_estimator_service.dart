@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/verified_route.dart';
 import 'package:halaph/services/budget_routing_service.dart';
@@ -30,6 +31,10 @@ class RouteFareEstimateResult {
 
 class RouteFareEstimatorService {
   static const double _stationAccessRideThresholdKm = 0.80;
+  static const int _maxFareEstimateCacheEntries = 80;
+
+  static final Map<String, RouteFareEstimateResult> _fareEstimateCache =
+      <String, RouteFareEstimateResult>{};
 
   static Future<RouteFareEstimateResult> estimateBestRouteFare({
     required LatLng origin,
@@ -41,6 +46,20 @@ class RouteFareEstimatorService {
       return const RouteFareEstimateResult.unavailable();
     }
 
+    final cacheKey = _fareEstimateCacheKey(
+      origin: origin,
+      destination: destination,
+      type: type,
+    );
+    final cachedEstimate = _fareEstimateCache[cacheKey];
+
+    if (cachedEstimate != null) {
+      debugPrint('Route fare estimator cache hit: $cacheKey');
+      return cachedEstimate;
+    }
+
+    debugPrint('Route fare estimator billable Directions call: $cacheKey');
+
     final liveEstimate = await _estimateFromLiveTransit(
       origin: origin,
       destination: destination,
@@ -48,6 +67,7 @@ class RouteFareEstimatorService {
     );
 
     if (liveEstimate != null && liveEstimate.isAvailable) {
+      _rememberFareEstimate(cacheKey, liveEstimate);
       return liveEstimate;
     }
 
@@ -58,10 +78,37 @@ class RouteFareEstimatorService {
     );
 
     if (historicalEstimate != null && historicalEstimate.isAvailable) {
+      _rememberFareEstimate(cacheKey, historicalEstimate);
       return historicalEstimate;
     }
 
-    return const RouteFareEstimateResult.unavailable();
+    const unavailable = RouteFareEstimateResult.unavailable();
+    _rememberFareEstimate(cacheKey, unavailable);
+    return unavailable;
+  }
+
+  static String _fareEstimateCacheKey({
+    required LatLng origin,
+    required LatLng destination,
+    required PassengerType type,
+  }) {
+    return '${type.name}:'
+        '${origin.latitude.toStringAsFixed(5)},'
+        '${origin.longitude.toStringAsFixed(5)}->'
+        '${destination.latitude.toStringAsFixed(5)},'
+        '${destination.longitude.toStringAsFixed(5)}';
+  }
+
+  static void _rememberFareEstimate(
+    String key,
+    RouteFareEstimateResult estimate,
+  ) {
+    if (_fareEstimateCache.length >= _maxFareEstimateCacheEntries &&
+        !_fareEstimateCache.containsKey(key)) {
+      _fareEstimateCache.remove(_fareEstimateCache.keys.first);
+    }
+
+    _fareEstimateCache[key] = estimate;
   }
 
   static Future<RouteFareEstimateResult?> _estimateFromLiveTransit({
@@ -298,13 +345,7 @@ class RouteFareEstimatorService {
       final leg = legs[i];
       final effectiveMode = _effectiveRideModeForLeg(selectedMode, leg);
 
-      segments.add(
-        _accessSegmentForLeg(
-          leg,
-          type,
-          isFirstLeg: i == 0,
-        ),
-      );
+      segments.add(_accessSegmentForLeg(leg, type, isFirstLeg: i == 0));
 
       segments.add(
         FareSegment(
