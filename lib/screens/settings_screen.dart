@@ -61,7 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(value
-            ? 'Guide Mode can show after Start'
+            ? 'Guide Mode will show every start'
             : 'Guide Mode will be skipped on start'),
       ),
     );
@@ -837,7 +837,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Show Guide Mode on start',
+                  'Show Guide Mode every start',
                   style: TextStyle(
                     color: _titleColor,
                     fontWeight: FontWeight.w900,
@@ -845,7 +845,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Show the HalaPH guided walkthrough after the launch Start button until completed.',
+                  'Shows Guide Mode after Start once your account is ready.',
                   style: TextStyle(
                     color: _subtitleColor,
                     fontSize: 12,

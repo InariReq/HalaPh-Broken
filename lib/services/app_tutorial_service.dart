@@ -33,9 +33,7 @@ class AppTutorialService {
   }
 
   static Future<bool> shouldShowTutorialOnStart() async {
-    final enabled = await isTutorialEnabledOnStart();
-    if (!enabled) return false;
-    return !await isTutorialCompleted();
+    return isTutorialEnabledOnStart();
   }
 
   static Future<bool> shouldShowGuideModeOnStart() {

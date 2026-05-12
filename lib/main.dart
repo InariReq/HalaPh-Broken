@@ -84,8 +84,11 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _launchAccepted = false;
-  bool _checkingTutorial = false;
-  bool _showTutorial = false;
+  bool _checkingGuideMode = false;
+  bool _showGuideMode = false;
+  bool _guideModeShownThisSession = false;
+  bool _guideModeStartupEvaluated = false;
+  bool _guideModeStartupInFlight = false;
   bool _isLoggedIn = false;
   bool _loading = true;
   String? _sessionUid;
@@ -105,10 +108,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
     _authSubscription =
         firebase_auth.FirebaseAuth.instance.userChanges().listen((user) {
       if (!mounted) return;
+      final nextUid = user?.uid;
+      final sessionChanged = _sessionUid != nextUid;
       setState(() {
         _isLoggedIn = user != null;
-        _sessionUid = user?.uid;
+        _sessionUid = nextUid;
         _loading = false;
+        if (sessionChanged) {
+          _guideModeStartupEvaluated = false;
+          _showGuideMode = false;
+        }
       });
     });
   }
@@ -124,6 +133,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         _isLoggedIn = user != null;
         _sessionUid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
         _loading = false;
+        _guideModeStartupEvaluated = false;
       });
     }
   }
@@ -133,33 +143,112 @@ class _AuthWrapperState extends State<AuthWrapper> {
     setState(() {
       _isLoggedIn = true;
       _sessionUid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+      _guideModeStartupEvaluated = false;
     });
   }
 
-  Future<void> _onLaunchStart() async {
+  void _onLaunchStart() {
     setState(() {
       _launchAccepted = true;
-      _checkingTutorial = true;
-    });
-
-    var shouldShowTutorial = false;
-    try {
-      shouldShowTutorial = await AppTutorialService.shouldShowGuideModeOnStart()
-          .timeout(const Duration(seconds: 2));
-    } catch (_) {
-      shouldShowTutorial = false;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _checkingTutorial = false;
-      _showTutorial = shouldShowTutorial;
     });
   }
 
   void _continueAfterTutorial() {
     setState(() {
-      _showTutorial = false;
+      _showGuideMode = false;
+    });
+  }
+
+  void _scheduleGuideModeStartupEvaluation() {
+    if (!_launchAccepted ||
+        _loading ||
+        !_isLoggedIn ||
+        _guideModeStartupEvaluated ||
+        _guideModeStartupInFlight ||
+        _guideModeShownThisSession ||
+        _showGuideMode) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_evaluateGuideModeStartup());
+      }
+    });
+  }
+
+  Future<void> _evaluateGuideModeStartup() async {
+    if (_guideModeStartupInFlight) return;
+
+    if (!_launchAccepted) {
+      debugPrint('Guide Mode startup: skipped because launch not accepted');
+      return;
+    }
+    if (!_isLoggedIn) {
+      debugPrint('Guide Mode startup: skipped because user is logged out');
+      return;
+    }
+    if (_guideModeShownThisSession) {
+      debugPrint(
+        'Guide Mode startup: skipped because already shown this session',
+      );
+      _guideModeStartupEvaluated = true;
+      return;
+    }
+
+    setState(() {
+      _guideModeStartupInFlight = true;
+      _checkingGuideMode = true;
+    });
+
+    var enabledEveryStart = false;
+    var completed = false;
+    var failed = false;
+    try {
+      final results = await Future.wait([
+        AppTutorialService.isGuideModeEnabledOnStart(),
+        AppTutorialService.isTutorialCompleted(),
+      ]).timeout(const Duration(seconds: 2));
+      enabledEveryStart = results[0];
+      completed = results[1];
+    } catch (error) {
+      debugPrint('Guide Mode startup: skipped because settings failed: $error');
+      failed = true;
+    }
+
+    if (!mounted) return;
+
+    debugPrint(
+      'Guide Mode startup: enabledEveryStart=$enabledEveryStart, '
+      'completed=$completed, loggedIn=$_isLoggedIn, '
+      'shownThisSession=$_guideModeShownThisSession',
+    );
+
+    if (failed) {
+      setState(() {
+        _checkingGuideMode = false;
+        _guideModeStartupInFlight = false;
+        _guideModeStartupEvaluated = true;
+      });
+      return;
+    }
+
+    if (!enabledEveryStart) {
+      debugPrint('Guide Mode startup: skipped because every start is off');
+      setState(() {
+        _checkingGuideMode = false;
+        _guideModeStartupInFlight = false;
+        _guideModeStartupEvaluated = true;
+      });
+      return;
+    }
+
+    debugPrint('Guide Mode startup: showing guide');
+    setState(() {
+      _checkingGuideMode = false;
+      _guideModeStartupInFlight = false;
+      _guideModeStartupEvaluated = true;
+      _guideModeShownThisSession = true;
+      _showGuideMode = true;
     });
   }
 
@@ -177,7 +266,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       );
     }
 
-    if (_checkingTutorial) {
+    if (_checkingGuideMode) {
       return const HalaPhLogoLoading(
         label: 'Preparing HalaPH...',
         fullScreen: true,
@@ -193,9 +282,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (!_isLoggedIn) {
       return AccountsScreen(onLoginSuccess: _onLoginSuccess);
     }
+    _scheduleGuideModeStartupEvaluation();
     return MainNavigation(
       key: ValueKey(_sessionUid ?? 'signed-in'),
-      showGuideMode: _showTutorial,
+      showGuideMode: _showGuideMode,
       onGuideModeFinished: _continueAfterTutorial,
       onGuideModeSkipped: _continueAfterTutorial,
     );
@@ -417,11 +507,12 @@ class _MainNavigationState extends State<MainNavigation> {
   void _onGuideStepChanged(int stepIndex) {
     final targetIndex = switch (stepIndex) {
       0 => 0,
-      1 => 1,
-      5 => 3,
-      6 => 2,
-      7 => 4,
-      10 => 5,
+      1 => 0,
+      2 => 1,
+      7 => 3,
+      8 => 2,
+      9 => 4,
+      12 => 5,
       _ => _currentIndex,
     };
     if (targetIndex == _currentIndex) return;

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../services/app_tutorial_service.dart';
-import '../widgets/tutorial_coach_mark.dart';
+import '../services/guide_quest_controller.dart';
+import '../widgets/guide_quest_overlay.dart';
 
 class GuideModeTargetKeys {
   final GlobalKey? homeNavKey;
@@ -42,94 +43,11 @@ class AppTutorialScreen extends StatefulWidget {
 }
 
 class _AppTutorialScreenState extends State<AppTutorialScreen> {
-  late final List<TutorialCoachStep> _steps = [
-    TutorialCoachStep(
-      title: 'Home',
-      body:
-          'Home is the starting point for your next plans, trip tools, and commute shortcuts.',
-      icon: Icons.home_rounded,
-      targetKey: widget.targetKeys.homeNavKey,
-    ),
-    TutorialCoachStep(
-      title: 'Explore',
-      body:
-          'Use Explore to search destinations and browse categories. Guide Mode will not run a real search.',
-      icon: Icons.explore_rounded,
-      targetKey: widget.targetKeys.exploreNavKey,
-    ),
-    TutorialCoachStep(
-      title: 'Destination cards',
-      body:
-          'Destination cards show place details, a heart for saving, and View Routes when you are ready.',
-      icon: Icons.place_rounded,
-      exampleBuilder: _buildDestinationExample,
-    ),
-    TutorialCoachStep(
-      title: 'Route options',
-      body:
-          'Compare transport icons, walking routes, fare, time, and confidence labels before opening a guide.',
-      icon: Icons.alt_route_rounded,
-      exampleBuilder: _buildRouteOptionsExample,
-    ),
-    TutorialCoachStep(
-      title: 'Route guide',
-      body:
-          'Route guides break the commute into boarding, alighting, walking steps, and fare breakdowns.',
-      icon: Icons.directions_rounded,
-      exampleBuilder: _buildRouteGuideExample,
-    ),
-    TutorialCoachStep(
-      title: 'Favorites',
-      body: 'Favorites keeps saved places close for repeat trips.',
-      icon: Icons.favorite_rounded,
-      targetKey: widget.targetKeys.favoritesNavKey,
-    ),
-    TutorialCoachStep(
-      title: 'Plans',
-      body:
-          'Plans help you group destinations, set dates, and estimate trip budget before you go.',
-      icon: Icons.event_note_rounded,
-      targetKey: widget.targetKeys.plansNavKey,
-    ),
-    TutorialCoachStep(
-      title: 'Collaboration',
-      body:
-          'Friends and shared plans support group planning with participant start locations.',
-      icon: Icons.groups_rounded,
-      targetKey: widget.targetKeys.friendsNavKey,
-    ),
-    TutorialCoachStep(
-      title: 'Reminders',
-      body:
-          'Plan reminders can notify you before trip stops. Guide Mode does not request notification permission.',
-      icon: Icons.notifications_active_rounded,
-      exampleBuilder: _buildReminderExample,
-    ),
-    TutorialCoachStep(
-      title: 'Trip History',
-      body:
-          'Finished plans move to Trip History so past trips stay available for review.',
-      icon: Icons.history_rounded,
-      exampleBuilder: _buildHistoryExample,
-    ),
-    TutorialCoachStep(
-      title: 'Settings',
-      body:
-          'Open Profile for account options, app settings, the Guide Mode toggle, and Replay Guide Mode.',
-      icon: Icons.settings_rounded,
-      targetKey: widget.targetKeys.profileNavKey,
-    ),
-    TutorialCoachStep(
-      title: 'Ready to use HalaPH',
-      body:
-          'You are ready to search places, compare routes, follow commute steps, and plan trips.',
-      icon: Icons.check_circle_rounded,
-      exampleBuilder: _buildFinishExample,
-    ),
-  ];
+  late final List<GuideQuestStep> _steps = GuideQuestController.buildSteps();
 
   int _index = 0;
   bool _closing = false;
+  bool _showObjectiveComplete = false;
 
   bool get _isFirst => _index == 0;
   bool get _isLast => _index == _steps.length - 1;
@@ -156,19 +74,53 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     }
   }
 
-  void _next() {
+  Future<void> _next() async {
     if (_isLast) {
       _close(skipped: false);
       return;
     }
-    setState(() => _index += 1);
+    setState(() => _showObjectiveComplete = true);
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    if (!mounted) return;
+    setState(() {
+      _index += 1;
+      _showObjectiveComplete = false;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
   }
 
   void _back() {
     if (_isFirst) return;
-    setState(() => _index -= 1);
+    setState(() {
+      _index -= 1;
+      _showObjectiveComplete = false;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
+  }
+
+  GlobalKey? _targetKeyFor(GuideQuestStep step) {
+    return switch (step.targetKeyId) {
+      GuideQuestController.homeTarget => widget.targetKeys.homeNavKey,
+      GuideQuestController.exploreTarget => widget.targetKeys.exploreNavKey,
+      GuideQuestController.plansTarget => widget.targetKeys.plansNavKey,
+      GuideQuestController.favoritesTarget => widget.targetKeys.favoritesNavKey,
+      GuideQuestController.friendsTarget => widget.targetKeys.friendsNavKey,
+      GuideQuestController.profileTarget => widget.targetKeys.profileNavKey,
+      _ => null,
+    };
+  }
+
+  WidgetBuilder? _demoBuilderFor(GuideQuestDemoCardType type) {
+    return switch (type) {
+      GuideQuestDemoCardType.destinationCard => _buildDestinationExample,
+      GuideQuestDemoCardType.routeOptions => _buildRouteOptionsExample,
+      GuideQuestDemoCardType.routeGuide => _buildRouteGuideExample,
+      GuideQuestDemoCardType.fareBreakdown => _buildFareBreakdownExample,
+      GuideQuestDemoCardType.reminders => _buildReminderExample,
+      GuideQuestDemoCardType.tripHistory => _buildHistoryExample,
+      GuideQuestDemoCardType.finish => _buildFinishExample,
+      GuideQuestDemoCardType.none => null,
+    };
   }
 
   @override
@@ -179,13 +131,16 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       type: MaterialType.transparency,
       child: Stack(
         children: [
-          TutorialCoachMark(
+          GuideQuestOverlay(
             step: step,
             stepIndex: _index,
             totalSteps: _steps.length,
+            targetKey: _targetKeyFor(step),
+            demoBuilder: _demoBuilderFor(step.demoCardType),
             isFirst: _isFirst,
             isLast: _isLast,
             isBusy: _closing,
+            showObjectiveComplete: _showObjectiveComplete,
             onSkip: () => _close(skipped: true),
             onBack: _back,
             onNext: _next,
@@ -267,6 +222,27 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
               fontWeight: FontWeight.w800,
             ),
           ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                Icons.verified_rounded,
+                size: 17,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Walking appears first when the destination is nearby.',
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -291,6 +267,31 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
             icon: Icons.flag_rounded,
             text: 'Alight near destination',
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFareBreakdownExample(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return _GuideExampleCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Fare breakdown',
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const _MiniFareRow(label: 'Walk', amount: '₱0'),
+          const _MiniFareRow(label: 'Jeepney', amount: '₱13'),
+          const _MiniFareRow(label: 'Train', amount: '₱28'),
+          Divider(color: colorScheme.outlineVariant),
+          const _MiniFareRow(
+              label: 'Total estimate', amount: '₱41', bold: true),
         ],
       ),
     );
@@ -461,6 +462,46 @@ class _MiniGuideStep extends StatelessWidget {
                 color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniFareRow extends StatelessWidget {
+  final String label;
+  final String amount;
+  final bool bold;
+
+  const _MiniFareRow({
+    required this.label,
+    required this.amount,
+    this.bold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
+              ),
+            ),
+          ),
+          Text(
+            amount,
+            style: TextStyle(
+              color: bold ? colorScheme.primary : colorScheme.onSurface,
+              fontWeight: bold ? FontWeight.w900 : FontWeight.w800,
             ),
           ),
         ],
