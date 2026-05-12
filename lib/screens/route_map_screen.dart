@@ -5,6 +5,7 @@ import 'package:halaph/services/google_maps_service.dart';
 import 'package:halaph/models/verified_route.dart';
 import 'package:halaph/services/verified_route_service.dart';
 import 'package:halaph/utils/map_utils.dart';
+import 'package:halaph/widgets/transport_mode_widgets.dart';
 
 class RouteMapScreen extends StatefulWidget {
   final TravelMode mode;
@@ -667,7 +668,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                   child: Icon(
-                                    Icons.route,
+                                    iconForTravelMode(widget.mode),
                                     color: _getModeColor(),
                                   ),
                                 ),
@@ -918,6 +919,8 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
 
                     final isCurrentStep = stepIndex == _currentStep;
                     final isWalkingStep = _isWalkingStep(step);
+                    final stepMode = _travelModeForStep(step);
+                    final stepColor = colorForTravelMode(context, stepMode);
 
                     return Padding(
                       padding: EdgeInsets.fromLTRB(
@@ -975,29 +978,61 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Container(
-                                width: 28,
-                                height: 28,
+                                width: 38,
+                                height: 38,
                                 decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
+                                  borderRadius: BorderRadius.circular(13),
                                   color: isCurrentStep
-                                      ? _getModeColor()
+                                      ? stepColor.withValues(alpha: 0.16)
                                       : Theme.of(context)
                                           .colorScheme
                                           .surfaceContainerHighest,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${stepIndex + 1}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isCurrentStep
-                                          ? Colors.white
-                                          : Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                  border: Border.all(
+                                    color: stepColor.withValues(alpha: 0.28),
                                   ),
+                                ),
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Center(
+                                      child: Icon(
+                                        iconForTravelMode(stepMode),
+                                        color: stepColor,
+                                        size: 21,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: -5,
+                                      bottom: -5,
+                                      child: Container(
+                                        width: 18,
+                                        height: 18,
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .surface,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .outlineVariant,
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            '${stepIndex + 1}',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -1005,6 +1040,11 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    TransportModeChip(
+                                      mode: stepMode,
+                                      compact: true,
+                                    ),
+                                    const SizedBox(height: 8),
                                     Text(
                                       _stripHtml(instruction),
                                       style: TextStyle(
@@ -1369,8 +1409,73 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   }
 
   bool _isWalkingStep(Map<String, dynamic> step) {
-    final mode = (step['travel_mode'] ?? '').toString().toUpperCase();
-    return mode == TravelMode.walking.name.toUpperCase();
+    return _travelModeForStep(step) == TravelMode.walking;
+  }
+
+  TravelMode _travelModeForStep(Map<String, dynamic> step) {
+    final travelMode = (step['travel_mode'] ?? '').toString().toUpperCase();
+
+    switch (travelMode) {
+      case 'WALKING':
+        return TravelMode.walking;
+      case 'JEEPNEY':
+        return TravelMode.jeepney;
+      case 'BUS':
+        return TravelMode.bus;
+      case 'TRAIN':
+        return TravelMode.train;
+      case 'FX':
+        return TravelMode.fx;
+    }
+
+    if (travelMode != 'TRANSIT') return TravelMode.walking;
+
+    final transitDetails = step['transit_details'];
+    if (transitDetails is! Map) return widget.mode;
+
+    final line = transitDetails['line'];
+    if (line is! Map) return widget.mode;
+
+    final vehicle = line['vehicle'];
+    final vehicleType =
+        vehicle is Map ? (vehicle['type'] ?? '').toString().toUpperCase() : '';
+    final vehicleName =
+        vehicle is Map ? (vehicle['name'] ?? '').toString().toUpperCase() : '';
+
+    final lineText = [
+      line['name'],
+      line['short_name'],
+      line['agency'],
+      vehicleType,
+      vehicleName,
+    ].whereType<Object>().join(' ').toUpperCase();
+
+    if (lineText.contains('MRT') ||
+        lineText.contains('LRT') ||
+        lineText.contains('PNR') ||
+        lineText.contains('TRAIN') ||
+        lineText.contains('RAIL') ||
+        lineText.contains('SUBWAY') ||
+        lineText.contains('TRAM') ||
+        lineText.contains('METRO')) {
+      return TravelMode.train;
+    }
+
+    if (lineText.contains('FX') ||
+        lineText.contains('UV') ||
+        lineText.contains('VAN')) {
+      return TravelMode.fx;
+    }
+
+    if (lineText.contains('JEEP')) return TravelMode.jeepney;
+    if (lineText.contains('BUS') ||
+        lineText.contains('BUSWAY') ||
+        lineText.contains('CAROUSEL') ||
+        lineText.contains('P2P')) {
+      return TravelMode.bus;
+    }
+
+    return widget.mode;
   }
 
   LatLng? _walkingStepStart(Map<String, dynamic> step) {

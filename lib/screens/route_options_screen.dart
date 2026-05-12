@@ -8,6 +8,7 @@ import 'package:halaph/models/verified_route.dart';
 import 'package:halaph/services/verified_route_service.dart';
 import 'package:halaph/services/commuter_type_service.dart';
 import 'package:halaph/screens/route_map_screen.dart';
+import 'package:halaph/widgets/transport_mode_widgets.dart';
 
 class RouteOptionsScreen extends StatefulWidget {
   final String destinationId;
@@ -86,7 +87,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         _ModeData(
             TravelMode.jeepney,
             'Jeepney',
-            Icons.directions_bus,
+            iconForTravelMode(TravelMode.jeepney),
             (double distance) => FareService.estimateFare(
                 TravelMode.jeepney, distance,
                 type: _passengerType),
@@ -94,7 +95,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         _ModeData(
             TravelMode.bus,
             'Bus',
-            Icons.directions_bus,
+            iconForTravelMode(TravelMode.bus),
             (double distance) => FareService.estimateFare(
                 TravelMode.bus, distance,
                 type: _passengerType),
@@ -102,7 +103,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         _ModeData(
             TravelMode.train,
             'Train (LRT/MRT)',
-            Icons.train,
+            iconForTravelMode(TravelMode.train),
             (double distance) => FareService.estimateFare(
                 TravelMode.train, distance,
                 type: _passengerType),
@@ -110,7 +111,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         _ModeData(
             TravelMode.fx,
             'FX',
-            Icons.airport_shuttle,
+            iconForTravelMode(TravelMode.fx),
             (double distance) => FareService.estimateFare(
                 TravelMode.fx, distance,
                 type: _passengerType),
@@ -118,7 +119,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         _ModeData(
             TravelMode.walking,
             'Walking',
-            Icons.directions_walk,
+            iconForTravelMode(TravelMode.walking),
             (double distance) => FareService.estimateFare(
                 TravelMode.walking, distance,
                 type: _passengerType),
@@ -311,6 +312,11 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
 
         final displayHistoricalMatch =
             hasLiveTransitStep ? null : historicalMatch;
+        final modeSequence = hasLiveTransitStep
+            ? _liveModeSequenceWithWalking(steps)
+            : displayHistoricalMatch != null
+                ? _historicalModeSequence(modeData.mode, displayHistoricalMatch)
+                : <TravelMode>[modeData.mode];
         final isNearbyDropOff = displayHistoricalMatch != null &&
             _isNearbyDropOff(displayHistoricalMatch);
         final confidenceDetail = hasLiveTransitStep
@@ -325,6 +331,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           mode: modeData.mode,
           modeName: displayName,
           icon: modeData.icon,
+          modeSequence: modeSequence,
           fare: fare,
           baseFare: baseFare,
           distance: distance,
@@ -779,6 +786,11 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                       ],
                     ),
                     const SizedBox(height: 5),
+                    TransportModeSequence(
+                      modes: fare.modeSequence,
+                      compact: true,
+                    ),
+                    const SizedBox(height: 7),
                     Text(
                       '${_formatDuration(fare.duration)} • ${_formatDistance(fare.distance)}',
                       style: TextStyle(
@@ -1378,6 +1390,60 @@ List<TravelMode> _liveModeSequence(List<Map<String, dynamic>> steps) {
   return sequence;
 }
 
+List<TravelMode> _liveModeSequenceWithWalking(
+    List<Map<String, dynamic>> steps) {
+  final sequence = <TravelMode>[];
+
+  for (final step in steps) {
+    _appendMode(sequence, _travelModeForLiveStep(step));
+  }
+
+  return sequence;
+}
+
+List<TravelMode> _historicalModeSequence(
+  TravelMode selectedMode,
+  HistoricalRouteMatch match,
+) {
+  final legs = _historicalFareLegs(match);
+  if (legs.isEmpty) return [selectedMode];
+
+  final sequence = <TravelMode>[];
+  for (var i = 0; i < legs.length; i++) {
+    final leg = legs[i];
+    final accessKm = leg.walkToBoardMeters / 1000.0;
+    final needsLocalRideToStation = leg.mode == TravelMode.train &&
+        accessKm > _stationAccessRideThresholdKm;
+
+    if (accessKm > 0) {
+      _appendMode(
+        sequence,
+        needsLocalRideToStation ? TravelMode.jeepney : TravelMode.walking,
+      );
+    }
+
+    _appendMode(sequence, _effectiveRideModeForLeg(selectedMode, leg));
+  }
+
+  final finalWalkKm = match.walkFromAlightMeters / 1000.0;
+  final lastLeg = legs.last;
+  final needsLocalRideFromStation = lastLeg.mode == TravelMode.train &&
+      finalWalkKm > _stationAccessRideThresholdKm;
+  if (finalWalkKm > 0) {
+    _appendMode(
+      sequence,
+      needsLocalRideFromStation ? TravelMode.jeepney : TravelMode.walking,
+    );
+  }
+
+  return sequence.isEmpty ? [selectedMode] : sequence;
+}
+
+void _appendMode(List<TravelMode> sequence, TravelMode mode) {
+  if (sequence.isNotEmpty && sequence.last == mode) return;
+  sequence.add(mode);
+}
+
 double _totalDistanceKmForLiveSteps(List<Map<String, dynamic>> steps) {
   return steps.fold<double>(
     0,
@@ -1722,6 +1788,7 @@ class _TransportFare {
   final TravelMode mode;
   final String modeName;
   final IconData icon;
+  final List<TravelMode> modeSequence;
   final double fare;
   final double baseFare;
   final double distance;
@@ -1739,6 +1806,7 @@ class _TransportFare {
     required this.mode,
     required this.modeName,
     required this.icon,
+    required this.modeSequence,
     required this.fare,
     required this.baseFare,
     required this.distance,
