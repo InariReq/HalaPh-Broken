@@ -12,11 +12,15 @@ class GuideQuestOverlay extends StatelessWidget {
   final bool isFirst;
   final bool isLast;
   final bool isBusy;
+  final bool actionCompleted;
   final bool showObjectiveComplete;
+  final String? statusMessage;
   final VoidCallback onSkip;
   final VoidCallback onBack;
   final VoidCallback onNext;
   final VoidCallback onFinish;
+  final VoidCallback? onPrimaryAction;
+  final VoidCallback? onPracticeAgain;
 
   const GuideQuestOverlay({
     super.key,
@@ -29,11 +33,15 @@ class GuideQuestOverlay extends StatelessWidget {
     required this.isFirst,
     required this.isLast,
     required this.isBusy,
+    required this.actionCompleted,
     required this.showObjectiveComplete,
+    this.statusMessage,
     required this.onSkip,
     required this.onBack,
     required this.onNext,
     required this.onFinish,
+    this.onPrimaryAction,
+    this.onPracticeAgain,
   });
 
   @override
@@ -81,11 +89,15 @@ class GuideQuestOverlay extends StatelessWidget {
                         isFirst: isFirst,
                         isLast: isLast,
                         isBusy: isBusy,
+                        actionCompleted: actionCompleted,
                         showObjectiveComplete: showObjectiveComplete,
+                        statusMessage: statusMessage,
                         onSkip: onSkip,
                         onBack: onBack,
                         onNext: onNext,
                         onFinish: onFinish,
+                        onPrimaryAction: onPrimaryAction,
+                        onPracticeAgain: onPracticeAgain,
                       ),
                     ),
                   ),
@@ -140,11 +152,15 @@ class _QuestCard extends StatelessWidget {
   final bool isFirst;
   final bool isLast;
   final bool isBusy;
+  final bool actionCompleted;
   final bool showObjectiveComplete;
+  final String? statusMessage;
   final VoidCallback onSkip;
   final VoidCallback onBack;
   final VoidCallback onNext;
   final VoidCallback onFinish;
+  final VoidCallback? onPrimaryAction;
+  final VoidCallback? onPracticeAgain;
 
   const _QuestCard({
     required this.step,
@@ -155,11 +171,15 @@ class _QuestCard extends StatelessWidget {
     required this.isFirst,
     required this.isLast,
     required this.isBusy,
+    required this.actionCompleted,
     required this.showObjectiveComplete,
+    required this.statusMessage,
     required this.onSkip,
     required this.onBack,
     required this.onNext,
     required this.onFinish,
+    required this.onPrimaryAction,
+    required this.onPracticeAgain,
   });
 
   @override
@@ -170,6 +190,11 @@ class _QuestCard extends StatelessWidget {
     final cardColor = isDark ? const Color(0xFF0F172A) : Colors.white;
     final borderColor =
         isDark ? const Color(0xFF334155) : const Color(0xFFDDE8F7);
+
+    final needsPrimaryAction = _needsPrimaryAction(step);
+    final actionLabel = actionCompleted
+        ? 'Objective complete'
+        : step.primaryActionLabel ?? 'Start objective';
 
     return Material(
       color: Colors.transparent,
@@ -233,10 +258,16 @@ class _QuestCard extends StatelessWidget {
               const SizedBox(height: 16),
               _ObjectivePanel(
                 objective: step.objective,
-                showComplete: showObjectiveComplete,
+                showComplete: showObjectiveComplete || actionCompleted,
                 completionLabel: step.completionLabel,
               ),
               const SizedBox(height: 14),
+              _InstructionPanel(
+                instruction: step.instruction,
+                allowsApiCalls: step.allowsApiCalls,
+                requiresConfirmation: step.requiresConfirmation,
+              ),
+              const SizedBox(height: 12),
               Text(
                 step.explanation,
                 style: theme.textTheme.bodyLarge?.copyWith(
@@ -247,11 +278,44 @@ class _QuestCard extends StatelessWidget {
               ),
               if (step.isTapTargetStep && hasTarget) ...[
                 const SizedBox(height: 14),
-                _TapPrompt(),
+                const _TapPrompt(),
+              ],
+              if (statusMessage != null &&
+                  statusMessage!.trim().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _StatusMessage(message: statusMessage!),
               ],
               const SizedBox(height: 16),
               demoBuilder?.call(context) ?? const _QuestRouteCue(),
               const SizedBox(height: 18),
+              if (needsPrimaryAction) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed:
+                        isBusy || actionCompleted ? null : onPrimaryAction,
+                    icon: Icon(
+                      actionCompleted
+                          ? Icons.check_circle_rounded
+                          : _actionIcon(step),
+                      size: 18,
+                    ),
+                    label: Text(actionLabel),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (isLast && onPracticeAgain != null) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: isBusy ? null : onPracticeAgain,
+                    icon: const Icon(Icons.replay_rounded, size: 18),
+                    label: const Text('Practice again'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               Row(
                 children: [
                   Expanded(
@@ -271,7 +335,7 @@ class _QuestCard extends StatelessWidget {
                             : Icons.arrow_forward_rounded,
                         size: 18,
                       ),
-                      label: Text(isLast ? 'Finish' : 'Next'),
+                      label: Text(isLast ? 'Finish' : 'Continue'),
                     ),
                   ),
                 ],
@@ -279,6 +343,171 @@ class _QuestCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  bool _needsPrimaryAction(GuideQuestStep step) {
+    if (step.actionId == null || step.type == GuideQuestStepType.finish) {
+      return false;
+    }
+    return step.type == GuideQuestStepType.explainOnly ||
+        step.type == GuideQuestStepType.tapTarget ||
+        step.type == GuideQuestStepType.liveAction ||
+        step.type == GuideQuestStepType.fallbackDemo ||
+        step.type == GuideQuestStepType.confirmWriteAction;
+  }
+
+  IconData _actionIcon(GuideQuestStep step) {
+    if (step.allowsApiCalls) return Icons.travel_explore_rounded;
+    if (step.requiresConfirmation) return Icons.verified_user_rounded;
+    if (step.isTapTargetStep) return Icons.touch_app_rounded;
+    return Icons.flag_rounded;
+  }
+}
+
+class _InstructionPanel extends StatelessWidget {
+  final String instruction;
+  final bool allowsApiCalls;
+  final bool requiresConfirmation;
+
+  const _InstructionPanel({
+    required this.instruction,
+    required this.allowsApiCalls,
+    required this.requiresConfirmation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.54),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.navigation_rounded,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  instruction,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (allowsApiCalls || requiresConfirmation) ...[
+            const SizedBox(height: 9),
+            Wrap(
+              spacing: 7,
+              runSpacing: 6,
+              children: [
+                if (allowsApiCalls)
+                  const _GuideSafetyChip(
+                    icon: Icons.public_rounded,
+                    label: 'Runs only after your tap',
+                  ),
+                if (requiresConfirmation)
+                  const _GuideSafetyChip(
+                    icon: Icons.lock_outline_rounded,
+                    label: 'Requires confirmation',
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _GuideSafetyChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _GuideSafetyChip({
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: colorScheme.primary),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: colorScheme.primary,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusMessage extends StatelessWidget {
+  final String message;
+
+  const _StatusMessage({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      decoration: BoxDecoration(
+        color: colorScheme.tertiaryContainer.withValues(alpha: 0.48),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_rounded, size: 17, color: colorScheme.tertiary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: colorScheme.onTertiaryContainer,
+                fontSize: 12,
+                height: 1.3,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -420,6 +649,8 @@ class _ObjectivePanel extends StatelessWidget {
 }
 
 class _TapPrompt extends StatelessWidget {
+  const _TapPrompt();
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;

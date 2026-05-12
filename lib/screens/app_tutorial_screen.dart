@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../models/destination.dart';
 import '../services/app_tutorial_service.dart';
 import '../services/guide_mode_demo_data.dart';
 import '../services/guide_quest_controller.dart';
+import '../screens/route_options_screen.dart';
 import '../widgets/guide_quest_overlay.dart';
 import '../widgets/transport_mode_widgets.dart';
 
@@ -49,7 +51,11 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
 
   int _index = 0;
   bool _closing = false;
+  bool _actionBusy = false;
   bool _showObjectiveComplete = false;
+  String? _statusMessage;
+  Destination? _selectedDestination;
+  final Set<String> _completedActions = <String>{};
 
   bool get _isFirst => _index == 0;
   bool get _isLast => _index == _steps.length - 1;
@@ -87,6 +93,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     setState(() {
       _index += 1;
       _showObjectiveComplete = false;
+      _statusMessage = null;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
   }
@@ -96,8 +103,182 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     setState(() {
       _index -= 1;
       _showObjectiveComplete = false;
+      _statusMessage = null;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
+  }
+
+  void _restartGuide() {
+    setState(() {
+      _index = 0;
+      _showObjectiveComplete = false;
+      _statusMessage = null;
+      _completedActions.clear();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
+  }
+
+  Future<void> _runGuideAction(GuideQuestStep step) async {
+    final actionId = step.actionId;
+    if (actionId == null || _actionBusy || _closing) return;
+
+    debugPrint('Guide live action started: $actionId');
+    if (step.allowsApiCalls) {
+      debugPrint('Guide live action may call APIs: $actionId');
+    }
+
+    setState(() {
+      _actionBusy = true;
+      _statusMessage = null;
+    });
+
+    try {
+      switch (actionId) {
+        case GuideQuestActionId.startGuide:
+          _markActionComplete(
+              actionId, 'Quest started. Follow the objectives.');
+          break;
+        case GuideQuestActionId.reviewHome:
+          _notifyStepChanged();
+          _markActionComplete(actionId, 'Home is your trip command center.');
+          break;
+        case GuideQuestActionId.openExplore:
+          widget.onStepChanged?.call(2);
+          _markActionComplete(actionId, 'Explore opened.');
+          break;
+        case GuideQuestActionId.useSampleDestination:
+          _selectedDestination = GuideModeDemoData.destinationsForApp().first;
+          _markActionComplete(
+            actionId,
+            'Sample destination selected: ${_selectedDestination!.name}.',
+          );
+          break;
+        case GuideQuestActionId.previewLiveRoutes:
+          await _previewLiveRouteOptions(actionId);
+          break;
+        case GuideQuestActionId.chooseDemoRoute:
+          _markActionComplete(actionId, 'Route steps reviewed.');
+          break;
+        case GuideQuestActionId.reviewFareBreakdown:
+          _markActionComplete(actionId, 'Fare breakdown reviewed.');
+          break;
+        case GuideQuestActionId.openFavorites:
+          widget.onStepChanged?.call(7);
+          _markActionComplete(
+              actionId, 'Favorites opened without changing data.');
+          break;
+        case GuideQuestActionId.openPlans:
+          widget.onStepChanged?.call(8);
+          _markActionComplete(
+              actionId, 'Plans opened without creating a plan.');
+          break;
+        case GuideQuestActionId.openFriends:
+          widget.onStepChanged?.call(9);
+          _markActionComplete(
+            actionId,
+            'Friends opened. No requests were sent.',
+          );
+          break;
+        case GuideQuestActionId.reviewReminders:
+          _markActionComplete(
+            actionId,
+            'Reminder preview reviewed. No permission prompt was shown.',
+          );
+          break;
+        case GuideQuestActionId.reviewTripHistory:
+          _markActionComplete(actionId, 'Trip History preview reviewed.');
+          break;
+        case GuideQuestActionId.openSettings:
+          widget.onStepChanged?.call(12);
+          _markActionComplete(actionId, 'Guide Mode controls are in Settings.');
+          break;
+        case GuideQuestActionId.finish:
+          await _close(skipped: false);
+          break;
+      }
+    } catch (error) {
+      debugPrint('Guide live action fallback used: $actionId failed: $error');
+      if (mounted) {
+        _markActionComplete(
+          actionId,
+          'Live action was unavailable, so Guide Mode kept the offline example.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _actionBusy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _previewLiveRouteOptions(String actionId) async {
+    final destination =
+        _selectedDestination ?? GuideModeDemoData.destinationsForApp().first;
+    _selectedDestination = destination;
+
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final colorScheme = Theme.of(sheetContext).colorScheme;
+        return DraggableScrollableSheet(
+          initialChildSize: 0.88,
+          minChildSize: 0.48,
+          maxChildSize: 0.96,
+          expand: false,
+          builder: (context, scrollController) {
+            return ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(24)),
+              child: Material(
+                color: colorScheme.surface,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 5,
+                      margin: const EdgeInsets.only(top: 10, bottom: 8),
+                      decoration: BoxDecoration(
+                        color: colorScheme.outlineVariant,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    Expanded(
+                      child: RouteOptionsScreen(
+                        destinationId: destination.id,
+                        destinationName: destination.name,
+                        source: 'guide_mode_live_preview',
+                        destination: destination,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (!mounted) return;
+    _markActionComplete(
+      actionId,
+      'Live route preview closed. Cached route results help avoid duplicate calls.',
+    );
+  }
+
+  void _markActionComplete(String actionId, String message) {
+    if (!mounted) return;
+    setState(() {
+      _completedActions.add(actionId);
+      _showObjectiveComplete = true;
+      _statusMessage = message;
+    });
   }
 
   GlobalKey? _targetKeyFor(GuideQuestStep step) {
@@ -130,6 +311,8 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   @override
   Widget build(BuildContext context) {
     final step = _steps[_index];
+    final actionCompleted =
+        step.actionId != null && _completedActions.contains(step.actionId);
 
     return Material(
       type: MaterialType.transparency,
@@ -143,12 +326,16 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
             demoBuilder: _demoBuilderFor(step.demoCardType),
             isFirst: _isFirst,
             isLast: _isLast,
-            isBusy: _closing,
+            isBusy: _closing || _actionBusy,
+            actionCompleted: actionCompleted,
             showObjectiveComplete: _showObjectiveComplete,
+            statusMessage: _statusMessage,
             onSkip: () => _close(skipped: true),
             onBack: _back,
             onNext: _next,
             onFinish: () => _close(skipped: false),
+            onPrimaryAction: () => _runGuideAction(step),
+            onPracticeAgain: _restartGuide,
           ),
         ],
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../models/destination.dart';
 import '../models/plan.dart';
@@ -269,6 +270,7 @@ class GuideModeDemoData {
             name: destination.name,
             description: destination.description,
             location: destination.locationLabel,
+            coordinates: _coordinatesFor(destination.name),
             imageUrl: '',
             category: _categoryFor(destination.type),
             rating: _ratingFor(destination.ratingDisplay),
@@ -325,5 +327,15 @@ class GuideModeDemoData {
   static double _ratingFor(String display) {
     final value = double.tryParse(display.split(' ').first.trim());
     return value == null ? 0.0 : value.clamp(0.0, 5.0);
+  }
+
+  static LatLng? _coordinatesFor(String name) {
+    return switch (name) {
+      'Intramuros' => const LatLng(14.5896, 120.9747),
+      'Rizal Park' => const LatLng(14.5826, 120.9780),
+      'National Museum' => const LatLng(14.5868, 120.9818),
+      'SM Mall of Asia' => const LatLng(14.5352, 120.9822),
+      _ => null,
+    };
   }
 }
