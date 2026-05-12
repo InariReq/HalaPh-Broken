@@ -9,14 +9,26 @@ void main() {
   ) async {
     await tester.pumpWidget(const HalaPhApp());
     await tester.pump();
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pump();
 
     final hasLegacyLoader =
         find.byType(CircularProgressIndicator).evaluate().isNotEmpty;
     final hasLogoLoader =
         find.textContaining('Preparing HalaPH').evaluate().isNotEmpty;
+    final hasLaunchPreflight =
+        find.textContaining('Welcome to HalaPH').evaluate().isNotEmpty;
+    final hasStart = find.textContaining('Start').evaluate().isNotEmpty;
     final hasAuthForm =
         find.textContaining('Sign in to your account').evaluate().isNotEmpty;
 
-    expect(hasLegacyLoader || hasLogoLoader || hasAuthForm, isTrue);
+    expect(
+      hasLaunchPreflight ||
+          hasStart ||
+          hasLegacyLoader ||
+          hasLogoLoader ||
+          hasAuthForm,
+      isTrue,
+    );
   });
 }

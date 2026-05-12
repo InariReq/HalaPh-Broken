@@ -37,6 +37,7 @@ import 'screens/route_options_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/add_place_screen.dart';
 import 'screens/friends_screen.dart';
+import 'widgets/halaph_launch_preflight.dart';
 import 'widgets/halaph_logo_loading.dart';
 
 void main() async {
@@ -80,6 +81,7 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  bool _launchAccepted = false;
   bool _isLoggedIn = false;
   bool _loading = true;
   String? _sessionUid;
@@ -138,6 +140,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_launchAccepted) {
+      return HalaPhLaunchPreflight(
+        onStart: () {
+          setState(() {
+            _launchAccepted = true;
+          });
+        },
+      );
+    }
+
     if (_loading) {
       return const HalaPhLogoLoading(
         label: 'Preparing HalaPH...',
