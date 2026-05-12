@@ -3,16 +3,38 @@ import 'package:flutter/material.dart';
 import '../services/app_tutorial_service.dart';
 import '../widgets/tutorial_coach_mark.dart';
 
+class GuideModeTargetKeys {
+  final GlobalKey? homeNavKey;
+  final GlobalKey? exploreNavKey;
+  final GlobalKey? plansNavKey;
+  final GlobalKey? favoritesNavKey;
+  final GlobalKey? friendsNavKey;
+  final GlobalKey? profileNavKey;
+
+  const GuideModeTargetKeys({
+    this.homeNavKey,
+    this.exploreNavKey,
+    this.plansNavKey,
+    this.favoritesNavKey,
+    this.friendsNavKey,
+    this.profileNavKey,
+  });
+}
+
 class AppTutorialScreen extends StatefulWidget {
   final bool launchedFromSettings;
   final VoidCallback onFinish;
   final VoidCallback onSkip;
+  final GuideModeTargetKeys targetKeys;
+  final ValueChanged<int>? onStepChanged;
 
   const AppTutorialScreen({
     super.key,
     required this.launchedFromSettings,
     required this.onFinish,
     required this.onSkip,
+    this.targetKeys = const GuideModeTargetKeys(),
+    this.onStepChanged,
   });
 
   @override
@@ -20,107 +42,89 @@ class AppTutorialScreen extends StatefulWidget {
 }
 
 class _AppTutorialScreenState extends State<AppTutorialScreen> {
-  final _homeKey = GlobalKey();
-  final _exploreKey = GlobalKey();
-  final _destinationKey = GlobalKey();
-  final _routeOptionsKey = GlobalKey();
-  final _routeGuideKey = GlobalKey();
-  final _favoritesKey = GlobalKey();
-  final _plansKey = GlobalKey();
-  final _collaborationKey = GlobalKey();
-  final _remindersKey = GlobalKey();
-  final _historyKey = GlobalKey();
-  final _settingsKey = GlobalKey();
-
   late final List<TutorialCoachStep> _steps = [
-    const TutorialCoachStep(
-      title: 'Welcome to Guide Mode',
-      body:
-          'HalaPH helps you plan Philippine commute routes, fares, and trips before you go.',
-      icon: Icons.navigation_rounded,
-    ),
     TutorialCoachStep(
       title: 'Home',
       body:
-          'Home is your starting point for next plans, saved trip tools, and quick commute actions.',
+          'Home is the starting point for your next plans, trip tools, and commute shortcuts.',
       icon: Icons.home_rounded,
-      targetKey: _homeKey,
+      targetKey: widget.targetKeys.homeNavKey,
     ),
     TutorialCoachStep(
       title: 'Explore',
       body:
-          'Search destinations and browse categories without needing to know the exact place first.',
+          'Use Explore to search destinations and browse categories. Guide Mode will not run a real search.',
       icon: Icons.explore_rounded,
-      targetKey: _exploreKey,
+      targetKey: widget.targetKeys.exploreNavKey,
     ),
     TutorialCoachStep(
       title: 'Destination cards',
       body:
-          'Use destination cards to review place details, save with the heart, and open route options.',
+          'Destination cards show place details, a heart for saving, and View Routes when you are ready.',
       icon: Icons.place_rounded,
-      targetKey: _destinationKey,
+      exampleBuilder: _buildDestinationExample,
     ),
     TutorialCoachStep(
       title: 'Route options',
       body:
-          'Compare commute options with transport icons, fare, time, confidence labels, and walking routes when nearby.',
+          'Compare transport icons, walking routes, fare, time, and confidence labels before opening a guide.',
       icon: Icons.alt_route_rounded,
-      targetKey: _routeOptionsKey,
+      exampleBuilder: _buildRouteOptionsExample,
     ),
     TutorialCoachStep(
       title: 'Route guide',
       body:
-          'Follow step-by-step boarding, alighting, walking instructions, and fare breakdowns.',
+          'Route guides break the commute into boarding, alighting, walking steps, and fare breakdowns.',
       icon: Icons.directions_rounded,
-      targetKey: _routeGuideKey,
+      exampleBuilder: _buildRouteGuideExample,
     ),
     TutorialCoachStep(
       title: 'Favorites',
-      body:
-          'Saved places stay in Favorites so repeat trips are easier to find.',
+      body: 'Favorites keeps saved places close for repeat trips.',
       icon: Icons.favorite_rounded,
-      targetKey: _favoritesKey,
+      targetKey: widget.targetKeys.favoritesNavKey,
     ),
     TutorialCoachStep(
       title: 'Plans',
       body:
-          'Create trip plans, add destinations, set dates, and estimate the trip budget.',
+          'Plans help you group destinations, set dates, and estimate trip budget before you go.',
       icon: Icons.event_note_rounded,
-      targetKey: _plansKey,
+      targetKey: widget.targetKeys.plansNavKey,
     ),
     TutorialCoachStep(
       title: 'Collaboration',
       body:
-          'Friends can join shared plans with participant start locations for synced planning.',
+          'Friends and shared plans support group planning with participant start locations.',
       icon: Icons.groups_rounded,
-      targetKey: _collaborationKey,
+      targetKey: widget.targetKeys.friendsNavKey,
     ),
     TutorialCoachStep(
       title: 'Reminders',
       body:
-          'Plan reminders use local notifications so you can get ready before trip stops.',
+          'Plan reminders can notify you before trip stops. Guide Mode does not request notification permission.',
       icon: Icons.notifications_active_rounded,
-      targetKey: _remindersKey,
+      exampleBuilder: _buildReminderExample,
     ),
     TutorialCoachStep(
       title: 'Trip History',
       body:
-          'Finished plans and past trips appear in Trip History for later review.',
+          'Finished plans move to Trip History so past trips stay available for review.',
       icon: Icons.history_rounded,
-      targetKey: _historyKey,
+      exampleBuilder: _buildHistoryExample,
     ),
     TutorialCoachStep(
       title: 'Settings',
       body:
-          'Manage account options, the Guide Mode toggle, and Replay Guide Mode from Settings.',
+          'Open Profile for account options, app settings, the Guide Mode toggle, and Replay Guide Mode.',
       icon: Icons.settings_rounded,
-      targetKey: _settingsKey,
+      targetKey: widget.targetKeys.profileNavKey,
     ),
-    const TutorialCoachStep(
+    TutorialCoachStep(
       title: 'Ready to use HalaPH',
       body:
           'You are ready to search places, compare routes, follow commute steps, and plan trips.',
       icon: Icons.check_circle_rounded,
+      exampleBuilder: _buildFinishExample,
     ),
   ];
 
@@ -129,6 +133,16 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
 
   bool get _isFirst => _index == 0;
   bool get _isLast => _index == _steps.length - 1;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
+  }
+
+  void _notifyStepChanged() {
+    widget.onStepChanged?.call(_index);
+  }
 
   Future<void> _close({required bool skipped}) async {
     if (_closing) return;
@@ -148,36 +162,23 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       return;
     }
     setState(() => _index += 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
   }
 
   void _back() {
     if (_isFirst) return;
     setState(() => _index -= 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final step = _steps[_index];
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      body: Stack(
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
         children: [
-          _GuideModeMockApp(
-            homeKey: _homeKey,
-            exploreKey: _exploreKey,
-            destinationKey: _destinationKey,
-            routeOptionsKey: _routeOptionsKey,
-            routeGuideKey: _routeGuideKey,
-            favoritesKey: _favoritesKey,
-            plansKey: _plansKey,
-            collaborationKey: _collaborationKey,
-            remindersKey: _remindersKey,
-            historyKey: _historyKey,
-            settingsKey: _settingsKey,
-            activeStepIndex: _index,
-          ),
           TutorialCoachMark(
             step: step,
             stepIndex: _index,
@@ -194,442 +195,200 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       ),
     );
   }
+
+  Widget _buildDestinationExample(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return _GuideExampleCard(
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(Icons.place_rounded, color: colorScheme.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Intramuros',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Details, save, then view routes',
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.favorite_border_rounded, color: colorScheme.primary),
+          const SizedBox(width: 8),
+          Icon(Icons.directions_rounded, color: colorScheme.primary),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRouteOptionsExample(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return _GuideExampleCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: const [
+              _MiniModeChip(
+                icon: Icons.directions_walk_rounded,
+                label: 'Walk',
+              ),
+              _MiniModeChip(
+                icon: Icons.directions_bus_filled_rounded,
+                label: 'Jeepney',
+              ),
+              _MiniModeChip(icon: Icons.train_rounded, label: 'Train'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '₱41 estimate • 38 min • Live transit estimate',
+            style: TextStyle(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRouteGuideExample(BuildContext context) {
+    return _GuideExampleCard(
+      child: Column(
+        children: const [
+          _MiniGuideStep(
+            number: '1',
+            icon: Icons.directions_walk_rounded,
+            text: 'Walk to the stop',
+          ),
+          _MiniGuideStep(
+            number: '2',
+            icon: Icons.directions_bus_filled_rounded,
+            text: 'Ride jeepney toward the station',
+          ),
+          _MiniGuideStep(
+            number: '3',
+            icon: Icons.flag_rounded,
+            text: 'Alight near destination',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReminderExample(BuildContext context) {
+    return const _GuideExampleCard(
+      child: Row(
+        children: [
+          Icon(Icons.notifications_active_rounded),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Local plan reminders stay optional and can be changed in Settings.',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHistoryExample(BuildContext context) {
+    return const _GuideExampleCard(
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_rounded),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Finished trips appear as completed plan cards.',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFinishExample(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return _GuideExampleCard(
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.asset(
+              'assets/icons/app_icon.png',
+              width: 44,
+              height: 44,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(Icons.navigation_rounded,
+                    color: colorScheme.primary);
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Finish Guide Mode to return to the app.',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _GuideModeMockApp extends StatelessWidget {
-  final GlobalKey homeKey;
-  final GlobalKey exploreKey;
-  final GlobalKey destinationKey;
-  final GlobalKey routeOptionsKey;
-  final GlobalKey routeGuideKey;
-  final GlobalKey favoritesKey;
-  final GlobalKey plansKey;
-  final GlobalKey collaborationKey;
-  final GlobalKey remindersKey;
-  final GlobalKey historyKey;
-  final GlobalKey settingsKey;
-  final int activeStepIndex;
+class _GuideExampleCard extends StatelessWidget {
+  final Widget child;
 
-  const _GuideModeMockApp({
-    required this.homeKey,
-    required this.exploreKey,
-    required this.destinationKey,
-    required this.routeOptionsKey,
-    required this.routeGuideKey,
-    required this.favoritesKey,
-    required this.plansKey,
-    required this.collaborationKey,
-    required this.remindersKey,
-    required this.historyKey,
-    required this.settingsKey,
-    required this.activeStepIndex,
-  });
+  const _GuideExampleCard({required this.child});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    return AbsorbPointer(
-      child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      'assets/icons/app_icon.png',
-                      width: 40,
-                      height: 40,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(
-                          Icons.navigation_rounded,
-                          color: colorScheme.primary,
-                          size: 40,
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'HalaPH Guide Mode',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        Text(
-                          'Guided walkthrough',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  _MiniIconButton(
-                    key: settingsKey,
-                    icon: Icons.settings_rounded,
-                    label: 'Settings',
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
-                children: [
-                  _HeroPanel(key: homeKey),
-                  const SizedBox(height: 14),
-                  _SearchPanel(key: exploreKey),
-                  const SizedBox(height: 14),
-                  _DestinationPanel(key: destinationKey),
-                  const SizedBox(height: 14),
-                  _RouteOptionsPanel(key: routeOptionsKey),
-                  const SizedBox(height: 14),
-                  _RouteGuidePanel(key: routeGuideKey),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _FeatureTile(
-                          key: favoritesKey,
-                          icon: Icons.favorite_rounded,
-                          title: 'Favorites',
-                          subtitle: 'Saved places',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _FeatureTile(
-                          key: plansKey,
-                          icon: Icons.event_note_rounded,
-                          title: 'Plans',
-                          subtitle: 'Dates and budget',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _FeatureTile(
-                          key: collaborationKey,
-                          icon: Icons.groups_rounded,
-                          title: 'Friends',
-                          subtitle: 'Shared planning',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _FeatureTile(
-                          key: remindersKey,
-                          icon: Icons.notifications_active_rounded,
-                          title: 'Reminders',
-                          subtitle: 'Local alerts',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _FeatureTile(
-                    key: historyKey,
-                    icon: Icons.history_rounded,
-                    title: 'Trip History',
-                    subtitle: 'Finished plans and past trips',
-                  ),
-                  SizedBox(height: activeStepIndex > 9 ? 160 : 80),
-                ],
-              ),
-            ),
-            _MockBottomNav(),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HeroPanel extends StatelessWidget {
-  const _HeroPanel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return _MockPanel(
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Plan your next commute',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Routes, fares, plans, and reminders in one place.',
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Icon(
-            Icons.navigation_rounded,
-            color: colorScheme.primary,
-            size: 42,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SearchPanel extends StatelessWidget {
-  const _SearchPanel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return _MockPanel(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          Icon(Icons.search_rounded, color: colorScheme.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Search malls, parks, stations, and landmarks',
-              style: TextStyle(
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DestinationPanel extends StatelessWidget {
-  const _DestinationPanel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return _MockPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.place_rounded, color: colorScheme.primary),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'Destination card',
-                  style: TextStyle(fontWeight: FontWeight.w900),
-                ),
-              ),
-              Icon(Icons.favorite_border_rounded, color: colorScheme.primary),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Place details, save action, and route entry point.',
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RouteOptionsPanel extends StatelessWidget {
-  const _RouteOptionsPanel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return _MockPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Route options',
-            style: TextStyle(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _ModeChip(icon: Icons.directions_walk_rounded, label: 'Walk'),
-              const SizedBox(width: 8),
-              _ModeChip(
-                  icon: Icons.directions_bus_filled_rounded, label: 'Jeepney'),
-              const SizedBox(width: 8),
-              _ModeChip(icon: Icons.train_rounded, label: 'Train'),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '₱41 estimate - 38 min - Live transit estimate',
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RouteGuidePanel extends StatelessWidget {
-  const _RouteGuidePanel({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return _MockPanel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Step-by-step guide',
-            style: TextStyle(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 12),
-          _GuideStep(
-            number: '1',
-            icon: Icons.directions_walk_rounded,
-            text: 'Walk to the stop',
-          ),
-          _GuideStep(
-            number: '2',
-            icon: Icons.directions_bus_filled_rounded,
-            text: 'Ride jeepney toward the station',
-          ),
-          _GuideStep(
-            number: '3',
-            icon: Icons.flag_rounded,
-            text: 'Alight near destination',
-            color: colorScheme.primary,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FeatureTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  const _FeatureTile({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return _MockPanel(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          Icon(icon, color: colorScheme.primary),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MockPanel extends StatelessWidget {
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-
-  const _MockPanel({
-    required this.child,
-    this.padding = const EdgeInsets.all(18),
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     return Container(
-      padding: padding,
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111827) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.56),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isDark ? const Color(0xFF263244) : const Color(0xFFE5EAF3),
+          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
       child: child,
     );
   }
 }
 
-class _ModeChip extends StatelessWidget {
+class _MiniModeChip extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const _ModeChip({
+  const _MiniModeChip({
     required this.icon,
     required this.label,
   });
@@ -637,178 +396,71 @@ class _ModeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Flexible(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-        decoration: BoxDecoration(
-          color: colorScheme.primaryContainer.withValues(alpha: 0.56),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: colorScheme.primary),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: colorScheme.primary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.56),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: colorScheme.primary),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: colorScheme.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _GuideStep extends StatelessWidget {
+class _MiniGuideStep extends StatelessWidget {
   final String number;
   final IconData icon;
   final String text;
-  final Color? color;
 
-  const _GuideStep({
+  const _MiniGuideStep({
     required this.number,
     required this.icon,
     required this.text,
-    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final stepColor = color ?? colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
           CircleAvatar(
             radius: 13,
-            backgroundColor: stepColor.withValues(alpha: 0.14),
+            backgroundColor: colorScheme.primary.withValues(alpha: 0.14),
             child: Text(
               number,
               style: TextStyle(
-                color: stepColor,
+                color: colorScheme.primary,
                 fontSize: 12,
                 fontWeight: FontWeight.w900,
               ),
             ),
           ),
           const SizedBox(width: 9),
-          Icon(icon, color: stepColor, size: 20),
+          Icon(icon, color: colorScheme.primary, size: 20),
           const SizedBox(width: 9),
           Expanded(
             child: Text(
               text,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w700,
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniIconButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _MiniIconButton({
-    super.key,
-    required this.icon,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Tooltip(
-        message: label,
-        child: Icon(icon, color: colorScheme.primary, size: 22),
-      ),
-    );
-  }
-}
-
-class _MockBottomNav extends StatelessWidget {
-  const _MockBottomNav();
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF111827) : Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(
-          color: isDark ? const Color(0xFF263244) : const Color(0xFFE3ECF8),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _NavPreviewItem(
-              icon: Icons.home_rounded, label: 'Home', active: true),
-          _NavPreviewItem(icon: Icons.explore_rounded, label: 'Explore'),
-          _NavPreviewItem(icon: Icons.event_note_rounded, label: 'Plans'),
-          _NavPreviewItem(icon: Icons.favorite_rounded, label: 'Saved'),
-          _NavPreviewItem(icon: Icons.person_rounded, label: 'Profile'),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavPreviewItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-
-  const _NavPreviewItem({
-    required this.icon,
-    required this.label,
-    this.active = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final color = active ? colorScheme.primary : colorScheme.onSurfaceVariant;
-    return Expanded(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: active ? FontWeight.w900 : FontWeight.w700,
             ),
           ),
         ],

@@ -184,14 +184,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
       );
     }
 
-    if (_showTutorial) {
-      return AppTutorialScreen(
-        launchedFromSettings: false,
-        onFinish: _continueAfterTutorial,
-        onSkip: _continueAfterTutorial,
-      );
-    }
-
     if (_loading) {
       return const HalaPhLogoLoading(
         label: 'Preparing HalaPH...',
@@ -201,7 +193,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (!_isLoggedIn) {
       return AccountsScreen(onLoginSuccess: _onLoginSuccess);
     }
-    return MainNavigation(key: ValueKey(_sessionUid ?? 'signed-in'));
+    return MainNavigation(
+      key: ValueKey(_sessionUid ?? 'signed-in'),
+      showGuideMode: _showTutorial,
+      onGuideModeFinished: _continueAfterTutorial,
+      onGuideModeSkipped: _continueAfterTutorial,
+    );
   }
 }
 
@@ -387,7 +384,16 @@ Destination? _decodeDestinationQuery(String? encoded) {
 }
 
 class MainNavigation extends StatefulWidget {
-  const MainNavigation({super.key});
+  final bool showGuideMode;
+  final VoidCallback? onGuideModeFinished;
+  final VoidCallback? onGuideModeSkipped;
+
+  const MainNavigation({
+    super.key,
+    this.showGuideMode = false,
+    this.onGuideModeFinished,
+    this.onGuideModeSkipped,
+  });
 
   @override
   State<MainNavigation> createState() => _MainNavigationState();
@@ -395,10 +401,32 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  final _homeNavKey = GlobalKey();
+  final _exploreNavKey = GlobalKey();
+  final _plansNavKey = GlobalKey();
+  final _favoritesNavKey = GlobalKey();
+  final _friendsNavKey = GlobalKey();
+  final _profileNavKey = GlobalKey();
 
   void _onTabChanged(int index) {
     setState(() {
       _currentIndex = index;
+    });
+  }
+
+  void _onGuideStepChanged(int stepIndex) {
+    final targetIndex = switch (stepIndex) {
+      0 => 0,
+      1 => 1,
+      5 => 3,
+      6 => 2,
+      7 => 4,
+      10 => 5,
+      _ => _currentIndex,
+    };
+    if (targetIndex == _currentIndex) return;
+    setState(() {
+      _currentIndex = targetIndex;
     });
   }
 
@@ -411,54 +439,101 @@ class _MainNavigationState extends State<MainNavigation> {
     final navBorder =
         isDark ? const Color(0xFF263244) : const Color(0xFFE3ECF8);
 
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: const [
-          HomeScreen(),
-          ExploreScreen(),
-          MyPlansScreen(),
-          FavoritesScreen(),
-          FriendsScreen(),
-          ProfileScreen(),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-        decoration: BoxDecoration(
-          color: navBackground,
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: navBorder),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildNavItem(Icons.home_rounded, 'Home', 0),
-                _buildNavItem(Icons.explore_rounded, 'Explore', 1),
-                _buildNavItem(Icons.calendar_month_rounded, 'Plans', 2),
-                _buildNavItem(Icons.favorite_rounded, 'Favorites', 3),
-                _buildNavItem(Icons.people_alt_rounded, 'Friends', 4),
-                _buildNavItem(Icons.person_rounded, 'Profile', 5),
+    return Stack(
+      children: [
+        Scaffold(
+          body: IndexedStack(
+            index: _currentIndex,
+            children: const [
+              HomeScreen(),
+              ExploreScreen(),
+              MyPlansScreen(),
+              FavoritesScreen(),
+              FriendsScreen(),
+              ProfileScreen(),
+            ],
+          ),
+          bottomNavigationBar: Container(
+            margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+            decoration: BoxDecoration(
+              color: navBackground,
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: navBorder),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.10),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
               ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildNavItem(Icons.home_rounded, 'Home', 0, _homeNavKey),
+                    _buildNavItem(
+                      Icons.explore_rounded,
+                      'Explore',
+                      1,
+                      _exploreNavKey,
+                    ),
+                    _buildNavItem(
+                      Icons.calendar_month_rounded,
+                      'Plans',
+                      2,
+                      _plansNavKey,
+                    ),
+                    _buildNavItem(
+                      Icons.favorite_rounded,
+                      'Favorites',
+                      3,
+                      _favoritesNavKey,
+                    ),
+                    _buildNavItem(
+                      Icons.people_alt_rounded,
+                      'Friends',
+                      4,
+                      _friendsNavKey,
+                    ),
+                    _buildNavItem(
+                      Icons.person_rounded,
+                      'Profile',
+                      5,
+                      _profileNavKey,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
-      ),
+        if (widget.showGuideMode)
+          Positioned.fill(
+            child: AppTutorialScreen(
+              launchedFromSettings: false,
+              targetKeys: GuideModeTargetKeys(
+                homeNavKey: _homeNavKey,
+                exploreNavKey: _exploreNavKey,
+                plansNavKey: _plansNavKey,
+                favoritesNavKey: _favoritesNavKey,
+                friendsNavKey: _friendsNavKey,
+                profileNavKey: _profileNavKey,
+              ),
+              onStepChanged: _onGuideStepChanged,
+              onFinish: widget.onGuideModeFinished ?? () {},
+              onSkip: widget.onGuideModeSkipped ?? () {},
+            ),
+          ),
+      ],
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index) {
+  Widget _buildNavItem(IconData icon, String label, int index, GlobalKey key) {
     final isActive = _currentIndex == index;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -468,47 +543,50 @@ class _MainNavigationState extends State<MainNavigation> {
         isDark ? const Color(0xFF1E3A5F) : const Color(0xFFEAF3FF);
 
     return Expanded(
-      child: GestureDetector(
-        onTap: () => _onTabChanged(index),
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
-          margin: const EdgeInsets.symmetric(horizontal: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-          decoration: BoxDecoration(
-            color: isActive ? activeBackground : Colors.transparent,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedScale(
-                duration: const Duration(milliseconds: 180),
-                scale: isActive ? 1.08 : 1,
-                child: Icon(
-                  icon,
-                  size: 23,
-                  color: isActive ? activeColor : inactiveColor,
+      child: KeyedSubtree(
+        key: key,
+        child: GestureDetector(
+          onTap: () => _onTabChanged(index),
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            decoration: BoxDecoration(
+              color: isActive ? activeBackground : Colors.transparent,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedScale(
+                  duration: const Duration(milliseconds: 180),
+                  scale: isActive ? 1.08 : 1,
+                  child: Icon(
+                    icon,
+                    size: 23,
+                    color: isActive ? activeColor : inactiveColor,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 180),
-                style: TextStyle(
-                  fontSize: 10.5,
-                  height: 1,
-                  color: isActive ? activeColor : inactiveColor,
-                  fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                  letterSpacing: -0.1,
+                const SizedBox(height: 4),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 180),
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    height: 1,
+                    color: isActive ? activeColor : inactiveColor,
+                    fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                    letterSpacing: -0.1,
+                  ),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

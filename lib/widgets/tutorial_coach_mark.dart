@@ -6,6 +6,7 @@ class TutorialCoachStep {
   final IconData icon;
   final GlobalKey? targetKey;
   final Rect? targetRect;
+  final WidgetBuilder? exampleBuilder;
 
   const TutorialCoachStep({
     required this.title,
@@ -13,6 +14,7 @@ class TutorialCoachStep {
     required this.icon,
     this.targetKey,
     this.targetRect,
+    this.exampleBuilder,
   });
 }
 
@@ -44,11 +46,12 @@ class TutorialCoachMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final targetRect = _resolveTargetRect(step);
+    final targetRect = _visibleTargetRect(context, _resolveTargetRect(step));
 
     return Positioned.fill(
       child: Stack(
         children: [
+          const ModalBarrier(dismissible: false, color: Colors.transparent),
           CustomPaint(
             painter: _CoachBackdropPainter(
               targetRect: targetRect,
@@ -93,6 +96,14 @@ class TutorialCoachMark extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Rect? _visibleTargetRect(BuildContext context, Rect? rect) {
+    if (rect == null) return null;
+    final size = MediaQuery.sizeOf(context);
+    final viewport = Offset.zero & size;
+    if (!rect.overlaps(viewport.deflate(8))) return null;
+    return rect;
   }
 
   Rect? _resolveTargetRect(TutorialCoachStep step) {
@@ -232,7 +243,7 @@ class _CoachCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              const _RouteCue(),
+              step.exampleBuilder?.call(context) ?? const _RouteCue(),
               const SizedBox(height: 20),
               Row(
                 children: [

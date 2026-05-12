@@ -69,12 +69,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _replayTutorial() async {
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => AppTutorialScreen(
-          launchedFromSettings: true,
-          onFinish: () => Navigator.of(context).pop(),
-          onSkip: () => Navigator.of(context).pop(),
-        ),
+      PageRouteBuilder<void>(
+        opaque: false,
+        barrierColor: Colors.transparent,
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return FadeTransition(
+            opacity: animation,
+            child: AppTutorialScreen(
+              launchedFromSettings: true,
+              onFinish: () => Navigator.of(context).pop(),
+              onSkip: () => Navigator.of(context).pop(),
+            ),
+          );
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return child;
+        },
       ),
     );
   }
