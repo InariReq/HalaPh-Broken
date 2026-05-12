@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../models/destination.dart';
+import '../models/plan.dart';
 import 'budget_routing_service.dart';
 
 class GuideModeDemoDestination {
@@ -258,4 +260,70 @@ class GuideModeDemoData {
     stopCount: 3,
     finishedLabel: 'Finished today',
   );
+
+  static List<Destination> destinationsForApp() {
+    return destinations
+        .map(
+          (destination) => Destination(
+            id: 'guide-${destination.name.toLowerCase().replaceAll(' ', '-')}',
+            name: destination.name,
+            description: destination.description,
+            location: destination.locationLabel,
+            imageUrl: '',
+            category: _categoryFor(destination.type),
+            rating: _ratingFor(destination.ratingDisplay),
+            tags: [destination.type, 'Guide Mode'],
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  static TravelPlan travelPlanForApp() {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day + 1);
+    final demoDestinations = destinationsForApp();
+    final planStops = demoDestinations
+        .where((destination) => plan.stops.contains(destination.name))
+        .toList(growable: false);
+
+    return TravelPlan(
+      id: 'guide-mode-manila-day-trip',
+      title: plan.title,
+      startDate: start,
+      endDate: start,
+      participantUids: const ['guide_user'],
+      createdBy: 'guide_user',
+      itinerary: [
+        DayItinerary(
+          date: start,
+          items: [
+            for (var i = 0; i < planStops.length; i++)
+              ItineraryItem(
+                id: 'guide-stop-${i + 1}',
+                destination: planStops[i],
+                startTime: TimeOfDay(hour: 9 + i, minute: 0),
+                endTime: TimeOfDay(hour: 10 + i, minute: 0),
+                notes: 'Guide Mode preview stop',
+                dayNumber: 1,
+                transportOptions: const ['Walk', 'Jeepney', 'Train'],
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  static DestinationCategory _categoryFor(String type) {
+    return switch (type.toLowerCase()) {
+      'park' => DestinationCategory.park,
+      'museum' => DestinationCategory.museum,
+      'mall' => DestinationCategory.malls,
+      _ => DestinationCategory.landmark,
+    };
+  }
+
+  static double _ratingFor(String display) {
+    final value = double.tryParse(display.split(' ').first.trim());
+    return value == null ? 0.0 : value.clamp(0.0, 5.0);
+  }
 }

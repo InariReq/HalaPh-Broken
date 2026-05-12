@@ -7,6 +7,7 @@ import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/friend_service.dart';
+import 'package:halaph/services/guide_mode_demo_data.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/services/simple_plan_service.dart';
@@ -14,7 +15,12 @@ import 'package:halaph/models/plan.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final bool guideModeDemo;
+
+  const HomeScreen({
+    super.key,
+    this.guideModeDemo = false,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -36,6 +42,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.guideModeDemo) {
+      _applyGuideModeDemo();
+      return;
+    }
     _initializeLocationAndTrending();
     _loadFavorites();
     _loadUpcomingPlan();
@@ -47,12 +57,57 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.guideModeDemo == widget.guideModeDemo) return;
+
+    if (widget.guideModeDemo) {
+      _favoritesSubscription?.cancel();
+      _plansSubscription?.cancel();
+      _applyGuideModeDemo();
+      return;
+    }
+
+    _initializeLocationAndTrending();
+    _loadFavorites();
+    _loadUpcomingPlan();
+    _favoritesSubscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
+      _loadFavorites();
+    });
+    _plansSubscription = SimplePlanService.changes.listen((_) {
+      _loadUpcomingPlan();
+    });
+  }
+
+  void _applyGuideModeDemo() {
+    final destinations = GuideModeDemoData.destinationsForApp();
+    setState(() {
+      _locationEnabled = true;
+      _locationStatus = 'Guide Mode preview • Offline demo places';
+      _trendingDestinations = destinations;
+      _favoriteIds
+        ..clear()
+        ..addAll(destinations.take(2).map((destination) => destination.id));
+      _favoriteBusyIds.clear();
+      _nextPlan = GuideModeDemoData.travelPlanForApp();
+      _plansLoading = false;
+      _isLoading = false;
+      _isTrendingLoadInProgress = false;
+    });
+  }
+
   Future<void> _initializeLocationAndTrending() async {
+    if (widget.guideModeDemo) {
+      _applyGuideModeDemo();
+      return;
+    }
     await _checkLocationStatus();
     await _loadTrendingDestinations();
   }
 
   Future<void> _checkLocationStatus() async {
+    if (widget.guideModeDemo) return;
     if (!mounted) return;
     setState(() {
       _locationStatus = 'Getting location...';
@@ -84,6 +139,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadUpcomingPlan({bool forceRefresh = false}) async {
+    if (widget.guideModeDemo) {
+      _applyGuideModeDemo();
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _plansLoading = true;
@@ -116,6 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadFavorites() async {
+    if (widget.guideModeDemo) return;
     try {
       final ids = await _favoritesService.getFavorites();
       if (mounted) {
@@ -128,6 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _toggleFavorite(Destination destination) async {
+    if (widget.guideModeDemo) return;
     final id = destination.id;
     if (_favoriteBusyIds.contains(id)) return;
     final wasFavorite = _favoriteIds.contains(id);
@@ -171,6 +232,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadTrendingDestinations() async {
+    if (widget.guideModeDemo) {
+      _applyGuideModeDemo();
+      return;
+    }
     if (!mounted || _isTrendingLoadInProgress) return;
 
     _isTrendingLoadInProgress = true;
@@ -355,65 +420,77 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          StreamBuilder<firebase_auth.User?>(
-            stream: firebase_auth.FirebaseAuth.instance.userChanges(),
-            initialData: firebase_auth.FirebaseAuth.instance.currentUser,
-            builder: (context, snapshot) {
-              final avatarUrl = snapshot.data?.photoURL?.trim();
-              final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
-
-              return Tooltip(
-                message: 'Open settings',
-                child: Material(
-                  color: Colors.transparent,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () => GoRouter.of(context).push('/settings'),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFF1976D2),
-                            Color(0xFF03A9F4),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.withValues(alpha: 0.22),
-                            blurRadius: 14,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: CircleAvatar(
-                        radius: 20,
-                        backgroundColor:
-                            Theme.of(context).scaffoldBackgroundColor,
-                        backgroundImage: hasAvatar
-                            ? CachedNetworkImageProvider(avatarUrl)
-                            : null,
-                        child: hasAvatar
-                            ? null
-                            : Icon(Icons.person, color: Colors.blue[700]),
-                      ),
-                    ),
-                  ),
+          widget.guideModeDemo
+              ? _buildProfileButton(context)
+              : StreamBuilder<firebase_auth.User?>(
+                  stream: firebase_auth.FirebaseAuth.instance.userChanges(),
+                  initialData: firebase_auth.FirebaseAuth.instance.currentUser,
+                  builder: (context, snapshot) {
+                    final avatarUrl = snapshot.data?.photoURL?.trim();
+                    return _buildProfileButton(context, avatarUrl: avatarUrl);
+                  },
                 ),
-              );
-            },
-          ),
         ],
       ),
     );
   }
 
+  Widget _buildProfileButton(BuildContext context, {String? avatarUrl}) {
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+
+    return Tooltip(
+      message: widget.guideModeDemo ? 'Guide preview' : 'Open settings',
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: widget.guideModeDemo
+              ? null
+              : () => GoRouter.of(context).push('/settings'),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFF1976D2),
+                  Color(0xFF03A9F4),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withValues(alpha: 0.22),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: CircleAvatar(
+              radius: 20,
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+              backgroundImage:
+                  hasAvatar ? CachedNetworkImageProvider(avatarUrl) : null,
+              child: hasAvatar
+                  ? null
+                  : Icon(
+                      widget.guideModeDemo
+                          ? Icons.navigation_rounded
+                          : Icons.person,
+                      color: Colors.blue[700],
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _retryLocation() async {
+    if (widget.guideModeDemo) return;
     setState(() {
       _locationStatus = 'Getting location...';
       _locationEnabled = false;
@@ -784,6 +861,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: InkWell(
         onTap: () {
+          if (widget.guideModeDemo) return;
           final planId = plan.id.trim();
           if (planId.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -890,6 +968,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openPlanDestinationDetails(Destination destination) {
+    if (widget.guideModeDemo) return;
     try {
       final destinationId = destination.id.trim();
       if (destinationId.isEmpty) {
@@ -1497,6 +1576,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Explore More button
                   GestureDetector(
                     onTap: () {
+                      if (widget.guideModeDemo) return;
                       debugPrint(
                         '=== HOME SCREEN TAP: ${destination.name} - ID: ${destination.id} ===',
                       );

@@ -535,13 +535,13 @@ class _MainNavigationState extends State<MainNavigation> {
         Scaffold(
           body: IndexedStack(
             index: _currentIndex,
-            children: const [
-              HomeScreen(),
-              ExploreScreen(),
-              MyPlansScreen(),
-              FavoritesScreen(),
-              FriendsScreen(),
-              ProfileScreen(),
+            children: [
+              HomeScreen(guideModeDemo: widget.showGuideMode),
+              ExploreScreen(guideModeDemo: widget.showGuideMode),
+              MyPlansScreen(guideModeDemo: widget.showGuideMode),
+              FavoritesScreen(guideModeDemo: widget.showGuideMode),
+              const FriendsScreen(),
+              const ProfileScreen(),
             ],
           ),
           bottomNavigationBar: Container(

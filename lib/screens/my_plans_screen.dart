@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:halaph/services/friend_service.dart';
+import 'package:halaph/services/guide_mode_demo_data.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:halaph/models/destination.dart';
@@ -10,7 +11,12 @@ import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
 
 class MyPlansScreen extends StatefulWidget {
-  const MyPlansScreen({super.key});
+  final bool guideModeDemo;
+
+  const MyPlansScreen({
+    super.key,
+    this.guideModeDemo = false,
+  });
 
   @override
   State<MyPlansScreen> createState() => _MyPlansScreenState();
@@ -25,6 +31,31 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.guideModeDemo) {
+      _isLoading = false;
+      _myCode = 'guide_user';
+      return;
+    }
+    _loadPlans();
+    _plansSubscription = SimplePlanService.changes.listen((_) {
+      _loadPlans(forceRefresh: true);
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant MyPlansScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.guideModeDemo == widget.guideModeDemo) return;
+
+    if (widget.guideModeDemo) {
+      _plansSubscription?.cancel();
+      setState(() {
+        _isLoading = false;
+        _myCode = 'guide_user';
+      });
+      return;
+    }
+
     _loadPlans();
     _plansSubscription = SimplePlanService.changes.listen((_) {
       _loadPlans(forceRefresh: true);
@@ -38,6 +69,14 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   }
 
   Future<void> _loadPlans({bool forceRefresh = false}) async {
+    if (widget.guideModeDemo) {
+      if (!mounted) return;
+      setState(() {
+        _myCode = 'guide_user';
+        _isLoading = false;
+      });
+      return;
+    }
     final results = await Future.wait<dynamic>([
       _friendService.getMyCode().catchError((_) => 'demo_user'),
       SimplePlanService.initialize(forceRefresh: forceRefresh).catchError((e) {
@@ -61,8 +100,12 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final personalPlans = SimplePlanService.getUserPlans();
-    final sharedPlans = SimplePlanService.getCollaborativePlans();
+    final personalPlans = widget.guideModeDemo
+        ? [GuideModeDemoData.travelPlanForApp()]
+        : SimplePlanService.getUserPlans();
+    final sharedPlans = widget.guideModeDemo
+        ? <TravelPlan>[]
+        : SimplePlanService.getCollaborativePlans();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -271,6 +314,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   }
 
   void _openPlanDestinationDetails(Destination destination) {
+    if (widget.guideModeDemo) return;
     ExploreDetailsScreen.showAsBottomSheet(
       context,
       destinationId: destination.id,
@@ -287,7 +331,9 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         borderRadius: BorderRadius.circular(999),
         child: InkWell(
           borderRadius: BorderRadius.circular(999),
-          onTap: () => _openPlanDestinationDetails(destination),
+          onTap: widget.guideModeDemo
+              ? null
+              : () => _openPlanDestinationDetails(destination),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             child: Row(
@@ -326,7 +372,9 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   }
 
   Widget _buildPlanCard(TravelPlan plan, {bool isSharedPlan = false}) {
-    final shouldLeave = isSharedPlan && !SimplePlanService.isPlanOwner(plan.id);
+    final shouldLeave = !widget.guideModeDemo &&
+        isSharedPlan &&
+        !SimplePlanService.isPlanOwner(plan.id);
     final firstDestination = _firstPlanDestination(plan);
     final destinationCount = _destinationCount(plan);
     final accentColor =
@@ -358,6 +406,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       ),
       child: InkWell(
         onTap: () {
+          if (widget.guideModeDemo) return;
           final planId = plan.id.trim();
           if (planId.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -467,7 +516,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (!shouldLeave && !plan.isFinished)
+                  if (!widget.guideModeDemo && !shouldLeave && !plan.isFinished)
                     IconButton(
                       onPressed: () {
                         _showMarkFinishedConfirmation(context, plan);
@@ -484,26 +533,27 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                         minHeight: 32,
                       ),
                     ),
-                  IconButton(
-                    onPressed: () {
-                      if (shouldLeave) {
-                        _showLeaveConfirmation(context, plan);
-                      } else {
-                        _showDeleteConfirmation(context, plan);
-                      }
-                    },
-                    icon: Icon(
-                      shouldLeave ? Icons.logout : Icons.delete_outline,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      size: 20,
+                  if (!widget.guideModeDemo)
+                    IconButton(
+                      onPressed: () {
+                        if (shouldLeave) {
+                          _showLeaveConfirmation(context, plan);
+                        } else {
+                          _showDeleteConfirmation(context, plan);
+                        }
+                      },
+                      icon: Icon(
+                        shouldLeave ? Icons.logout : Icons.delete_outline,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        size: 20,
+                      ),
+                      tooltip: shouldLeave ? 'Leave plan' : 'Delete plan',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
                     ),
-                    tooltip: shouldLeave ? 'Leave plan' : 'Delete plan',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
                   Icon(
                     Icons.chevron_right,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -730,10 +780,12 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: InkWell(
-        onTap: () {
-          debugPrint('My Plans Create New Plan tapped!');
-          GoRouter.of(context).push('/create-plan');
-        },
+        onTap: widget.guideModeDemo
+            ? null
+            : () {
+                debugPrint('My Plans Create New Plan tapped!');
+                GoRouter.of(context).push('/create-plan');
+              },
         borderRadius: BorderRadius.circular(22),
         child: Container(
           width: double.infinity,

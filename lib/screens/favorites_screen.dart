@@ -6,10 +6,16 @@ import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/screens/route_options_screen.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/favorites_service.dart';
+import 'package:halaph/services/guide_mode_demo_data.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
 
 class FavoritesScreen extends StatefulWidget {
-  const FavoritesScreen({super.key});
+  final bool guideModeDemo;
+
+  const FavoritesScreen({
+    super.key,
+    this.guideModeDemo = false,
+  });
 
   @override
   State<FavoritesScreen> createState() => _FavoritesScreenState();
@@ -34,10 +40,42 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.guideModeDemo) {
+      _applyGuideModeDemo();
+      return;
+    }
     WidgetsBinding.instance.addObserver(this);
     _loadFavorites();
     _subscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
       _loadFavorites(showLoading: false);
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant FavoritesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.guideModeDemo == widget.guideModeDemo) return;
+
+    if (widget.guideModeDemo) {
+      WidgetsBinding.instance.removeObserver(this);
+      _subscription?.cancel();
+      _applyGuideModeDemo();
+      return;
+    }
+
+    WidgetsBinding.instance.addObserver(this);
+    _loadFavorites();
+    _subscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
+      _loadFavorites(showLoading: false);
+    });
+  }
+
+  void _applyGuideModeDemo() {
+    setState(() {
+      _favorites = GuideModeDemoData.destinationsForApp().take(3).toList();
+      _busyFavoriteIds.clear();
+      _loading = false;
+      _loadRequestId++;
     });
   }
 
@@ -50,12 +88,17 @@ class _FavoritesScreenState extends State<FavoritesScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (widget.guideModeDemo) return;
     if (state == AppLifecycleState.resumed) {
       _loadFavorites(showLoading: _favorites.isEmpty);
     }
   }
 
   Future<void> _loadFavorites({bool showLoading = true}) async {
+    if (widget.guideModeDemo) {
+      _applyGuideModeDemo();
+      return;
+    }
     if (!mounted) return;
 
     final requestId = ++_loadRequestId;
@@ -86,6 +129,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   }
 
   Future<bool> _removeFavorite(String id) async {
+    if (widget.guideModeDemo) return false;
     if (_busyFavoriteIds.contains(id)) return false;
 
     final index = _favorites.indexWhere((item) => item.id == id);
@@ -131,6 +175,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   }
 
   void refresh() {
+    if (widget.guideModeDemo) return;
     _loadFavorites(showLoading: _favorites.isEmpty);
   }
 
@@ -156,7 +201,9 @@ class _FavoritesScreenState extends State<FavoritesScreen>
               color: Theme.of(context).colorScheme.onSurface,
             ),
             tooltip: 'Refresh favorites',
-            onPressed: () => _loadFavorites(showLoading: _favorites.isEmpty),
+            onPressed: widget.guideModeDemo
+                ? null
+                : () => _loadFavorites(showLoading: _favorites.isEmpty),
           ),
         ],
       ),
@@ -194,6 +241,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                             child: _FavoriteCard(
                               destination: destination,
                               isBusy: isBusy,
+                              isDemo: widget.guideModeDemo,
                               onOpen: () =>
                                   ExploreDetailsScreen.showAsBottomSheet(
                                 context,
@@ -336,6 +384,7 @@ class _EmptyFavoritesCard extends StatelessWidget {
 class _FavoriteCard extends StatelessWidget {
   final Destination destination;
   final bool isBusy;
+  final bool isDemo;
   final VoidCallback onOpen;
   final VoidCallback onRoutes;
   final Future<bool> Function() onRemove;
@@ -343,6 +392,7 @@ class _FavoriteCard extends StatelessWidget {
   const _FavoriteCard({
     required this.destination,
     required this.isBusy,
+    this.isDemo = false,
     required this.onOpen,
     required this.onRoutes,
     required this.onRemove,
@@ -352,7 +402,9 @@ class _FavoriteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dismissible(
       key: Key(destination.id),
-      direction: isBusy ? DismissDirection.none : DismissDirection.endToStart,
+      direction: isBusy || isDemo
+          ? DismissDirection.none
+          : DismissDirection.endToStart,
       confirmDismiss: (_) async {
         if (isBusy) return false;
         await onRemove();
@@ -371,7 +423,7 @@ class _FavoriteCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: isBusy ? null : onOpen,
+          onTap: isBusy || isDemo ? null : onOpen,
           child: Container(
             decoration: _cardDecoration(context),
             child: Row(
@@ -420,13 +472,13 @@ class _FavoriteCard extends StatelessWidget {
                       icon: Icon(Icons.directions_rounded),
                       color: _FavoritesScreenState._primaryDark,
                       tooltip: 'View routes',
-                      onPressed: isBusy ? null : onRoutes,
+                      onPressed: isBusy || isDemo ? null : onRoutes,
                     ),
                     IconButton(
                       icon: Icon(Icons.favorite_rounded),
                       color: _FavoritesScreenState._danger,
                       tooltip: 'Remove favorite',
-                      onPressed: isBusy ? null : () => onRemove(),
+                      onPressed: isBusy || isDemo ? null : () => onRemove(),
                     ),
                   ],
                 ),

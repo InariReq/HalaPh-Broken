@@ -7,12 +7,18 @@ import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
+import 'package:halaph/services/guide_mode_demo_data.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class ExploreScreen extends StatefulWidget {
-  const ExploreScreen({super.key});
+  final bool guideModeDemo;
+
+  const ExploreScreen({
+    super.key,
+    this.guideModeDemo = false,
+  });
 
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
@@ -34,10 +40,46 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.guideModeDemo) {
+      _applyGuideModeDemo();
+      return;
+    }
     _loadDestinations();
     _loadFavorites();
     _subscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
       _loadFavorites();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant ExploreScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.guideModeDemo == widget.guideModeDemo) return;
+
+    if (widget.guideModeDemo) {
+      _subscription?.cancel();
+      _searchDebounce?.cancel();
+      _applyGuideModeDemo();
+      return;
+    }
+
+    _loadDestinations();
+    _loadFavorites();
+    _subscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
+      _loadFavorites();
+    });
+  }
+
+  void _applyGuideModeDemo() {
+    final destinations = GuideModeDemoData.destinationsForApp();
+    setState(() {
+      _destinations = _filterDemoDestinations(destinations);
+      _favoriteIds
+        ..clear()
+        ..addAll(destinations.take(2).map((destination) => destination.id));
+      _favoriteBusyIds.clear();
+      _isLoading = false;
+      _placesUnavailable = false;
     });
   }
 
@@ -50,6 +92,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _loadFavorites() async {
+    if (widget.guideModeDemo) return;
     try {
       final ids = await _favoritesService.getFavorites();
       if (mounted) {
@@ -62,6 +105,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _toggleFavorite(Destination destination) async {
+    if (widget.guideModeDemo) return;
     final id = destination.id;
     if (_favoriteBusyIds.contains(id)) return;
     final wasFavorite = _favoriteIds.contains(id);
@@ -112,6 +156,20 @@ class _ExploreScreenState extends State<ExploreScreen> {
     DestinationCategory.malls,
   ];
 
+  List<Destination> _filterDemoDestinations(List<Destination> destinations) {
+    final query = _searchController.text.trim().toLowerCase();
+    return destinations.where((destination) {
+      final matchesCategory = _selectedCategory == null ||
+          destination.category == _selectedCategory;
+      if (!matchesCategory) return false;
+      if (query.isEmpty) return true;
+      return destination.name.toLowerCase().contains(query) ||
+          destination.description.toLowerCase().contains(query) ||
+          destination.location.toLowerCase().contains(query) ||
+          destination.tags.any((tag) => tag.toLowerCase().contains(query));
+    }).toList(growable: false);
+  }
+
   Future<void> _loadDestinations() async {
     await _runDestinationSearch();
   }
@@ -129,6 +187,20 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _runDestinationSearch() async {
+    if (widget.guideModeDemo) {
+      final generation = ++_searchGeneration;
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _placesUnavailable = false;
+        _destinations = _filterDemoDestinations(
+          GuideModeDemoData.destinationsForApp(),
+        );
+      });
+      if (generation != _searchGeneration) return;
+      return;
+    }
+
     final generation = ++_searchGeneration;
     final query = _searchController.text.trim();
 
@@ -281,6 +353,21 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Future<void> _filterByCategory(DestinationCategory? category) async {
+    if (widget.guideModeDemo) {
+      _searchDebounce?.cancel();
+      if (!mounted) return;
+      setState(() {
+        _selectedCategory = category;
+        _searchController.clear();
+        _isLoading = false;
+        _placesUnavailable = false;
+        _destinations = _filterDemoDestinations(
+          GuideModeDemoData.destinationsForApp(),
+        );
+      });
+      return;
+    }
+
     final generation = ++_searchGeneration;
 
     _searchDebounce?.cancel();
@@ -966,7 +1053,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     borderRadius: BorderRadius.circular(19),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(19),
-                      onTap: isFavoriteBusy
+                      onTap: isFavoriteBusy || widget.guideModeDemo
                           ? null
                           : () => _toggleFavorite(destination),
                       child: AnimatedScale(
@@ -1075,6 +1162,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(18),
                       onTap: () {
+                        if (widget.guideModeDemo) return;
                         ExploreDetailsScreen.showAsBottomSheet(
                           context,
                           destinationId: destination.id,
