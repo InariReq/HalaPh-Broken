@@ -144,7 +144,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
     var shouldShowTutorial = false;
     try {
-      shouldShowTutorial = await AppTutorialService.shouldShowTutorialOnStart()
+      shouldShowTutorial = await AppTutorialService.shouldShowGuideModeOnStart()
           .timeout(const Duration(seconds: 2));
     } catch (_) {
       shouldShowTutorial = false;

@@ -19,15 +19,15 @@ void main() {
     final hasLaunchPreflight =
         find.textContaining('Welcome to HalaPH').evaluate().isNotEmpty;
     final hasStart = find.textContaining('Start').evaluate().isNotEmpty;
-    final hasTutorial =
-        find.textContaining('HalaPH helps you plan').evaluate().isNotEmpty;
+    final hasGuideMode =
+        find.textContaining('Guide Mode').evaluate().isNotEmpty;
     final hasAuthForm =
         find.textContaining('Sign in to your account').evaluate().isNotEmpty;
 
     expect(
       hasLaunchPreflight ||
           hasStart ||
-          hasTutorial ||
+          hasGuideMode ||
           hasLegacyLoader ||
           hasLogoLoader ||
           hasAuthForm,

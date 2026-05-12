@@ -45,7 +45,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadTutorialSetting() async {
-    final enabled = await AppTutorialService.isTutorialEnabledOnStart();
+    final enabled = await AppTutorialService.isGuideModeEnabledOnStart();
     if (!mounted) return;
     setState(() {
       _tutorialEnabledOnStart = enabled;
@@ -56,13 +56,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _tutorialEnabledOnStart = value;
     });
-    await AppTutorialService.setTutorialEnabledOnStart(value);
+    await AppTutorialService.setGuideModeEnabledOnStart(value);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(value
-            ? 'App tutorial can show after Start'
-            : 'App tutorial will be skipped on start'),
+            ? 'Guide Mode can show after Start'
+            : 'Guide Mode will be skipped on start'),
       ),
     );
   }
@@ -429,7 +429,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             SlideFadeIn(
               order: 4,
               child: _section(
-                title: 'App Tutorial',
+                title: 'Guide Mode',
                 icon: Icons.school_outlined,
                 iconColor: const Color(0xFF1976D2),
                 children: [
@@ -827,7 +827,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Show app tutorial on start',
+                  'Show Guide Mode on start',
                   style: TextStyle(
                     color: _titleColor,
                     fontWeight: FontWeight.w900,
@@ -835,7 +835,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Show the HalaPH feature guide after the launch Start button until completed.',
+                  'Show the HalaPH guided walkthrough after the launch Start button until completed.',
                   style: TextStyle(
                     color: _subtitleColor,
                     fontSize: 12,
@@ -864,7 +864,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onPressed: _replayTutorial,
         icon: const Icon(Icons.replay_rounded),
         label: const Text(
-          'Replay app tutorial',
+          'Replay Guide Mode',
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
         style: OutlinedButton.styleFrom(

@@ -9,9 +9,17 @@ class AppTutorialService {
     return prefs.getBool(_enabledKey) ?? true;
   }
 
+  static Future<bool> isGuideModeEnabledOnStart() {
+    return isTutorialEnabledOnStart();
+  }
+
   static Future<void> setTutorialEnabledOnStart(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_enabledKey, enabled);
+  }
+
+  static Future<void> setGuideModeEnabledOnStart(bool enabled) {
+    return setTutorialEnabledOnStart(enabled);
   }
 
   static Future<bool> isTutorialCompleted() async {
@@ -28,5 +36,9 @@ class AppTutorialService {
     final enabled = await isTutorialEnabledOnStart();
     if (!enabled) return false;
     return !await isTutorialCompleted();
+  }
+
+  static Future<bool> shouldShowGuideModeOnStart() {
+    return shouldShowTutorialOnStart();
   }
 }
