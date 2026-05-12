@@ -921,7 +921,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
               const SizedBox(width: 8),
               Text(
                 snapshot.connectionState == ConnectionState.waiting
-                    ? 'Loading...'
+                    ? 'Loading details...'
                     : label,
                 style: TextStyle(
                   fontWeight: FontWeight.w700,

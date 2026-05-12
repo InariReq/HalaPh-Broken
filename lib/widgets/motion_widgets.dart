@@ -219,7 +219,7 @@ class LoadingStatePanel extends StatelessWidget {
 
   const LoadingStatePanel({
     super.key,
-    this.label = 'Loading...',
+    this.label = 'Preparing content...',
   });
 
   @override

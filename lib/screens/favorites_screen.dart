@@ -259,7 +259,7 @@ class _FavoritesLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const LoadingStatePanel(label: 'Loading favorites...');
+    return const LoadingStatePanel(label: 'Loading favorites');
   }
 }
 
@@ -277,7 +277,7 @@ class _SectionHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Saved Places',
+                'Saved places',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,

@@ -719,7 +719,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Only ${_destinations.length} found. Try a different search or category!',
+              'Only ${_destinations.length} found. Try a different search or category.',
               style: TextStyle(
                 fontSize: 12,
                 color: Theme.of(context).brightness == Brightness.dark

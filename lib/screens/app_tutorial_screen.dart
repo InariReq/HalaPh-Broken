@@ -265,7 +265,7 @@ class _GuideModeMockApp extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Static walkthrough preview',
+                          'Guided walkthrough',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w700,

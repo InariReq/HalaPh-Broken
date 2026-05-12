@@ -80,7 +80,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       ),
       body: SafeArea(
         child: _isLoading
-            ? const LoadingStatePanel(label: 'Loading plans...')
+            ? const LoadingStatePanel(label: 'Loading plans')
             : SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,7 +104,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(
-          title: 'MY PERSONAL PLANS',
+          title: 'Personal Plans',
           subtitle: plans.isEmpty
               ? 'Plans you create will appear here.'
               : '${plans.length} active plan${plans.length == 1 ? '' : 's'}',
@@ -139,7 +139,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionHeader(
-          title: 'COLLABORATIVE PLANS',
+          title: 'Collaborative Plans',
           subtitle: plans.isEmpty
               ? 'Shared trips from friends will appear here.'
               : '${plans.length} shared plan${plans.length == 1 ? '' : 's'}',
@@ -572,7 +572,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Mark Finished'),
+            child: Text('Mark finished'),
           ),
         ],
       ),
@@ -646,7 +646,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: Text('Delete Plan'),
+          title: Text('Delete plan'),
           content: Text(
             'Are you sure you want to delete "${plan.title}"? This action cannot be undone.',
           ),
@@ -667,13 +667,13 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                   messenger.showSnackBar(
                     SnackBar(
                       content: Text(
-                        'Plan "${plan.title}" deleted successfully',
+                        'Plan "${plan.title}" deleted.',
                       ),
                     ),
                   );
                 } else {
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Failed to delete plan')),
+                    const SnackBar(content: Text('Could not delete plan.')),
                   );
                 }
               },
