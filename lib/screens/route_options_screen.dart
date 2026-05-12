@@ -44,6 +44,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
   LatLng? _origin;
   LatLng? _destination;
   PassengerType _passengerType = PassengerType.regular;
+  int _loadRequestId = 0;
 
   @override
   void initState() {
@@ -52,15 +53,18 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
   }
 
   Future<void> _loadSavedPassengerTypeAndFares() async {
+    final requestId = ++_loadRequestId;
     final savedType = await CommuterTypeService().loadCommuterType();
-    if (!mounted) return;
+    if (!_isActiveLoad(requestId, '_loadSavedPassengerTypeAndFares')) return;
     setState(() {
       _passengerType = savedType;
     });
-    await _loadFares();
+    await _loadFares(requestId: requestId);
   }
 
-  Future<void> _loadFares() async {
+  Future<void> _loadFares({int? requestId}) async {
+    final activeRequestId = requestId ?? ++_loadRequestId;
+    if (!_isActiveLoad(activeRequestId, '_loadFares start')) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -68,6 +72,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
 
     try {
       final origin = await BudgetRoutingService.getCurrentLocation();
+      if (!_isActiveLoad(activeRequestId, '_loadFares current location')) {
+        return;
+      }
       if (origin == null || BudgetRoutingService.isInvalidLocation(origin)) {
         throw Exception('Unable to get your current location.');
       }
@@ -80,6 +87,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
               widget.destinationName,
             ) ??
             origin;
+        if (!_isActiveLoad(activeRequestId, '_loadFares geocode')) return;
       }
 
       final distance =
@@ -99,6 +107,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       if (cachedEntry != null) {
         try {
           debugPrint('Route options cache hit: $cacheKey');
+          if (!_isActiveLoad(activeRequestId, '_loadFares cache hit')) return;
           setState(() {
             _origin = cachedEntry.origin;
             _destination = cachedEntry.destination;
@@ -114,8 +123,8 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
 
       debugPrint('Route options billable route build: $cacheKey');
 
-      _origin = origin;
-      _destination = destination;
+      final builtFares = <_TransportFare>[];
+      final builtDirectionSteps = <String, List<Map<String, dynamic>>>{};
 
       final modes = [
         _ModeData(
@@ -163,8 +172,6 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       if (distance > 0) {
         modes.removeWhere((m) => m.mode == TravelMode.walking);
       }
-      _fares = [];
-      _directionSteps.clear();
       for (final modeData in modes) {
         final exactWalkMeters = _gtfsMatchRadiusForMode(modeData.mode);
         final nearbyDestinationWalkMeters =
@@ -179,6 +186,12 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           maxWalkMeters: exactWalkMeters,
           destinationMaxWalkMeters: exactWalkMeters,
         );
+        if (!_isActiveLoad(
+          activeRequestId,
+          '_loadFares historical matches ${modeData.name}',
+        )) {
+          return;
+        }
 
         if (historicalMatches.isEmpty &&
             nearbyDestinationWalkMeters > exactWalkMeters) {
@@ -191,6 +204,12 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             maxWalkMeters: exactWalkMeters,
             destinationMaxWalkMeters: nearbyDestinationWalkMeters,
           );
+          if (!_isActiveLoad(
+            activeRequestId,
+            '_loadFares nearby historical matches ${modeData.name}',
+          )) {
+            return;
+          }
         }
 
         debugPrint(
@@ -235,27 +254,42 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         final shouldCallGoogleDirections =
             isPublicTransportMode || historicalMatch == null;
 
-        final directionCandidates = shouldCallGoogleDirections
-            ? isPublicTransportMode
-                ? await GoogleMapsService.getDirectionAlternatives(
-                    startLat: origin.latitude,
-                    startLon: origin.longitude,
-                    endLat: destination.latitude,
-                    endLon: destination.longitude,
-                    profile: googleProfile,
-                  )
-                : [
-                    if (await GoogleMapsService.getDirections(
-                      startLat: origin.latitude,
-                      startLon: origin.longitude,
-                      endLat: destination.latitude,
-                      endLon: destination.longitude,
-                      profile: googleProfile,
-                    )
-                        case final route?)
-                      route,
-                  ]
-            : const <Map<String, dynamic>>[];
+        var directionCandidates = const <Map<String, dynamic>>[];
+        if (shouldCallGoogleDirections) {
+          if (isPublicTransportMode) {
+            directionCandidates =
+                await GoogleMapsService.getDirectionAlternatives(
+              startLat: origin.latitude,
+              startLon: origin.longitude,
+              endLat: destination.latitude,
+              endLon: destination.longitude,
+              profile: googleProfile,
+            );
+            if (!_isActiveLoad(
+              activeRequestId,
+              '_loadFares direction alternatives ${modeData.name}',
+            )) {
+              return;
+            }
+          } else {
+            final route = await GoogleMapsService.getDirections(
+              startLat: origin.latitude,
+              startLon: origin.longitude,
+              endLat: destination.latitude,
+              endLon: destination.longitude,
+              profile: googleProfile,
+            );
+            if (!_isActiveLoad(
+              activeRequestId,
+              '_loadFares directions ${modeData.name}',
+            )) {
+              return;
+            }
+            directionCandidates = [
+              if (route != null) route,
+            ];
+          }
+        }
 
         final directions = isPublicTransportMode
             ? _bestLiveDirectionsForMode(
@@ -358,9 +392,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                 ? 'Matched against HalaPH historical route data. Driving steps are hidden because they are not commute instructions.'
                 : 'Estimated from available route data. Public transport details may vary.';
 
-        _directionSteps[modeData.mode.toString()] = steps;
+        builtDirectionSteps[modeData.mode.toString()] = steps;
 
-        _fares.add(_TransportFare(
+        builtFares.add(_TransportFare(
           mode: modeData.mode,
           modeName: displayName,
           icon: modeData.icon,
@@ -391,30 +425,60 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       }
 
       if (_shouldShowWalkingOption(distance)) {
-        _fares.add(_walkingFareOption(distance, origin, destination));
+        builtFares.add(_walkingFareOption(distance, origin, destination));
       }
 
-      _fares.sort((a, b) => a.routeScore.compareTo(b.routeScore));
+      builtFares.sort((a, b) => a.routeScore.compareTo(b.routeScore));
       _rememberRouteOptions(
         cacheKey,
         _RouteOptionsCacheEntry(
           origin: origin,
           destination: destination,
-          fares: _fares,
+          fares: builtFares,
         ),
       );
 
+      if (!_isActiveLoad(activeRequestId, '_loadFares complete')) return;
       setState(() {
+        _origin = origin;
+        _destination = destination;
+        _fares = builtFares;
+        _directionSteps
+          ..clear()
+          ..addAll(builtDirectionSteps);
         _isLoading = false;
       });
     } catch (e) {
       debugPrint('RouteOptions: route options load failed: $e');
+      if (!_isActiveLoad(activeRequestId, '_loadFares catch')) return;
       setState(() {
         _isLoading = false;
         _errorMessage =
             'Try a different starting point or check your connection.';
       });
     }
+  }
+
+  bool _isActiveLoad(int requestId, String method) {
+    if (!mounted) {
+      debugPrint(
+        'RouteOptionsScreen: ignored async update after dispose in $method',
+      );
+      return false;
+    }
+    if (requestId != _loadRequestId) {
+      debugPrint(
+        'RouteOptionsScreen: ignored stale async update in $method',
+      );
+      return false;
+    }
+    return true;
+  }
+
+  @override
+  void dispose() {
+    _loadRequestId++;
+    super.dispose();
   }
 
   @override
@@ -1305,6 +1369,7 @@ class _RouteOptionPressableCardState extends State<_RouteOptionPressableCard> {
 
   void _setPressed(bool value) {
     if (_pressed == value) return;
+    if (!mounted) return;
     setState(() {
       _pressed = value;
     });

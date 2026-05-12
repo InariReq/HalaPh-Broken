@@ -76,6 +76,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   GuideModeDemoRouteOption? _selectedRoute;
   final Set<String> _completedActions = <String>{};
   int _transitionToken = 0;
+  int _liveActionToken = 0;
 
   bool get _isFirst => _index == 0;
   bool get _isLast => _index == _steps.length - 1;
@@ -91,6 +92,8 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
 
   @override
   void dispose() {
+    _liveActionToken++;
+    _transitionToken++;
     widget.presenterController?.removeListener(_handlePresenterSignal);
     super.dispose();
   }
@@ -160,6 +163,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     if (_closing) return;
     debugPrint('Guide Mode closed: $reason');
     _transitionToken++;
+    _liveActionToken++;
     setState(() {
       _closing = true;
       _actionBusy = false;
@@ -190,7 +194,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   }
 
   void _back() {
-    final canGoBack = !_isFirst && !_actionBusy && !_closing;
+    final canGoBack = !_isFirst && !_closing;
     if (!canGoBack) {
       debugPrint(
         'Guide Mode back: currentStep=$_index, canGoBack=$canGoBack, '
@@ -199,9 +203,10 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       return;
     }
     final nextIndex = (_index - 1).clamp(0, _steps.length - 1);
+    _liveActionToken++;
     debugPrint(
       'Guide Mode back: currentStep=$_index, canGoBack=true, '
-      'result=previousStep $nextIndex',
+      'result=${_actionBusy ? 'cancelLoadingAndPreviousStep' : 'previousStep'} $nextIndex',
     );
     _transitionToken++;
     setState(() {
@@ -215,6 +220,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
 
   void _restartGuide() {
     _transitionToken++;
+    _liveActionToken++;
     setState(() {
       _index = 0;
       _showObjectiveComplete = false;
@@ -410,6 +416,8 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   }
 
   Future<void> _runViewRoutesAction(String actionId) async {
+    final actionToken = ++_liveActionToken;
+    debugPrint('Guide Mode viewRoutes: started');
     setState(() {
       _actionBusy = true;
       _liveLoading = true;
@@ -417,7 +425,9 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     });
     try {
       await _previewLiveRouteOptions();
-      if (!mounted) return;
+      if (!_isCurrentViewRoutesAction(actionToken, 'live preview result')) {
+        return;
+      }
       setState(() {
         _routeOptionsVisible = true;
         _fallbackReason =
@@ -425,8 +435,10 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       });
       _completeObjective(actionId, 'Route choices opened.');
     } catch (error) {
-      debugPrint('Guide live action fallback used: $actionId failed: $error');
-      if (!mounted) return;
+      debugPrint('Guide Mode viewRoutes: fallback used because $error');
+      if (!_isCurrentViewRoutesAction(actionToken, 'fallback result')) {
+        return;
+      }
       setState(() {
         _routeOptionsVisible = true;
         _fallbackReason =
@@ -434,13 +446,40 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       });
       _completeObjective(actionId, 'Offline route options loaded.');
     } finally {
-      if (mounted) {
+      if (_isCurrentViewRoutesAction(
+        actionToken,
+        'loading cleanup',
+        logIgnored: false,
+      )) {
         setState(() {
           _actionBusy = false;
           _liveLoading = false;
         });
       }
     }
+  }
+
+  bool _isCurrentViewRoutesAction(
+    int actionToken,
+    String phase, {
+    bool logIgnored = true,
+  }) {
+    if (!mounted || _closing) {
+      if (logIgnored) {
+        debugPrint('Guide Mode viewRoutes: live result ignored after close');
+      }
+      return false;
+    }
+    if (actionToken != _liveActionToken) {
+      if (logIgnored) {
+        debugPrint(
+          'Guide Mode viewRoutes: live result ignored because stale action '
+          'at $phase',
+        );
+      }
+      return false;
+    }
+    return true;
   }
 
   void _completeIfExpected(String actionId, String message) {
@@ -465,13 +504,6 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
 
   Future<void> _handleSystemBack() async {
     if (_closing) return;
-    if (_actionBusy) {
-      debugPrint(
-        'Guide Mode back: currentStep=$_index, canGoBack=false, '
-        'result=blocked loading',
-      );
-      return;
-    }
     if (!_isFirst) {
       _back();
       return;

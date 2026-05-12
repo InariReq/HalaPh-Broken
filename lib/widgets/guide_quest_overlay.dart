@@ -265,7 +265,7 @@ class _QuestCard extends StatelessWidget {
                     ),
                   ),
                   TextButton(
-                    onPressed: isBusy ? null : onSkip,
+                    onPressed: onSkip,
                     child: const Text('Skip'),
                   ),
                 ],
@@ -320,7 +320,7 @@ class _QuestCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: isFirst || isBusy ? null : onBack,
+                      onPressed: isFirst ? null : onBack,
                       icon: const Icon(Icons.arrow_back_rounded, size: 18),
                       label: const Text('Back'),
                     ),
