@@ -14,6 +14,7 @@ import 'services/firebase_app_service.dart';
 import 'services/plan_notification_service.dart';
 import 'services/theme_mode_service.dart';
 import 'services/app_tutorial_service.dart';
+import 'services/guide_presenter_controller.dart';
 import 'screens/home_screen.dart';
 import 'screens/favorites_screen.dart';
 
@@ -491,6 +492,7 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
+  final _guidePresenterController = GuidePresenterController();
   final _homeNavKey = GlobalKey();
   final _exploreNavKey = GlobalKey();
   final _plansNavKey = GlobalKey();
@@ -502,6 +504,24 @@ class _MainNavigationState extends State<MainNavigation> {
     setState(() {
       _currentIndex = index;
     });
+    if (!widget.showGuideMode) return;
+    switch (index) {
+      case 1:
+        _guidePresenterController.signal(GuidePresenterSignal.openExplore);
+        break;
+      case 2:
+        _guidePresenterController.signal(GuidePresenterSignal.openPlans);
+        break;
+      case 3:
+        _guidePresenterController.signal(GuidePresenterSignal.openFavorites);
+        break;
+      case 4:
+        _guidePresenterController.signal(GuidePresenterSignal.openFriends);
+        break;
+      case 5:
+        _guidePresenterController.signal(GuidePresenterSignal.openSettings);
+        break;
+    }
   }
 
   void _onGuideStepChanged(int stepIndex) {
@@ -512,6 +532,7 @@ class _MainNavigationState extends State<MainNavigation> {
       7 => 3,
       8 => 2,
       9 => 4,
+      11 => 5,
       12 => 5,
       _ => _currentIndex,
     };
@@ -519,6 +540,12 @@ class _MainNavigationState extends State<MainNavigation> {
     setState(() {
       _currentIndex = targetIndex;
     });
+  }
+
+  @override
+  void dispose() {
+    _guidePresenterController.dispose();
+    super.dispose();
   }
 
   @override
@@ -537,10 +564,15 @@ class _MainNavigationState extends State<MainNavigation> {
             index: _currentIndex,
             children: [
               HomeScreen(guideModeDemo: widget.showGuideMode),
-              ExploreScreen(guideModeDemo: widget.showGuideMode),
+              ExploreScreen(
+                guideModeDemo: widget.showGuideMode,
+                onGuideDestinationSelected: widget.showGuideMode
+                    ? _guidePresenterController.selectDestination
+                    : null,
+              ),
               MyPlansScreen(guideModeDemo: widget.showGuideMode),
               FavoritesScreen(guideModeDemo: widget.showGuideMode),
-              const FriendsScreen(),
+              FriendsScreen(guideModeDemo: widget.showGuideMode),
               const ProfileScreen(),
             ],
           ),
@@ -615,6 +647,7 @@ class _MainNavigationState extends State<MainNavigation> {
                 friendsNavKey: _friendsNavKey,
                 profileNavKey: _profileNavKey,
               ),
+              presenterController: _guidePresenterController,
               onStepChanged: _onGuideStepChanged,
               onFinish: widget.onGuideModeFinished ?? () {},
               onSkip: widget.onGuideModeSkipped ?? () {},

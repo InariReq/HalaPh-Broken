@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/destination.dart';
 import '../services/app_tutorial_service.dart';
 import '../services/guide_mode_demo_data.dart';
+import '../services/guide_presenter_controller.dart';
 import '../services/guide_quest_controller.dart';
 import '../screens/route_options_screen.dart';
 import '../widgets/guide_quest_overlay.dart';
@@ -32,6 +33,7 @@ class AppTutorialScreen extends StatefulWidget {
   final VoidCallback onSkip;
   final GuideModeTargetKeys targetKeys;
   final ValueChanged<int>? onStepChanged;
+  final GuidePresenterController? presenterController;
 
   const AppTutorialScreen({
     super.key,
@@ -40,6 +42,7 @@ class AppTutorialScreen extends StatefulWidget {
     required this.onSkip,
     this.targetKeys = const GuideModeTargetKeys(),
     this.onStepChanged,
+    this.presenterController,
   });
 
   @override
@@ -53,8 +56,22 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   bool _closing = false;
   bool _actionBusy = false;
   bool _showObjectiveComplete = false;
+  bool _guideCardExpanded = true;
+  GuidePresenterScene _currentScene = GuidePresenterScene.welcome;
+  bool _destinationPreviewVisible = false;
+  bool _routeOptionsVisible = false;
+  bool _routeGuideVisible = false;
+  bool _fareBreakdownVisible = false;
+  bool _destinationSaved = false;
+  bool _addedToPlan = false;
+  bool _collaborationShown = false;
+  bool _reminderShown = false;
+  bool _historyShown = false;
+  bool _liveLoading = false;
+  String? _fallbackReason;
   String? _statusMessage;
   Destination? _selectedDestination;
+  GuideModeDemoRouteOption? _selectedRoute;
   final Set<String> _completedActions = <String>{};
 
   bool get _isFirst => _index == 0;
@@ -63,11 +80,72 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   @override
   void initState() {
     super.initState();
+    widget.presenterController?.addListener(_handlePresenterSignal);
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
+  }
+
+  @override
+  void dispose() {
+    widget.presenterController?.removeListener(_handlePresenterSignal);
+    super.dispose();
   }
 
   void _notifyStepChanged() {
     widget.onStepChanged?.call(_index);
+  }
+
+  void _handlePresenterSignal() {
+    final controller = widget.presenterController;
+    final signal = controller?.lastSignal;
+    if (signal == null || _closing) return;
+    switch (signal) {
+      case GuidePresenterSignal.openExplore:
+        _completeIfExpected(
+          GuideQuestActionId.openExplore,
+          'Objective complete: Explore opened.',
+        );
+        break;
+      case GuidePresenterSignal.selectIntramuros:
+        final destination = controller?.selectedDestination;
+        if (destination == null ||
+            !destination.name.toLowerCase().contains('intramuros')) {
+          return;
+        }
+        setState(() {
+          _selectedDestination = destination;
+          _destinationPreviewVisible = true;
+        });
+        _completeIfExpected(
+          GuideQuestActionId.selectIntramuros,
+          'Objective complete: Intramuros selected.',
+        );
+        break;
+      case GuidePresenterSignal.openFavorites:
+        _completeIfExpected(
+          GuideQuestActionId.addToSamplePlan,
+          'Favorites opened.',
+        );
+        break;
+      case GuidePresenterSignal.openPlans:
+        _completeIfExpected(
+          GuideQuestActionId.showCollaboration,
+          'Plans opened.',
+        );
+        break;
+      case GuidePresenterSignal.openFriends:
+        _completeIfExpected(
+          GuideQuestActionId.showReminders,
+          'Friends opened.',
+        );
+        break;
+      case GuidePresenterSignal.openSettings:
+        _completeIfExpected(
+          GuideQuestActionId.openSettings,
+          'Objective complete: Settings opened.',
+        );
+        break;
+    }
+    controller?.clearSignal();
   }
 
   Future<void> _close({required bool skipped}) async {
@@ -82,18 +160,17 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     }
   }
 
-  Future<void> _next() async {
+  Future<void> _advance() async {
     if (_isLast) {
       _close(skipped: false);
       return;
     }
-    setState(() => _showObjectiveComplete = true);
-    await Future<void>.delayed(const Duration(milliseconds: 180));
-    if (!mounted) return;
     setState(() {
       _index += 1;
       _showObjectiveComplete = false;
       _statusMessage = null;
+      _guideCardExpanded = true;
+      _syncSceneForIndex();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
   }
@@ -104,6 +181,8 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       _index -= 1;
       _showObjectiveComplete = false;
       _statusMessage = null;
+      _guideCardExpanded = true;
+      _syncSceneForIndex();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
   }
@@ -114,106 +193,175 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       _showObjectiveComplete = false;
       _statusMessage = null;
       _completedActions.clear();
+      _guideCardExpanded = true;
+      _currentScene = GuidePresenterScene.welcome;
+      _destinationPreviewVisible = false;
+      _routeOptionsVisible = false;
+      _routeGuideVisible = false;
+      _fareBreakdownVisible = false;
+      _destinationSaved = false;
+      _addedToPlan = false;
+      _collaborationShown = false;
+      _reminderShown = false;
+      _historyShown = false;
+      _liveLoading = false;
+      _fallbackReason = null;
+      _selectedDestination = null;
+      _selectedRoute = null;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
   }
 
-  Future<void> _runGuideAction(GuideQuestStep step) async {
+  void _syncSceneForIndex() {
+    final sceneIndex = _index.clamp(
+      0,
+      GuidePresenterScene.values.length - 1,
+    );
+    _currentScene = GuidePresenterScene.values[sceneIndex];
+  }
+
+  void _handleCardPrimary(GuideQuestStep step) {
+    if (_closing || _actionBusy) return;
     final actionId = step.actionId;
-    if (actionId == null || _actionBusy || _closing) return;
+    if (step.type == GuideQuestStepType.finish ||
+        actionId == GuideQuestActionId.finish) {
+      _close(skipped: false);
+      return;
+    }
+    if (!step.requiresUserAction) {
+      _completeObjective(actionId ?? step.title, step.completionMessage);
+      return;
+    }
+    setState(() {
+      _guideCardExpanded = false;
+      _statusMessage = null;
+      _showObjectiveComplete = false;
+    });
+  }
+
+  Future<void> _handleGuideAction(String actionId) async {
+    if (_actionBusy || _closing) return;
+    final step = _steps[_index];
+    if (step.actionId != actionId) return;
 
     debugPrint('Guide live action started: $actionId');
     if (step.allowsApiCalls) {
       debugPrint('Guide live action may call APIs: $actionId');
     }
 
+    switch (actionId) {
+      case GuideQuestActionId.viewRoutes:
+        await _runViewRoutesAction(actionId);
+        break;
+      case GuideQuestActionId.pickRecommendedRoute:
+        setState(() {
+          _selectedRoute = GuideModeDemoData.routeOptions.last;
+          _routeGuideVisible = true;
+        });
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      case GuideQuestActionId.continueToFareBreakdown:
+        setState(() {
+          _fareBreakdownVisible = true;
+        });
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      case GuideQuestActionId.saveDestinationConcept:
+        setState(() {
+          _destinationSaved = true;
+        });
+        widget.onStepChanged?.call(7);
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      case GuideQuestActionId.addToSamplePlan:
+        setState(() {
+          _addedToPlan = true;
+        });
+        widget.onStepChanged?.call(8);
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      case GuideQuestActionId.showCollaboration:
+        setState(() {
+          _collaborationShown = true;
+        });
+        widget.onStepChanged?.call(9);
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      case GuideQuestActionId.showReminders:
+        setState(() {
+          _reminderShown = true;
+        });
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      case GuideQuestActionId.finishTripPreview:
+        setState(() {
+          _historyShown = true;
+        });
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      case GuideQuestActionId.openSettings:
+        widget.onStepChanged?.call(12);
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      default:
+        _completeObjective(actionId, step.completionMessage);
+    }
+  }
+
+  Future<void> _runViewRoutesAction(String actionId) async {
     setState(() {
       _actionBusy = true;
-      _statusMessage = null;
+      _liveLoading = true;
+      _fallbackReason = null;
     });
-
     try {
-      switch (actionId) {
-        case GuideQuestActionId.startGuide:
-          _markActionComplete(
-              actionId, 'Quest started. Follow the objectives.');
-          break;
-        case GuideQuestActionId.reviewHome:
-          _notifyStepChanged();
-          _markActionComplete(actionId, 'Home is your trip command center.');
-          break;
-        case GuideQuestActionId.openExplore:
-          widget.onStepChanged?.call(2);
-          _markActionComplete(actionId, 'Explore opened.');
-          break;
-        case GuideQuestActionId.useSampleDestination:
-          _selectedDestination = GuideModeDemoData.destinationsForApp().first;
-          _markActionComplete(
-            actionId,
-            'Sample destination selected: ${_selectedDestination!.name}.',
-          );
-          break;
-        case GuideQuestActionId.previewLiveRoutes:
-          await _previewLiveRouteOptions(actionId);
-          break;
-        case GuideQuestActionId.chooseDemoRoute:
-          _markActionComplete(actionId, 'Route steps reviewed.');
-          break;
-        case GuideQuestActionId.reviewFareBreakdown:
-          _markActionComplete(actionId, 'Fare breakdown reviewed.');
-          break;
-        case GuideQuestActionId.openFavorites:
-          widget.onStepChanged?.call(7);
-          _markActionComplete(
-              actionId, 'Favorites opened without changing data.');
-          break;
-        case GuideQuestActionId.openPlans:
-          widget.onStepChanged?.call(8);
-          _markActionComplete(
-              actionId, 'Plans opened without creating a plan.');
-          break;
-        case GuideQuestActionId.openFriends:
-          widget.onStepChanged?.call(9);
-          _markActionComplete(
-            actionId,
-            'Friends opened. No requests were sent.',
-          );
-          break;
-        case GuideQuestActionId.reviewReminders:
-          _markActionComplete(
-            actionId,
-            'Reminder preview reviewed. No permission prompt was shown.',
-          );
-          break;
-        case GuideQuestActionId.reviewTripHistory:
-          _markActionComplete(actionId, 'Trip History preview reviewed.');
-          break;
-        case GuideQuestActionId.openSettings:
-          widget.onStepChanged?.call(12);
-          _markActionComplete(actionId, 'Guide Mode controls are in Settings.');
-          break;
-        case GuideQuestActionId.finish:
-          await _close(skipped: false);
-          break;
-      }
+      await _previewLiveRouteOptions();
+      if (!mounted) return;
+      setState(() {
+        _routeOptionsVisible = true;
+        _fallbackReason =
+            'Live preview closed. The walkthrough continues with safe route cards.';
+      });
+      _completeObjective(actionId, 'Route choices opened.');
     } catch (error) {
       debugPrint('Guide live action fallback used: $actionId failed: $error');
-      if (mounted) {
-        _markActionComplete(
-          actionId,
-          'Live action was unavailable, so Guide Mode kept the offline example.',
-        );
-      }
+      if (!mounted) return;
+      setState(() {
+        _routeOptionsVisible = true;
+        _fallbackReason =
+            'Live route data was unavailable, so this guide is using offline demo routes.';
+      });
+      _completeObjective(actionId, 'Offline route options loaded.');
     } finally {
       if (mounted) {
         setState(() {
           _actionBusy = false;
+          _liveLoading = false;
         });
       }
     }
   }
 
-  Future<void> _previewLiveRouteOptions(String actionId) async {
+  void _completeIfExpected(String actionId, String message) {
+    final expected = _steps[_index].actionId;
+    if (expected != actionId || _guideCardExpanded) return;
+    _completeObjective(actionId, message);
+  }
+
+  void _completeObjective(String actionId, String message) {
+    if (!mounted || _completedActions.contains(actionId)) return;
+    setState(() {
+      _completedActions.add(actionId);
+      _showObjectiveComplete = true;
+      _statusMessage = message;
+    });
+    Future<void>.delayed(const Duration(milliseconds: 650), () {
+      if (!mounted || _closing) return;
+      _advance();
+    });
+  }
+
+  Future<void> _previewLiveRouteOptions() async {
     final destination =
         _selectedDestination ?? GuideModeDemoData.destinationsForApp().first;
     _selectedDestination = destination;
@@ -266,19 +414,6 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     );
 
     if (!mounted) return;
-    _markActionComplete(
-      actionId,
-      'Live route preview closed. Cached route results help avoid duplicate calls.',
-    );
-  }
-
-  void _markActionComplete(String actionId, String message) {
-    if (!mounted) return;
-    setState(() {
-      _completedActions.add(actionId);
-      _showObjectiveComplete = true;
-      _statusMessage = message;
-    });
   }
 
   GlobalKey? _targetKeyFor(GuideQuestStep step) {
@@ -296,6 +431,8 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   WidgetBuilder? _demoBuilderFor(GuideQuestDemoCardType type) {
     return switch (type) {
       GuideQuestDemoCardType.destinationCard => _buildDestinationExample,
+      GuideQuestDemoCardType.destinationPreview =>
+        _buildDestinationPreviewStage,
       GuideQuestDemoCardType.routeOptions => _buildRouteOptionsExample,
       GuideQuestDemoCardType.routeGuide => _buildRouteGuideExample,
       GuideQuestDemoCardType.fareBreakdown => _buildFareBreakdownExample,
@@ -311,33 +448,339 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   @override
   Widget build(BuildContext context) {
     final step = _steps[_index];
-    final actionCompleted =
-        step.actionId != null && _completedActions.contains(step.actionId);
+    final stage = _stageBuilderFor(step.actionId);
 
     return Material(
       type: MaterialType.transparency,
       child: Stack(
+        key: ValueKey(_currentScene),
         children: [
+          if (!_guideCardExpanded && stage != null) stage(context),
           GuideQuestOverlay(
             step: step,
             stepIndex: _index,
             totalSteps: _steps.length,
             targetKey: _targetKeyFor(step),
             demoBuilder: _demoBuilderFor(step.demoCardType),
+            expanded: _guideCardExpanded,
             isFirst: _isFirst,
             isLast: _isLast,
             isBusy: _closing || _actionBusy,
-            actionCompleted: actionCompleted,
             showObjectiveComplete: _showObjectiveComplete,
             statusMessage: _statusMessage,
             onSkip: () => _close(skipped: true),
             onBack: _back,
-            onNext: _next,
             onFinish: () => _close(skipped: false),
-            onPrimaryAction: () => _runGuideAction(step),
+            onPrimaryAction: () => _handleCardPrimary(step),
+            onReminderTap: () => setState(() => _guideCardExpanded = true),
             onPracticeAgain: _restartGuide,
           ),
         ],
+      ),
+    );
+  }
+
+  WidgetBuilder? _stageBuilderFor(String? actionId) {
+    return switch (actionId) {
+      GuideQuestActionId.viewRoutes => _buildDestinationActionStage,
+      GuideQuestActionId.pickRecommendedRoute => _buildRouteOptionsActionStage,
+      GuideQuestActionId.continueToFareBreakdown => _buildRouteGuideActionStage,
+      GuideQuestActionId.saveDestinationConcept => _buildFareActionStage,
+      GuideQuestActionId.addToSamplePlan => _buildFavoriteActionStage,
+      GuideQuestActionId.showCollaboration => _buildPlanActionStage,
+      GuideQuestActionId.showReminders => _buildCollaborationActionStage,
+      GuideQuestActionId.finishTripPreview => _buildReminderActionStage,
+      GuideQuestActionId.openSettings => _buildHistoryActionStage,
+      _ => null,
+    };
+  }
+
+  Widget _buildStageShell({
+    required BuildContext context,
+    required Widget child,
+  }) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        ignoring: _showObjectiveComplete,
+        child: SafeArea(
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 88, 16, 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Material(
+                  color: Colors.transparent,
+                  child: child,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDestinationActionStage(BuildContext context) {
+    return _buildStageShell(
+      context: context,
+      child: _GuideExampleCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _DestinationPreview(
+              destination: GuideModeDemoData.destinations.first,
+              saved: _destinationSaved,
+            ),
+            if (_destinationPreviewVisible) ...[
+              const SizedBox(height: 10),
+              const _GuideNote(
+                text:
+                    'Intramuros is selected for this walkthrough. Nothing has been saved yet.',
+              ),
+            ],
+            const SizedBox(height: 12),
+            _StageActionButton(
+              icon: Icons.alt_route_rounded,
+              label: _liveLoading ? 'Loading route choices...' : 'View Routes',
+              onPressed: _liveLoading
+                  ? null
+                  : () => _handleGuideAction(GuideQuestActionId.viewRoutes),
+            ),
+            if (_fallbackReason != null) ...[
+              const SizedBox(height: 10),
+              _GuideNote(text: _fallbackReason!),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRouteOptionsActionStage(BuildContext context) {
+    return _buildStageShell(
+      context: context,
+      child: _GuideExampleCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_routeOptionsVisible) ...[
+              const _GuideNote(
+                text:
+                    'Route choices are shown from Guide Mode data after the live preview step.',
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (_fallbackReason != null) ...[
+              _GuideNote(text: _fallbackReason!),
+              const SizedBox(height: 10),
+            ],
+            for (final route in GuideModeDemoData.routeOptions) ...[
+              _DemoRouteOptionCard(
+                route: route,
+                selected: _selectedRoute == route,
+                onTap: route.title == 'Jeepney + Train'
+                    ? () => _handleGuideAction(
+                          GuideQuestActionId.pickRecommendedRoute,
+                        )
+                    : null,
+              ),
+              if (route != GuideModeDemoData.routeOptions.last)
+                const SizedBox(height: 9),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRouteGuideActionStage(BuildContext context) {
+    return _buildStageShell(
+      context: context,
+      child: _GuideExampleCard(
+        child: Column(
+          children: [
+            if (_routeGuideVisible) ...[
+              const _GuideNote(
+                text:
+                    'This route guide follows the selected Jeepney + Train option.',
+              ),
+              const SizedBox(height: 10),
+            ],
+            _buildRouteGuideExample(context),
+            const SizedBox(height: 12),
+            _StageActionButton(
+              icon: Icons.payments_rounded,
+              label: 'Continue to fare breakdown',
+              onPressed: () => _handleGuideAction(
+                GuideQuestActionId.continueToFareBreakdown,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFareActionStage(BuildContext context) {
+    return _buildStageShell(
+      context: context,
+      child: _GuideExampleCard(
+        child: Column(
+          children: [
+            if (_fareBreakdownVisible) ...[
+              const _GuideNote(
+                text: 'Fare details are open for the selected commute route.',
+              ),
+              const SizedBox(height: 10),
+            ],
+            _buildFareBreakdownExample(context),
+            const SizedBox(height: 12),
+            _StageActionButton(
+              icon: _destinationSaved
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              label: _destinationSaved
+                  ? 'Saved in Guide Mode'
+                  : 'Save destination',
+              onPressed: _destinationSaved
+                  ? null
+                  : () => _handleGuideAction(
+                        GuideQuestActionId.saveDestinationConcept,
+                      ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFavoriteActionStage(BuildContext context) {
+    return _buildStageShell(
+      context: context,
+      child: _GuideExampleCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _DestinationPreview(
+              destination: GuideModeDemoData.destinations.first,
+              saved: true,
+            ),
+            const SizedBox(height: 12),
+            _StageActionButton(
+              icon: Icons.playlist_add_rounded,
+              label:
+                  _addedToPlan ? 'Added to sample plan' : 'Add to sample plan',
+              onPressed: _addedToPlan
+                  ? null
+                  : () => _handleGuideAction(
+                        GuideQuestActionId.addToSamplePlan,
+                      ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlanActionStage(BuildContext context) {
+    return _buildStageShell(
+      context: context,
+      child: _GuideExampleCard(
+        child: Column(
+          children: [
+            _buildPlanExample(context),
+            const SizedBox(height: 12),
+            _StageActionButton(
+              icon: Icons.groups_rounded,
+              label: _collaborationShown
+                  ? 'Collaboration shown'
+                  : 'Show collaboration',
+              onPressed: _collaborationShown
+                  ? null
+                  : () => _handleGuideAction(
+                        GuideQuestActionId.showCollaboration,
+                      ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCollaborationActionStage(BuildContext context) {
+    return _buildStageShell(
+      context: context,
+      child: _GuideExampleCard(
+        child: Column(
+          children: [
+            _buildCollaborationExample(context),
+            const SizedBox(height: 12),
+            _StageActionButton(
+              icon: Icons.notifications_active_rounded,
+              label: _reminderShown ? 'Reminders shown' : 'Show reminders',
+              onPressed: _reminderShown
+                  ? null
+                  : () => _handleGuideAction(
+                        GuideQuestActionId.showReminders,
+                      ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReminderActionStage(BuildContext context) {
+    return _buildStageShell(
+      context: context,
+      child: _GuideExampleCard(
+        child: Column(
+          children: [
+            _buildReminderExample(context),
+            const SizedBox(height: 12),
+            _StageActionButton(
+              icon: Icons.check_circle_rounded,
+              label: _historyShown
+                  ? 'Trip preview finished'
+                  : 'Finish trip preview',
+              onPressed: _historyShown
+                  ? null
+                  : () => _handleGuideAction(
+                        GuideQuestActionId.finishTripPreview,
+                      ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryActionStage(BuildContext context) {
+    return _buildStageShell(
+      context: context,
+      child: _GuideExampleCard(
+        child: Column(
+          children: [
+            _buildHistoryExample(context),
+            const SizedBox(height: 12),
+            _StageActionButton(
+              icon: Icons.settings_rounded,
+              label: 'Open Settings',
+              onPressed: () =>
+                  _handleGuideAction(GuideQuestActionId.openSettings),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDestinationPreviewStage(BuildContext context) {
+    return _GuideExampleCard(
+      child: _DestinationPreview(
+        destination: GuideModeDemoData.destinations.first,
+        saved: _destinationSaved,
       ),
     );
   }
@@ -645,8 +1088,12 @@ class _GuideExampleCard extends StatelessWidget {
 
 class _DestinationPreview extends StatelessWidget {
   final GuideModeDemoDestination destination;
+  final bool saved;
 
-  const _DestinationPreview({required this.destination});
+  const _DestinationPreview({
+    required this.destination,
+    this.saved = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -694,8 +1141,8 @@ class _DestinationPreview extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         _DecorativeIconButton(
-          icon: Icons.favorite_border_rounded,
-          color: colorScheme.primary,
+          icon: saved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+          color: saved ? Colors.red : colorScheme.primary,
         ),
         const SizedBox(width: 6),
         _DecorativeIconButton(
@@ -709,63 +1156,134 @@ class _DestinationPreview extends StatelessWidget {
 
 class _DemoRouteOptionCard extends StatelessWidget {
   final GuideModeDemoRouteOption route;
+  final bool selected;
+  final VoidCallback? onTap;
 
-  const _DemoRouteOptionCard({required this.route});
+  const _DemoRouteOptionCard({
+    required this.route,
+    this.selected = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: selected
+                ? colorScheme.primaryContainer.withValues(alpha: 0.38)
+                : colorScheme.surface.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected || onTap != null
+                  ? colorScheme.primary.withValues(alpha: 0.50)
+                  : colorScheme.outlineVariant.withValues(alpha: 0.55),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      route.title,
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ),
+                  Text(
+                    route.fare,
+                    style: TextStyle(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TransportModeSequence(modes: route.modes, compact: true),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  _MiniInfoPill(
+                      icon: Icons.schedule_rounded, label: route.time),
+                  _MiniInfoPill(
+                      icon: Icons.verified_rounded, label: route.source),
+                ],
+              ),
+              const SizedBox(height: 7),
+              Text(
+                route.reason,
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StageActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  const _StageActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+      ),
+    );
+  }
+}
+
+class _GuideNote extends StatelessWidget {
+  final String text;
+
+  const _GuideNote({required this.text});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.55),
-        ),
+        color: colorScheme.secondaryContainer.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  route.title,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-              ),
-              Text(
-                route.fare,
-                style: TextStyle(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TransportModeSequence(modes: route.modes, compact: true),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              _MiniInfoPill(icon: Icons.schedule_rounded, label: route.time),
-              _MiniInfoPill(icon: Icons.verified_rounded, label: route.source),
-            ],
-          ),
-          const SizedBox(height: 7),
-          Text(
-            route.reason,
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
+      child: Text(
+        text,
+        style: TextStyle(
+          color: colorScheme.onSecondaryContainer,
+          fontSize: 12,
+          height: 1.3,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

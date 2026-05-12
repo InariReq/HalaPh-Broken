@@ -9,11 +9,13 @@ import 'package:halaph/widgets/motion_widgets.dart';
 class FriendsScreen extends StatefulWidget {
   final bool selectionMode;
   final List<String> initialSelectedCodes;
+  final bool guideModeDemo;
 
   const FriendsScreen({
     super.key,
     this.selectionMode = false,
     this.initialSelectedCodes = const [],
+    this.guideModeDemo = false,
   });
 
   @override
@@ -36,10 +38,44 @@ class _FriendsScreenState extends State<FriendsScreen> {
   void initState() {
     super.initState();
     _selectedCodes.addAll(widget.initialSelectedCodes);
+    if (widget.guideModeDemo) {
+      _applyGuideModeDemo();
+      return;
+    }
     _loadData();
   }
 
+  void _applyGuideModeDemo() {
+    _myCode = 'GUIDE-JIA';
+    _members = [
+      Friend(
+        id: 'guide-friend',
+        name: 'Friend',
+        role: 'Editor',
+        code: 'GUIDE-FRIEND',
+      ),
+    ];
+    _pendingRequests = const [];
+    _isLoading = false;
+  }
+
+  @override
+  void didUpdateWidget(covariant FriendsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.guideModeDemo == widget.guideModeDemo) return;
+    if (widget.guideModeDemo) {
+      setState(_applyGuideModeDemo);
+    } else {
+      _loadData();
+    }
+  }
+
   Future<void> _loadData() async {
+    if (widget.guideModeDemo) {
+      if (!mounted) return;
+      setState(_applyGuideModeDemo);
+      return;
+    }
     debugPrint('FriendsScreen: Loading data...');
     try {
       final myCode = await _friendService.getMyCode(forceRefresh: true);
@@ -65,6 +101,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   }
 
   Future<List<Map<String, dynamic>>> _loadPendingRequests() async {
+    if (widget.guideModeDemo) return const [];
     return await _friendService.getPendingFriendRequests();
   }
 
@@ -536,7 +573,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
               ),
               const SizedBox(width: 12),
               ElevatedButton(
-                onPressed: _isAddingFriend ? null : _inviteFriend,
+                onPressed: _isAddingFriend || widget.guideModeDemo
+                    ? null
+                    : _inviteFriend,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue[700],
                   foregroundColor: Colors.white,
@@ -736,21 +775,25 @@ class _FriendsScreenState extends State<FriendsScreen> {
                             child: Text('Editor'),
                           ),
                         ],
-                        onChanged: (value) async {
-                          if (value == null) return;
-                          await _friendService.updateFriendRole(
-                            friend.id,
-                            value,
-                          );
-                          _loadData();
-                        },
+                        onChanged: widget.guideModeDemo
+                            ? null
+                            : (value) async {
+                                if (value == null) return;
+                                await _friendService.updateFriendRole(
+                                  friend.id,
+                                  value,
+                                );
+                                _loadData();
+                              },
                       ),
                       IconButton(
                         icon: Icon(
                           Icons.remove_circle_outline,
                           color: Colors.red,
                         ),
-                        onPressed: () => _confirmRemoveFriend(friend),
+                        onPressed: widget.guideModeDemo
+                            ? null
+                            : () => _confirmRemoveFriend(friend),
                       ),
                     ],
                   ),

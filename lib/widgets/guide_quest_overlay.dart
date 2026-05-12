@@ -9,17 +9,17 @@ class GuideQuestOverlay extends StatelessWidget {
   final GlobalKey? targetKey;
   final Rect? targetRect;
   final WidgetBuilder? demoBuilder;
+  final bool expanded;
   final bool isFirst;
   final bool isLast;
   final bool isBusy;
-  final bool actionCompleted;
   final bool showObjectiveComplete;
   final String? statusMessage;
   final VoidCallback onSkip;
   final VoidCallback onBack;
-  final VoidCallback onNext;
+  final VoidCallback onPrimaryAction;
   final VoidCallback onFinish;
-  final VoidCallback? onPrimaryAction;
+  final VoidCallback onReminderTap;
   final VoidCallback? onPracticeAgain;
 
   const GuideQuestOverlay({
@@ -30,17 +30,17 @@ class GuideQuestOverlay extends StatelessWidget {
     this.targetKey,
     this.targetRect,
     this.demoBuilder,
+    required this.expanded,
     required this.isFirst,
     required this.isLast,
     required this.isBusy,
-    required this.actionCompleted,
     required this.showObjectiveComplete,
     this.statusMessage,
     required this.onSkip,
     required this.onBack,
-    required this.onNext,
+    required this.onPrimaryAction,
     required this.onFinish,
-    this.onPrimaryAction,
+    required this.onReminderTap,
     this.onPracticeAgain,
   });
 
@@ -54,57 +54,83 @@ class GuideQuestOverlay extends StatelessWidget {
     return Positioned.fill(
       child: Stack(
         children: [
-          const ModalBarrier(dismissible: false, color: Colors.transparent),
-          CustomPaint(
-            painter: _GuideBackdropPainter(
-              targetRect: resolvedTarget,
-              color: Colors.black.withValues(alpha: 0.72),
+          if (expanded) ...[
+            const ModalBarrier(dismissible: false, color: Colors.transparent),
+            CustomPaint(
+              painter: _GuideBackdropPainter(
+                targetRect: resolvedTarget,
+                color: Colors.black.withValues(alpha: 0.72),
+              ),
+              child: const SizedBox.expand(),
             ),
-            child: const SizedBox.expand(),
-          ),
+          ],
           if (resolvedTarget != null)
             _QuestTargetRing(
               rect: resolvedTarget,
               showComplete: showObjectiveComplete,
             ),
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final cardWidth = constraints.maxWidth.clamp(0.0, 460.0);
-                return Align(
-                  alignment: _alignmentFor(resolvedTarget, constraints.biggest),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: cardWidth,
-                        maxHeight: constraints.maxHeight - 24,
-                      ),
-                      child: _QuestCard(
-                        step: step,
-                        stepIndex: stepIndex,
-                        totalSteps: totalSteps,
-                        hasTarget: resolvedTarget != null,
-                        demoBuilder: demoBuilder,
-                        isFirst: isFirst,
-                        isLast: isLast,
-                        isBusy: isBusy,
-                        actionCompleted: actionCompleted,
-                        showObjectiveComplete: showObjectiveComplete,
-                        statusMessage: statusMessage,
-                        onSkip: onSkip,
-                        onBack: onBack,
-                        onNext: onNext,
-                        onFinish: onFinish,
-                        onPrimaryAction: onPrimaryAction,
-                        onPracticeAgain: onPracticeAgain,
+          if (expanded)
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final cardWidth = constraints.maxWidth.clamp(0.0, 460.0);
+                  return Align(
+                    alignment:
+                        _alignmentFor(resolvedTarget, constraints.biggest),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: cardWidth,
+                          maxHeight: constraints.maxHeight - 24,
+                        ),
+                        child: _QuestCard(
+                          step: step,
+                          stepIndex: stepIndex,
+                          totalSteps: totalSteps,
+                          hasTarget: resolvedTarget != null,
+                          demoBuilder: demoBuilder,
+                          isFirst: isFirst,
+                          isLast: isLast,
+                          isBusy: isBusy,
+                          showObjectiveComplete: showObjectiveComplete,
+                          statusMessage: statusMessage,
+                          onSkip: onSkip,
+                          onBack: onBack,
+                          onPrimaryAction: onPrimaryAction,
+                          onFinish: onFinish,
+                          onPracticeAgain: onPracticeAgain,
+                        ),
                       ),
                     ),
+                  );
+                },
+              ),
+            )
+          else
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+                  child: _ReminderPill(
+                    text: step.reminderText,
+                    showComplete: showObjectiveComplete,
+                    onTap: onReminderTap,
                   ),
-                );
-              },
+                ),
+              ),
             ),
-          ),
+          if (!expanded && statusMessage != null && statusMessage!.isNotEmpty)
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 66, 18, 0),
+                  child: _ObjectiveCompleteToast(message: statusMessage!),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -152,14 +178,12 @@ class _QuestCard extends StatelessWidget {
   final bool isFirst;
   final bool isLast;
   final bool isBusy;
-  final bool actionCompleted;
   final bool showObjectiveComplete;
   final String? statusMessage;
   final VoidCallback onSkip;
   final VoidCallback onBack;
-  final VoidCallback onNext;
+  final VoidCallback onPrimaryAction;
   final VoidCallback onFinish;
-  final VoidCallback? onPrimaryAction;
   final VoidCallback? onPracticeAgain;
 
   const _QuestCard({
@@ -171,14 +195,12 @@ class _QuestCard extends StatelessWidget {
     required this.isFirst,
     required this.isLast,
     required this.isBusy,
-    required this.actionCompleted,
     required this.showObjectiveComplete,
     required this.statusMessage,
     required this.onSkip,
     required this.onBack,
-    required this.onNext,
-    required this.onFinish,
     required this.onPrimaryAction,
+    required this.onFinish,
     required this.onPracticeAgain,
   });
 
@@ -190,11 +212,9 @@ class _QuestCard extends StatelessWidget {
     final cardColor = isDark ? const Color(0xFF0F172A) : Colors.white;
     final borderColor =
         isDark ? const Color(0xFF334155) : const Color(0xFFDDE8F7);
-
-    final needsPrimaryAction = _needsPrimaryAction(step);
-    final actionLabel = actionCompleted
-        ? 'Objective complete'
-        : step.primaryActionLabel ?? 'Start objective';
+    final primaryLabel = isLast
+        ? (step.primaryActionLabel ?? 'Start using HalaPH')
+        : step.collapseButtonLabel;
 
     return Material(
       color: Colors.transparent,
@@ -251,14 +271,11 @@ class _QuestCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 14),
-              _QuestProgress(
-                stepIndex: stepIndex,
-                totalSteps: totalSteps,
-              ),
+              _QuestProgress(stepIndex: stepIndex, totalSteps: totalSteps),
               const SizedBox(height: 16),
               _ObjectivePanel(
                 objective: step.objective,
-                showComplete: showObjectiveComplete || actionCompleted,
+                showComplete: showObjectiveComplete,
                 completionLabel: step.completionLabel,
               ),
               const SizedBox(height: 14),
@@ -288,30 +305,13 @@ class _QuestCard extends StatelessWidget {
               const SizedBox(height: 16),
               demoBuilder?.call(context) ?? const _QuestRouteCue(),
               const SizedBox(height: 18),
-              if (needsPrimaryAction) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed:
-                        isBusy || actionCompleted ? null : onPrimaryAction,
-                    icon: Icon(
-                      actionCompleted
-                          ? Icons.check_circle_rounded
-                          : _actionIcon(step),
-                      size: 18,
-                    ),
-                    label: Text(actionLabel),
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
               if (isLast && onPracticeAgain != null) ...[
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: isBusy ? null : onPracticeAgain,
                     icon: const Icon(Icons.replay_rounded, size: 18),
-                    label: const Text('Practice again'),
+                    label: const Text('Replay walkthrough'),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -328,14 +328,15 @@ class _QuestCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: isBusy ? null : (isLast ? onFinish : onNext),
+                      onPressed:
+                          isBusy ? null : (isLast ? onFinish : onPrimaryAction),
                       icon: Icon(
                         isLast
                             ? Icons.check_circle_rounded
-                            : Icons.arrow_forward_rounded,
+                            : Icons.keyboard_double_arrow_down_rounded,
                         size: 18,
                       ),
-                      label: Text(isLast ? 'Finish' : 'Continue'),
+                      label: Text(primaryLabel),
                     ),
                   ),
                 ],
@@ -346,23 +347,122 @@ class _QuestCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  bool _needsPrimaryAction(GuideQuestStep step) {
-    if (step.actionId == null || step.type == GuideQuestStepType.finish) {
-      return false;
-    }
-    return step.type == GuideQuestStepType.explainOnly ||
-        step.type == GuideQuestStepType.tapTarget ||
-        step.type == GuideQuestStepType.liveAction ||
-        step.type == GuideQuestStepType.fallbackDemo ||
-        step.type == GuideQuestStepType.confirmWriteAction;
+class _ReminderPill extends StatelessWidget {
+  final String text;
+  final bool showComplete;
+  final VoidCallback onTap;
+
+  const _ReminderPill({
+    required this.text,
+    required this.showComplete,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = showComplete ? Colors.green[700]! : colorScheme.primary;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 420),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xEE0F172A)
+                : Colors.white.withValues(alpha: 0.96),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: color.withValues(alpha: 0.34)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                showComplete
+                    ? Icons.check_circle_rounded
+                    : Icons.navigation_rounded,
+                size: 18,
+                color: color,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  showComplete ? 'Objective complete' : text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(Icons.expand_less_rounded, size: 18, color: color),
+            ],
+          ),
+        ),
+      ),
+    );
   }
+}
 
-  IconData _actionIcon(GuideQuestStep step) {
-    if (step.allowsApiCalls) return Icons.travel_explore_rounded;
-    if (step.requiresConfirmation) return Icons.verified_user_rounded;
-    if (step.isTapTargetStep) return Icons.touch_app_rounded;
-    return Icons.flag_rounded;
+class _ObjectiveCompleteToast extends StatelessWidget {
+  final String message;
+
+  const _ObjectiveCompleteToast({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 380),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.green[700],
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.20),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.white),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                message,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  height: 1.25,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -428,7 +528,7 @@ class _InstructionPanel extends StatelessWidget {
                 if (requiresConfirmation)
                   const _GuideSafetyChip(
                     icon: Icons.lock_outline_rounded,
-                    label: 'Requires confirmation',
+                    label: 'Guide-only state',
                   ),
               ],
             ),
@@ -443,10 +543,7 @@ class _GuideSafetyChip extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const _GuideSafetyChip({
-    required this.icon,
-    required this.label,
-  });
+  const _GuideSafetyChip({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -527,9 +624,7 @@ class _QuestIcon extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.20),
-        ),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.20)),
       ),
       child: Icon(icon, color: colorScheme.primary, size: 27),
     );
@@ -540,10 +635,7 @@ class _QuestProgress extends StatelessWidget {
   final int stepIndex;
   final int totalSteps;
 
-  const _QuestProgress({
-    required this.stepIndex,
-    required this.totalSteps,
-  });
+  const _QuestProgress({required this.stepIndex, required this.totalSteps});
 
   @override
   Widget build(BuildContext context) {
@@ -667,7 +759,7 @@ class _TapPrompt extends StatelessWidget {
           const SizedBox(width: 7),
           Flexible(
             child: Text(
-              'Target highlighted. Use Next to continue safely.',
+              'The card will move away so you can tap the target.',
               style: TextStyle(
                 color: colorScheme.onSecondaryContainer,
                 fontSize: 12,
@@ -708,10 +800,7 @@ class _QuestRouteCuePainter extends CustomPainter {
   final Color color;
   final Color muted;
 
-  const _QuestRouteCuePainter({
-    required this.color,
-    required this.muted,
-  });
+  const _QuestRouteCuePainter({required this.color, required this.muted});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -768,10 +857,7 @@ class _QuestTargetRing extends StatelessWidget {
   final Rect rect;
   final bool showComplete;
 
-  const _QuestTargetRing({
-    required this.rect,
-    required this.showComplete,
-  });
+  const _QuestTargetRing({required this.rect, required this.showComplete});
 
   @override
   Widget build(BuildContext context) {
@@ -803,10 +889,7 @@ class _GuideBackdropPainter extends CustomPainter {
   final Rect? targetRect;
   final Color color;
 
-  const _GuideBackdropPainter({
-    required this.targetRect,
-    required this.color,
-  });
+  const _GuideBackdropPainter({required this.targetRect, required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {

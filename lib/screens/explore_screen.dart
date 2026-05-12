@@ -14,10 +14,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 class ExploreScreen extends StatefulWidget {
   final bool guideModeDemo;
+  final ValueChanged<Destination>? onGuideDestinationSelected;
 
   const ExploreScreen({
     super.key,
     this.guideModeDemo = false,
+    this.onGuideDestinationSelected,
   });
 
   @override
@@ -1162,7 +1164,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(18),
                       onTap: () {
-                        if (widget.guideModeDemo) return;
+                        if (widget.guideModeDemo) {
+                          widget.onGuideDestinationSelected?.call(destination);
+                          return;
+                        }
                         ExploreDetailsScreen.showAsBottomSheet(
                           context,
                           destinationId: destination.id,
@@ -1198,7 +1203,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'View Details',
+                              widget.guideModeDemo &&
+                                      destination.name
+                                          .toLowerCase()
+                                          .contains('intramuros')
+                                  ? 'Select Intramuros'
+                                  : 'View Details',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
