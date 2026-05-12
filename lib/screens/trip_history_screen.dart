@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:halaph/services/simple_plan_service.dart';
+import 'package:halaph/widgets/motion_widgets.dart';
 
 class TripHistoryScreen extends StatefulWidget {
   const TripHistoryScreen({super.key});
@@ -95,99 +96,16 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
       body: RefreshIndicator(
         onRefresh: _loadTripHistory,
         child: _loading
-            ? Center(
-                child: Container(
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainer,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .outlineVariant
-                          .withValues(alpha: 0.28),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.18),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: SizedBox(
-                    height: 36,
-                    width: 36,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      color: Colors.blue[700],
-                    ),
-                  ),
-                ),
-              )
+            ? const LoadingStatePanel(label: 'Loading trip history...')
             : _pastPlans.isEmpty
                 ? ListView(
                     padding: const EdgeInsets.fromLTRB(24, 120, 24, 24),
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainer,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .outlineVariant
-                                .withValues(alpha: 0.28),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.18),
-                              blurRadius: 18,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              height: 64,
-                              width: 64,
-                              decoration: BoxDecoration(
-                                color: Colors.blue[50],
-                                borderRadius: BorderRadius.circular(22),
-                              ),
-                              child: Icon(
-                                Icons.history_rounded,
-                                size: 34,
-                                color: Colors.blue[700],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No trip history yet',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w900,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Plans you mark as finished will appear here. Old plans also appear here after their end date.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 14,
-                                height: 1.35,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
+                      const EmptyStatePanel(
+                        icon: Icons.history_rounded,
+                        title: 'No finished trips yet',
+                        message:
+                            'Finished plans will appear here after you mark them complete.',
                       ),
                     ],
                   )

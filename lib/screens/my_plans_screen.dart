@@ -115,7 +115,12 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         plans.isEmpty
             ? _buildPlanEntrance(
                 order: 0,
-                child: _buildEmptyPlansPlaceholder('No personal plans yet'),
+                child: _buildEmptyPlansPlaceholder(
+                  title: 'No plans yet',
+                  message: 'Create your first trip plan and add destinations.',
+                  actionLabel: 'Create plan',
+                  onAction: () => GoRouter.of(context).push('/create-plan'),
+                ),
               )
             : Column(
                 children: plans.asMap().entries.map((entry) {
@@ -146,7 +151,8 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
             ? _buildPlanEntrance(
                 order: 0,
                 child: _buildEmptyPlansPlaceholder(
-                  'No collaborative plans yet',
+                  title: 'No shared plans yet',
+                  message: 'Shared trip plans from friends will appear here.',
                 ),
               )
             : Column(
@@ -611,13 +617,25 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     return '${months[startDate.month - 1]} ${startDate.day} - ${months[endDate.month - 1]} ${endDate.day}';
   }
 
-  Widget _buildEmptyPlansPlaceholder(String message) {
+  Widget _buildEmptyPlansPlaceholder({
+    required String title,
+    required String message,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: EmptyStatePanel(
         icon: Icons.folder_open_rounded,
-        title: message,
-        message: 'Create or join a plan to see it here.',
+        title: title,
+        message: message,
+        action: actionLabel == null || onAction == null
+            ? null
+            : ElevatedButton.icon(
+                onPressed: onAction,
+                icon: const Icon(Icons.add_rounded),
+                label: Text(actionLabel),
+              ),
       ),
     );
   }

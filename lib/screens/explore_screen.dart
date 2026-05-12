@@ -21,6 +21,7 @@ class ExploreScreen extends StatefulWidget {
 class _ExploreScreenState extends State<ExploreScreen> {
   List<Destination> _destinations = [];
   bool _isLoading = false;
+  bool _placesUnavailable = false;
   final Set<String> _favoriteIds = {};
   final Set<String> _favoriteBusyIds = {};
   final FavoritesService _favoritesService = FavoritesService();
@@ -152,6 +153,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         setState(() {
           _selectedCategory = null;
           _destinations = nearbyTrending;
+          _placesUnavailable = false;
         });
       } else {
         final destinations = await DestinationService.searchDestinations(query);
@@ -163,10 +165,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
         setState(() {
           _selectedCategory = null;
           _destinations = deduped.take(5).toList(growable: false);
+          _placesUnavailable = false;
         });
       }
     } catch (e) {
       debugPrint('Search error: $e');
+      if (mounted && generation == _searchGeneration) {
+        setState(() {
+          _destinations = const [];
+          _placesUnavailable = true;
+        });
+      }
     } finally {
       if (mounted && generation == _searchGeneration) {
         setState(() => _isLoading = false);
@@ -301,6 +310,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
         setState(() {
           _destinations = nearbyTrending;
+          _placesUnavailable = false;
         });
         return;
       }
@@ -328,9 +338,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
       setState(() {
         _destinations = filtered.take(5).toList(growable: false);
+        _placesUnavailable = false;
       });
     } catch (e) {
       debugPrint('Category filter error: $e');
+      if (mounted && generation == _searchGeneration) {
+        setState(() {
+          _destinations = const [];
+          _placesUnavailable = true;
+        });
+      }
     } finally {
       if (mounted && generation == _searchGeneration) {
         setState(() => _isLoading = false);
@@ -616,20 +633,28 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Widget _buildSearchResults() {
     if (_destinations.isEmpty) {
+      final title =
+          _placesUnavailable ? 'Places unavailable' : 'No places found';
+      final message = _placesUnavailable
+          ? 'Check your connection or try again later.'
+          : 'Try a simpler search or choose another category.';
+
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: EmptyStatePanel(
-            icon: Icons.search_rounded,
-            title: 'No destinations found',
-            message: 'Try another keyword or return to nearby places.',
+            icon: _placesUnavailable
+                ? Icons.cloud_off_rounded
+                : Icons.search_off_rounded,
+            title: title,
+            message: message,
             action: ElevatedButton(
               onPressed: () {
                 _searchController.clear();
                 _selectedCategory = null;
                 _runDestinationSearch();
               },
-              child: const Text('Show All'),
+              child: Text(_placesUnavailable ? 'Try again' : 'Show nearby'),
             ),
           ),
         ),

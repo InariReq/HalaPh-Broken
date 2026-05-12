@@ -22,6 +22,7 @@ class FriendsScreen extends StatefulWidget {
 
 class _FriendsScreenState extends State<FriendsScreen> {
   final TextEditingController _profileCodeController = TextEditingController();
+  final FocusNode _profileCodeFocusNode = FocusNode();
   final FriendService _friendService = FriendService();
   final Set<String> _selectedCodes = <String>{};
   List<Friend> _members = [];
@@ -491,6 +492,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
               Expanded(
                 child: TextField(
                   controller: _profileCodeController,
+                  focusNode: _profileCodeFocusNode,
                   style: TextStyle(
                     fontSize: 16,
                     color: Theme.of(context).colorScheme.onSurface,
@@ -586,10 +588,17 @@ class _FriendsScreenState extends State<FriendsScreen> {
         ),
         const SizedBox(height: 16),
         if (_members.isEmpty)
-          const EmptyStatePanel(
+          EmptyStatePanel(
             icon: Icons.person_add_alt_1_rounded,
-            title: 'No friends yet',
-            message: 'Add a friend using their code to plan trips together.',
+            title: 'No friends added',
+            message: 'Add friends to collaborate on shared trip plans.',
+            action: ElevatedButton.icon(
+              onPressed: () {
+                _profileCodeFocusNode.requestFocus();
+              },
+              icon: const Icon(Icons.person_add_alt_1_rounded),
+              label: const Text('Add friend'),
+            ),
           )
         else
           Container(
@@ -1134,6 +1143,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   @override
   void dispose() {
     _profileCodeController.dispose();
+    _profileCodeFocusNode.dispose();
     super.dispose();
   }
 }

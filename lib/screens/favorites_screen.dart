@@ -328,7 +328,7 @@ class _EmptyFavoritesCard extends StatelessWidget {
     return const EmptyStatePanel(
       icon: Icons.favorite_border_rounded,
       title: 'No favorites yet',
-      message: 'Save places to find them here.',
+      message: 'Tap the heart on a destination to save it here.',
     );
   }
 }

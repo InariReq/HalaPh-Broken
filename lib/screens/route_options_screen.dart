@@ -11,6 +11,7 @@ import 'package:halaph/services/verified_route_service.dart';
 import 'package:halaph/services/commuter_type_service.dart';
 import 'package:halaph/screens/route_map_screen.dart';
 import 'package:halaph/widgets/transport_mode_widgets.dart';
+import 'package:halaph/widgets/motion_widgets.dart';
 
 const int _maxRouteOptionCacheEntries = 40;
 
@@ -407,9 +408,11 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      debugPrint('RouteOptions: route options load failed: $e');
       setState(() {
         _isLoading = false;
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _errorMessage =
+            'Try a different starting point or check your connection.';
       });
     }
   }
@@ -434,28 +437,15 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 64,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _loadFares,
-                child: Text('Retry'),
-              ),
-            ],
+          child: EmptyStatePanel(
+            icon: Icons.route_rounded,
+            title: 'No supported route found',
+            message: _errorMessage!,
+            action: ElevatedButton.icon(
+              onPressed: _loadFares,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Try again'),
+            ),
           ),
         ),
       );
@@ -466,13 +456,15 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(
-            'No verified public transportation route found for the listed vehicle types. HalaPH will not invent jeepney, bus, FX/UV, or train routes when no supported route match exists.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-              height: 1.35,
+          child: EmptyStatePanel(
+            icon: Icons.route_outlined,
+            title: 'No supported route found',
+            message:
+                'Try a different starting point or choose a nearby destination.',
+            action: ElevatedButton.icon(
+              onPressed: _loadFares,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Try again'),
             ),
           ),
         ),

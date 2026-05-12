@@ -128,6 +128,8 @@ class EmptyStatePanel extends StatelessWidget {
   final String title;
   final String message;
   final Widget? action;
+  final Widget? secondaryAction;
+  final bool compact;
 
   const EmptyStatePanel({
     super.key,
@@ -135,6 +137,8 @@ class EmptyStatePanel extends StatelessWidget {
     required this.title,
     required this.message,
     this.action,
+    this.secondaryAction,
+    this.compact = false,
   });
 
   @override
@@ -143,10 +147,10 @@ class EmptyStatePanel extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(compact ? 16 : 22),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(compact ? 18 : 22),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.28),
         ),
@@ -162,38 +166,47 @@ class EmptyStatePanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            height: 58,
-            width: 58,
+            height: compact ? 48 : 58,
+            width: compact ? 48 : 58,
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(20),
+              color: colorScheme.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(compact ? 16 : 20),
             ),
-            child: Icon(icon, size: 30, color: Colors.blue[700]),
+            child:
+                Icon(icon, size: compact ? 26 : 30, color: colorScheme.primary),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: compact ? 10 : 14),
           Text(
             title,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 17,
+              fontSize: compact ? 15 : 17,
               fontWeight: FontWeight.w900,
               color: colorScheme.onSurface,
             ),
           ),
-          const SizedBox(height: 7),
+          SizedBox(height: compact ? 5 : 7),
           Text(
             message,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: compact ? 12 : 13,
               height: 1.35,
               fontWeight: FontWeight.w600,
               color: colorScheme.onSurfaceVariant,
             ),
           ),
-          if (action != null) ...[
-            const SizedBox(height: 16),
-            action!,
+          if (action != null || secondaryAction != null) ...[
+            SizedBox(height: compact ? 12 : 16),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                if (action != null) action!,
+                if (secondaryAction != null) secondaryAction!,
+              ],
+            ),
           ],
         ],
       ),
