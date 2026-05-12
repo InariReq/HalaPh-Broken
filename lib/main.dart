@@ -37,6 +37,7 @@ import 'screens/route_options_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/add_place_screen.dart';
 import 'screens/friends_screen.dart';
+import 'widgets/halaph_logo_loading.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -138,7 +139,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const HalaPhLogoLoading(
+        label: 'Preparing HalaPH...',
+        fullScreen: true,
+      );
     }
     if (!_isLoggedIn) {
       return AccountsScreen(onLoginSuccess: _onLoginSuccess);

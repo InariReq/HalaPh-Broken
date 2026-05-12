@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'halaph_logo_loading.dart';
+
 class FadeInPage extends StatelessWidget {
   final Widget child;
   final Duration duration;
@@ -213,9 +215,9 @@ class LoadingStatePanel extends StatelessWidget {
 
     return Center(
       child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.92, end: 1),
-        duration: const Duration(milliseconds: 900),
-        curve: Curves.easeInOut,
+        tween: Tween(begin: 0.96, end: 1),
+        duration: const Duration(milliseconds: 700),
+        curve: Curves.easeOutCubic,
         builder: (context, value, child) {
           return Transform.scale(scale: value, child: child);
         },
@@ -223,7 +225,7 @@ class LoadingStatePanel extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(
               color: colorScheme.outlineVariant.withValues(alpha: 0.28),
             ),
@@ -235,26 +237,9 @@ class LoadingStatePanel extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 24,
-                width: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: Colors.blue[700],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-            ],
+          child: HalaPhLogoLoading(
+            label: label,
+            logoSize: 54,
           ),
         ),
       ),
