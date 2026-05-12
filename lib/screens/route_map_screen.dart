@@ -743,9 +743,11 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
-                                        widget.fare > 0
-                                            ? 'Estimated total fare: ₱${widget.fare.toStringAsFixed(0)}'
-                                            : 'No fare estimate available',
+                                        widget.mode == TravelMode.walking
+                                            ? 'Estimated total fare: ₱0'
+                                            : widget.fare > 0
+                                                ? 'Estimated total fare: ₱${widget.fare.toStringAsFixed(0)}'
+                                                : 'No fare estimate available',
                                         style: TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w700,

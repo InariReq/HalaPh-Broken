@@ -357,6 +357,10 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         ));
       }
 
+      if (_shouldShowWalkingOption(distance)) {
+        _fares.add(_walkingFareOption(distance, origin, destination));
+      }
+
       _fares.sort((a, b) => a.routeScore.compareTo(b.routeScore));
 
       setState(() {
@@ -901,7 +905,12 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                             ? ((fare.baseFare - fare.fare) / fare.baseFare) *
                                 100
                             : 0.0;
-                        return '☑ ${fare.fare > 0 ? '₱${fare.fare.toStringAsFixed(0)}' : 'FREE'}${discountPct > 0 ? ' • ${discountPct.toStringAsFixed(0)}% off' : ''}';
+                        final fareText = fare.mode == TravelMode.walking
+                            ? '₱0'
+                            : fare.fare > 0
+                                ? '₱${fare.fare.toStringAsFixed(0)}'
+                                : 'FREE';
+                        return '☑ $fareText${discountPct > 0 ? ' • ${discountPct.toStringAsFixed(0)}% off' : ''}';
                       })(),
                       style: TextStyle(
                         fontSize: 18,
@@ -1176,6 +1185,65 @@ bool _isNearbyDropOff(HistoricalRouteMatch match) {
 }
 
 const double _stationAccessRideThresholdKm = 0.80;
+const double _recommendedWalkingThresholdKm = 0.70;
+const double _maximumWalkingOptionKm = 1.50;
+const double _walkingSpeedKmh = 4.8;
+
+bool _shouldShowWalkingOption(double distanceKm) {
+  return distanceKm > 0 && distanceKm <= _maximumWalkingOptionKm;
+}
+
+Duration _estimateWalkingDuration(double distanceKm) {
+  final minutes = (distanceKm / _walkingSpeedKmh * 60).ceil();
+  return Duration(minutes: minutes.clamp(1, 240));
+}
+
+_TransportFare _walkingFareOption(
+  double distanceKm,
+  LatLng origin,
+  LatLng destination,
+) {
+  final isRecommended = distanceKm <= _recommendedWalkingThresholdKm;
+
+  return _TransportFare(
+    mode: TravelMode.walking,
+    modeName: 'Walking',
+    icon: iconForTravelMode(TravelMode.walking),
+    modeSequence: const [TravelMode.walking],
+    fare: 0,
+    baseFare: 0,
+    distance: distanceKm,
+    duration: _estimateWalkingDuration(distanceKm),
+    steps: [
+      {
+        'html_instructions': 'Walk to destination',
+        'travel_mode': 'WALKING',
+        'start_location': {
+          'lat': origin.latitude,
+          'lng': origin.longitude,
+        },
+        'end_location': {
+          'lat': destination.latitude,
+          'lng': destination.longitude,
+        },
+        'walking_start_lat': origin.latitude,
+        'walking_start_lng': origin.longitude,
+        'walking_end_lat': destination.latitude,
+        'walking_end_lng': destination.longitude,
+        'is_historical_walking_step': true,
+      },
+    ],
+    polyline: '',
+    fareBreakdown: const ['Walking fare: ₱0'],
+    confidenceLabel:
+        isRecommended ? 'Best for nearby places' : 'Available walking route',
+    confidenceDetail:
+        'Estimated locally from straight-line distance. No route lookup needed.',
+    historicalMatch: null,
+    isVerifiedTransit: true,
+    routeScore: isRecommended ? -1000 + distanceKm : 45 + distanceKm,
+  );
+}
 
 bool _isRoadTransitMode(TravelMode mode) {
   return mode == TravelMode.jeepney ||
