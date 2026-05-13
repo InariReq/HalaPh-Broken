@@ -270,20 +270,29 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final merged = <Destination>[];
     final seenIds = <String>{};
 
-    void add(Destination destination) {
+    void addFeatured(Destination destination) {
       if (seenIds.add(destination.id)) {
         merged.add(destination);
       }
     }
 
-    for (final destination in featuredPlaces) {
-      add(destination);
-    }
-    for (final destination in destinations) {
-      add(destination);
+    var normalAdded = 0;
+    void addNormal(Destination destination) {
+      if (normalAdded >= limit) return;
+      if (seenIds.add(destination.id)) {
+        merged.add(destination);
+        normalAdded++;
+      }
     }
 
-    return merged.take(limit).toList(growable: false);
+    for (final destination in featuredPlaces) {
+      addFeatured(destination);
+    }
+    for (final destination in destinations) {
+      addNormal(destination);
+    }
+
+    return merged;
   }
 
   Future<void> _runDestinationSearch() async {
