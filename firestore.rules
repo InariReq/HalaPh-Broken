@@ -94,18 +94,47 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role == 'owner';
     }
 
+    function isHeadAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.isActive == true
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role == 'headAdmin';
+    }
+
     function isContentAdmin() {
       return signedIn()
         && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
         && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.isActive == true
-        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role in ['owner', 'headAdmin', 'editor'];
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role in ['owner', 'headAdmin', 'admin', 'editor'];
     }
 
-    // Admin users - self-read for admin login, owner-managed writes.
+    // Admin users - self-read for admin login. Owner can manage all.
+    // Head Admin can manage lower Admin accounts only.
     match /admin_users/{adminUid} {
-      allow get: if signedIn() && request.auth.uid == adminUid;
-      allow list: if isOwnerAdmin();
-      allow create, update, delete: if isOwnerAdmin();
+      allow get: if signedIn() && (
+        request.auth.uid == adminUid ||
+        isOwnerAdmin() ||
+        isHeadAdmin()
+      );
+      allow list: if isOwnerAdmin() || isHeadAdmin();
+
+      allow create: if isOwnerAdmin() || (
+        isHeadAdmin() &&
+        request.resource.data.role == 'admin'
+      );
+
+      allow update: if isOwnerAdmin() || (
+        isHeadAdmin() &&
+        adminUid != request.auth.uid &&
+        resource.data.role == 'admin' &&
+        request.resource.data.role == 'admin'
+      );
+
+      allow delete: if isOwnerAdmin() || (
+        isHeadAdmin() &&
+        adminUid != request.auth.uid &&
+        resource.data.role == 'admin'
+      );
     }
 
     match /admin_featured_places/{placeId} {
@@ -129,7 +158,7 @@ service cloud.firestore {
     match /admin_app_settings/{settingsId} {
       allow get: if settingsId == 'public_config' || isAdminUid(request.auth.uid);
       allow list: if isAdminUid(request.auth.uid);
-      allow create, update, delete: if isOwnerAdmin();
+      allow create, update, delete: if isOwnerAdmin() || isHeadAdmin();
     }
 
     // User document - profile access

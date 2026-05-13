@@ -55,13 +55,13 @@ class AdminRoutes {
       id: AdminRouteId.appSettings,
       title: 'App Settings',
       icon: Icons.tune_rounded,
-      minimumRole: AdminUserRole.admin,
+      minimumRole: AdminUserRole.headAdmin,
     ),
     AdminRouteConfig(
       id: AdminRouteId.adminUsers,
       title: 'Admin Users',
       icon: Icons.admin_panel_settings_rounded,
-      minimumRole: AdminUserRole.owner,
+      minimumRole: AdminUserRole.headAdmin,
     ),
   ];
 

@@ -25,8 +25,29 @@ enum AdminUserRole {
     };
   }
 
-  bool get canManageAdminUsers => this == AdminUserRole.owner;
-
-  bool get canManageContent =>
+  bool get canManageAdminUsers =>
       this == AdminUserRole.owner || this == AdminUserRole.headAdmin;
+
+  bool get canManageAppSettings =>
+      this == AdminUserRole.owner || this == AdminUserRole.headAdmin;
+
+  bool get canManageContent => true;
+
+  bool canAssignRole(AdminUserRole role) {
+    return switch (this) {
+      AdminUserRole.owner => true,
+      AdminUserRole.headAdmin => role == AdminUserRole.admin,
+      AdminUserRole.admin => false,
+    };
+  }
+
+  bool canManageTarget(AdminUserRole targetRole, {required bool isSelf}) {
+    if (isSelf) return false;
+
+    return switch (this) {
+      AdminUserRole.owner => true,
+      AdminUserRole.headAdmin => targetRole == AdminUserRole.admin,
+      AdminUserRole.admin => false,
+    };
+  }
 }

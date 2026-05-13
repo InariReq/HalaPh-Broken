@@ -75,13 +75,15 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Owners can add, edit, enable, and disable admin access. Head Admins can manage content. Admins have basic dashboard access.',
+                'Owners can manage all admins. Head Admins can manage Admin accounts only. Admins can manage content only.',
               ),
             ],
           ),
         ),
         FilledButton.icon(
-          onPressed: _openAddDialog,
+          onPressed: widget.currentAdmin.role.canManageAdminUsers
+              ? _openAddDialog
+              : null,
           icon: const Icon(Icons.person_add_alt_1_rounded),
           label: const Text('Add Admin'),
         ),
@@ -179,6 +181,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Future<void> _openAddDialog() async {
+    if (!widget.currentAdmin.role.canManageAdminUsers) {
+      _showSnack('Your role cannot add admin users.');
+      return;
+    }
+
     final result = await showDialog<AdminUser>(
       context: context,
       builder: (context) =>
@@ -197,6 +204,15 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Future<void> _openEditDialog(AdminUser user) async {
+    final isSelf = user.uid == widget.currentAdmin.uid;
+    if (!widget.currentAdmin.role.canManageTarget(
+      user.role,
+      isSelf: isSelf,
+    )) {
+      _showSnack('Your role cannot edit this admin user.');
+      return;
+    }
+
     final result = await showDialog<AdminUser>(
       context: context,
       builder: (context) => _AdminUserFormDialog(
@@ -217,8 +233,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Future<void> _toggleActive(AdminUser user) async {
-    if (user.uid == widget.currentAdmin.uid && user.isActive) {
-      _showSnack('You cannot disable your own owner account.');
+    final isSelf = user.uid == widget.currentAdmin.uid;
+    if (!widget.currentAdmin.role.canManageTarget(
+      user.role,
+      isSelf: isSelf,
+    )) {
+      _showSnack('Your role cannot change this admin status.');
       return;
     }
     try {
@@ -253,6 +273,17 @@ class _AdminUsersList extends StatelessWidget {
     required this.onEdit,
     required this.onToggleActive,
   });
+
+  bool _canManageTarget(AdminUser user) {
+    return currentAdmin.role.canManageTarget(
+      user.role,
+      isSelf: user.uid == currentAdmin.uid,
+    );
+  }
+
+  bool _canToggleActive(AdminUser user) {
+    return _canManageTarget(user);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -298,15 +329,16 @@ class _AdminUsersList extends StatelessWidget {
                           children: [
                             IconButton(
                               tooltip: 'Edit',
-                              onPressed: () => onEdit(user),
+                              onPressed: _canManageTarget(user)
+                                  ? () => onEdit(user)
+                                  : null,
                               icon: const Icon(Icons.edit_rounded),
                             ),
                             IconButton(
                               tooltip: user.isActive ? 'Disable' : 'Enable',
-                              onPressed:
-                                  user.uid == currentAdmin.uid && user.isActive
-                                      ? null
-                                      : () => onToggleActive(user),
+                              onPressed: _canToggleActive(user)
+                                  ? () => onToggleActive(user)
+                                  : null,
                               icon: Icon(
                                 user.isActive
                                     ? Icons.block_rounded
@@ -339,6 +371,17 @@ class _AdminUserCard extends StatelessWidget {
     required this.onEdit,
     required this.onToggleActive,
   });
+
+  bool _canManageTarget(AdminUser user) {
+    return currentAdmin.role.canManageTarget(
+      user.role,
+      isSelf: user.uid == currentAdmin.uid,
+    );
+  }
+
+  bool _canToggleActive(AdminUser user) {
+    return _canManageTarget(user);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -373,14 +416,14 @@ class _AdminUserCard extends StatelessWidget {
                 _RoleBadge(role: user.role),
                 const Spacer(),
                 TextButton.icon(
-                  onPressed: () => onEdit(user),
+                  onPressed: _canManageTarget(user) ? () => onEdit(user) : null,
                   icon: const Icon(Icons.edit_rounded),
                   label: const Text('Edit'),
                 ),
                 TextButton.icon(
-                  onPressed: user.uid == currentAdmin.uid && user.isActive
-                      ? null
-                      : () => onToggleActive(user),
+                  onPressed: _canToggleActive(user)
+                      ? () => onToggleActive(user)
+                      : null,
                   icon: Icon(
                     user.isActive
                         ? Icons.block_rounded
@@ -420,6 +463,16 @@ class _AdminUserFormDialogState extends State<_AdminUserFormDialog> {
   String? _formError;
 
   bool get _isEditing => widget.existingUser != null;
+
+  List<AdminUserRole> get _assignableRoles {
+    if (widget.currentAdmin.role == AdminUserRole.owner) {
+      return AdminUserRole.values;
+    }
+    if (widget.currentAdmin.role == AdminUserRole.headAdmin) {
+      return const [AdminUserRole.admin];
+    }
+    return const [];
+  }
 
   @override
   void initState() {
@@ -491,7 +544,7 @@ class _AdminUserFormDialogState extends State<_AdminUserFormDialog> {
                   initialValue: _role,
                   decoration: const InputDecoration(labelText: 'Role'),
                   items: [
-                    for (final role in AdminUserRole.values)
+                    for (final role in _assignableRoles)
                       DropdownMenuItem(value: role, child: Text(role.label)),
                   ],
                   onChanged: (value) {
