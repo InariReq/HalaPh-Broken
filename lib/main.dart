@@ -558,19 +558,23 @@ class _MainNavigationState extends State<MainNavigation> {
     if (!widget.showGuideMode) return;
     switch (index) {
       case 1:
-        _guidePresenterController.signal(GuidePresenterSignal.openExplore);
+        _guidePresenterController
+            .signalSafely(GuidePresenterSignal.openExplore);
         break;
       case 2:
-        _guidePresenterController.signal(GuidePresenterSignal.openPlans);
+        _guidePresenterController.signalSafely(GuidePresenterSignal.openPlans);
         break;
       case 3:
-        _guidePresenterController.signal(GuidePresenterSignal.openFavorites);
+        _guidePresenterController
+            .signalSafely(GuidePresenterSignal.openFavorites);
         break;
       case 4:
-        _guidePresenterController.signal(GuidePresenterSignal.openFriends);
+        _guidePresenterController
+            .signalSafely(GuidePresenterSignal.openFriends);
         break;
       case 5:
-        _guidePresenterController.signal(GuidePresenterSignal.openSettings);
+        _guidePresenterController
+            .signalSafely(GuidePresenterSignal.openSettings);
         break;
     }
   }

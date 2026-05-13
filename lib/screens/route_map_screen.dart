@@ -711,7 +711,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
             onPressed: _guideFareVisible
                 ? () {
                     GuideModeDemoState.saveIntramurosFavorite();
-                    widget.guidePresenterController?.signal(
+                    widget.guidePresenterController?.signalSafely(
                       GuidePresenterSignal.destinationSaved,
                     );
                     Navigator.of(context).popUntil((route) => route.isFirst);
@@ -719,7 +719,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                 : () {
                     setState(() => _guideFareVisible = true);
                     GuideModeDemoState.viewFareBreakdown();
-                    widget.guidePresenterController?.signal(
+                    widget.guidePresenterController?.signalSafely(
                       GuidePresenterSignal.fareBreakdownOpened,
                     );
                   },

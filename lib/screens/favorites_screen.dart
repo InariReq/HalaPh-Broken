@@ -285,7 +285,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
 
   Future<void> _showGuideCreatePlanSheet() async {
     GuideModeDemoState.startCreatePlan();
-    widget.guidePresenterController?.signal(
+    widget.guidePresenterController?.signalSafely(
       GuidePresenterSignal.addToPlanStarted,
     );
     await showModalBottomSheet<void>(
@@ -334,7 +334,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                   child: FilledButton.icon(
                     onPressed: () {
                       GuideModeDemoState.addSamplePlan();
-                      widget.guidePresenterController?.signal(
+                      widget.guidePresenterController?.signalSafely(
                         GuidePresenterSignal.samplePlanCreated,
                       );
                       Navigator.of(context).pop();

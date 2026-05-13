@@ -90,7 +90,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
     if (_guideDetailsSignaled) return;
     _guideDetailsSignaled = true;
     GuideModeDemoState.openDestinationDetails();
-    widget.guidePresenterController?.signal(
+    widget.guidePresenterController?.signalSafely(
       GuidePresenterSignal.destinationDetailsOpened,
     );
   }
@@ -888,12 +888,18 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
             : () async {
                 if (_isOpeningRoutes) return;
                 setState(() => _isOpeningRoutes = true);
+                final guideController = widget.guidePresenterController;
+                final safeGuideController =
+                    guideController == null || guideController.isDisposed
+                        ? null
+                        : guideController;
                 if (widget.guideModeDemo) {
                   GuideModeDemoState.viewRoutes();
-                  widget.guidePresenterController?.signal(
+                  safeGuideController?.signalSafely(
                     GuidePresenterSignal.viewRoutesTapped,
                   );
                 }
+                if (!mounted) return;
                 try {
                   await Navigator.push(
                     context,
@@ -904,8 +910,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                         destination: _destination,
                         source: widget.source,
                         guideModeDemo: widget.guideModeDemo,
-                        guidePresenterController:
-                            widget.guidePresenterController,
+                        guidePresenterController: safeGuideController,
                       ),
                     ),
                   );

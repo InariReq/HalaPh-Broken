@@ -106,6 +106,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
       _lastOpenedGuideDestinationId = destination.id;
     });
     widget.onGuideDestinationSelected?.call(destination);
+    if (!mounted) return;
+    final guideController = widget.guidePresenterController;
+    final safeGuideController =
+        guideController == null || guideController.isDisposed
+            ? null
+            : guideController;
     try {
       await ExploreDetailsScreen.showAsBottomSheet(
         context,
@@ -113,7 +119,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         source: 'guide_mode',
         destination: destination,
         guideModeDemo: true,
-        guidePresenterController: widget.guidePresenterController,
+        guidePresenterController: safeGuideController,
       );
     } finally {
       if (mounted) {

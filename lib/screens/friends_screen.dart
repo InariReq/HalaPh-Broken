@@ -259,7 +259,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
             child: FilledButton.icon(
               onPressed: () {
                 GuideModeDemoState.showCollaborationPreview();
-                widget.guidePresenterController?.signal(
+                widget.guidePresenterController?.signalSafely(
                   GuidePresenterSignal.collaborationPreviewSeen,
                 );
               },

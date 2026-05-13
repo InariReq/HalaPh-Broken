@@ -876,7 +876,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         }
         if (widget.guideModeDemo) {
           GuideModeDemoState.selectRecommendedRoute();
-          widget.guidePresenterController?.signal(
+          widget.guidePresenterController?.signalSafely(
             GuidePresenterSignal.routeSelected,
           );
         }

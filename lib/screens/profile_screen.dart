@@ -124,7 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       GuideModeDemoState.selectCommuterType(
         CommuterTypeService.labelFor(normalized),
       );
-      widget.guidePresenterController?.signal(
+      widget.guidePresenterController?.signalSafely(
         GuidePresenterSignal.commuterTypeSelected,
       );
       ScaffoldMessenger.of(context).showSnackBar(

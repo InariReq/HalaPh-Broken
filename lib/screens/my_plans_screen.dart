@@ -421,7 +421,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       child: InkWell(
         onTap: () {
           if (widget.guideModeDemo) {
-            widget.guidePresenterController?.signal(
+            widget.guidePresenterController?.signalSafely(
               GuidePresenterSignal.samplePlanReviewed,
             );
             return;
@@ -654,7 +654,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
 
   Future<void> _showGuideCollaboratorSheet() async {
     GuideModeDemoState.openCollaborators();
-    widget.guidePresenterController?.signal(
+    widget.guidePresenterController?.signalSafely(
       GuidePresenterSignal.collaboratorsOpened,
     );
     final selected = Set<String>.of(GuideModeDemoState.selectedCollaborators);
@@ -714,7 +714,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                                 GuideModeDemoState.setSelectedCollaborators(
                                   selected.toList(growable: false),
                                 );
-                                widget.guidePresenterController?.signal(
+                                widget.guidePresenterController?.signalSafely(
                                   GuidePresenterSignal.collaboratorsConfirmed,
                                 );
                                 Navigator.of(context).pop();
