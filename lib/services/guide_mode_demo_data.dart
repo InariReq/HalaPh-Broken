@@ -30,6 +30,7 @@ class GuideModeDemoRouteOption {
   final String reason;
   final String source;
   final String time;
+  final bool recommended;
 
   const GuideModeDemoRouteOption({
     required this.title,
@@ -38,6 +39,7 @@ class GuideModeDemoRouteOption {
     required this.reason,
     required this.source,
     required this.time,
+    this.recommended = false,
   });
 }
 
@@ -148,26 +150,34 @@ class GuideModeDemoData {
       icon: Icons.museum_rounded,
     ),
     GuideModeDemoDestination(
-      name: 'SM Mall of Asia',
-      type: 'Mall',
-      description: 'Large bay-area mall with food, shops, and events.',
+      name: 'Manila Cathedral',
+      type: 'Landmark',
+      description: 'Historic church stop inside the Intramuros walk.',
       ratingDisplay: '4.6 guide rating',
-      locationLabel: 'Pasay bay area',
-      icon: Icons.store_mall_directory_rounded,
+      locationLabel: 'Intramuros core',
+      icon: Icons.church_rounded,
+    ),
+    GuideModeDemoDestination(
+      name: 'Fort Santiago',
+      type: 'Landmark',
+      description: 'Heritage fort and museum stop near the city walls.',
+      ratingDisplay: '4.7 guide rating',
+      locationLabel: 'Intramuros north gate',
+      icon: Icons.castle_rounded,
     ),
   ];
 
   static const routeOptions = [
     GuideModeDemoRouteOption(
-      title: 'Walking',
+      title: 'Walking only',
       modes: [TravelMode.walking],
       fare: '₱0',
       reason: 'Best for nearby places',
       source: 'Walking route',
-      time: '8 min',
+      time: '18 min',
     ),
     GuideModeDemoRouteOption(
-      title: 'Jeepney route',
+      title: 'Jeepney',
       modes: [TravelMode.walking, TravelMode.jeepney, TravelMode.walking],
       fare: '₱26',
       reason: 'Lowest estimated fare',
@@ -175,17 +185,26 @@ class GuideModeDemoData {
       time: '24 min',
     ),
     GuideModeDemoRouteOption(
-      title: 'Jeepney + Train',
+      title: 'Train',
+      modes: [TravelMode.walking, TravelMode.train, TravelMode.walking],
+      fare: '₱30',
+      reason: 'Uses rail for longer trips',
+      source: 'Estimate only',
+      time: '32 min',
+    ),
+    GuideModeDemoRouteOption(
+      title: 'Recommended: Jeepney + Train',
       modes: [
         TravelMode.walking,
         TravelMode.jeepney,
         TravelMode.train,
         TravelMode.walking,
       ],
-      fare: '₱45',
+      fare: '₱43',
       reason: 'Balanced fare and travel time',
-      source: 'Live transit estimate',
+      source: 'Guide estimate',
       time: '38 min',
+      recommended: true,
     ),
   ];
 
@@ -209,7 +228,7 @@ class GuideModeDemoData {
       number: 3,
       mode: TravelMode.walking,
       modeLabel: 'Transfer',
-      instruction: 'Alight near MRT station',
+      instruction: 'Alight near the MRT/LRT transfer point',
       fare: '₱0',
       transferHint: 'Follow station signs',
     ),
@@ -217,14 +236,14 @@ class GuideModeDemoData {
       number: 4,
       mode: TravelMode.train,
       modeLabel: 'Train',
-      instruction: 'Ride train toward Taft',
-      fare: '₱28',
+      instruction: 'Ride train toward the Manila transfer direction',
+      fare: '₱30',
     ),
     GuideModeDemoRouteStep(
       number: 5,
       mode: TravelMode.walking,
       modeLabel: 'Walk',
-      instruction: 'Walk to destination',
+      instruction: 'Walk to Intramuros',
       fare: '₱0',
     ),
   ];
@@ -232,23 +251,32 @@ class GuideModeDemoData {
   static const fareBreakdown = [
     GuideModeDemoFareLine(label: 'Walk', amount: '₱0'),
     GuideModeDemoFareLine(label: 'Jeepney', amount: '₱13'),
-    GuideModeDemoFareLine(label: 'Train', amount: '₱28'),
+    GuideModeDemoFareLine(label: 'Train', amount: '₱30'),
     GuideModeDemoFareLine(label: 'Walk', amount: '₱0'),
-    GuideModeDemoFareLine(label: 'Total', amount: '₱41', isTotal: true),
+    GuideModeDemoFareLine(label: 'Total', amount: '₱43', isTotal: true),
+  ];
+
+  static const studentFareBreakdown = [
+    GuideModeDemoFareLine(label: 'Walk', amount: '₱0'),
+    GuideModeDemoFareLine(label: 'Jeepney student estimate', amount: '₱10'),
+    GuideModeDemoFareLine(label: 'Train student estimate', amount: '₱24'),
+    GuideModeDemoFareLine(label: 'Walk', amount: '₱0'),
+    GuideModeDemoFareLine(label: 'Total', amount: '₱34', isTotal: true),
   ];
 
   static const plan = GuideModeDemoPlan(
-    title: 'Manila Day Trip',
+    title: 'Intramuros Practice Trip',
     stopCount: 3,
-    stops: ['Intramuros', 'National Museum', 'Rizal Park'],
+    stops: ['Intramuros', 'Manila Cathedral', 'Fort Santiago'],
     estimatedBudget: '₱120',
     shared: false,
   );
 
   static const collaboration = GuideModeDemoCollaboration(
-    planTitle: 'Shared Plan',
-    participants: ['Jia', 'Friend'],
-    note: 'Each person can set their own starting point.',
+    planTitle: 'Intramuros Practice Trip',
+    participants: ['Jia', 'Alex', 'Mika'],
+    note:
+        'Friends can review the same trip while each person keeps their own starting point.',
   );
 
   static const reminder = GuideModeDemoReminder(
@@ -345,8 +373,17 @@ class GuideModeDemoData {
       'Intramuros' => const LatLng(14.5896, 120.9747),
       'Rizal Park' => const LatLng(14.5826, 120.9780),
       'National Museum' => const LatLng(14.5868, 120.9818),
-      'SM Mall of Asia' => const LatLng(14.5352, 120.9822),
+      'Manila Cathedral' => const LatLng(14.5913, 120.9737),
+      'Fort Santiago' => const LatLng(14.5942, 120.9709),
       _ => null,
     };
+  }
+
+  static List<GuideModeDemoFareLine> fareBreakdownForCommuterType(
+    String commuterType,
+  ) {
+    return commuterType.toLowerCase() == 'student'
+        ? studentFareBreakdown
+        : fareBreakdown;
   }
 }

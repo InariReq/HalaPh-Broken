@@ -58,7 +58,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   bool _actionBusy = false;
   bool _showObjectiveComplete = false;
   bool _guideCardExpanded = true;
-  GuidePresenterScene _currentScene = GuidePresenterScene.welcome;
+  GuidePresenterScene _currentScene = GuidePresenterScene.practiceIntro;
   bool _destinationPreviewVisible = false;
   bool _routeOptionsVisible = false;
   bool _routeGuideVisible = false;
@@ -66,11 +66,10 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   bool _destinationSaved = false;
   bool _addedToPlan = false;
   bool _collaborationShown = false;
-  bool _reminderShown = false;
-  bool _historyShown = false;
   bool _liveLoading = false;
   String? _fallbackReason;
   String? _statusMessage;
+  String _selectedCommuterType = 'Regular';
   GuideModeDemoRouteOption? _selectedRoute;
   final Set<String> _completedActions = <String>{};
   int _transitionToken = 0;
@@ -118,6 +117,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
             !destination.name.toLowerCase().contains('intramuros')) {
           return;
         }
+        GuideModeDemoState.selectIntramuros();
         setState(() {
           _destinationPreviewVisible = true;
         });
@@ -126,29 +126,15 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
           'Objective complete: Intramuros selected.',
         );
         break;
-      case GuidePresenterSignal.openFavorites:
-        _completeIfExpected(
-          GuideQuestActionId.addToSamplePlan,
-          'Favorites opened.',
-        );
-        break;
-      case GuidePresenterSignal.openPlans:
-        _completeIfExpected(
-          GuideQuestActionId.showCollaboration,
-          'Plans opened.',
-        );
-        break;
-      case GuidePresenterSignal.openFriends:
-        _completeIfExpected(
-          GuideQuestActionId.showReminders,
-          'Friends opened.',
-        );
-        break;
       case GuidePresenterSignal.openSettings:
         _completeIfExpected(
           GuideQuestActionId.openSettings,
           'Objective complete: Settings opened.',
         );
+        break;
+      case GuidePresenterSignal.openFavorites:
+      case GuidePresenterSignal.openPlans:
+      case GuidePresenterSignal.openFriends:
         break;
     }
     controller?.clearSignal();
@@ -178,6 +164,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
 
   Future<void> _advance() async {
     if (_isLast) {
+      GuideModeDemoState.finishGuide();
       _close(skipped: false, reason: 'finish');
       return;
     }
@@ -225,7 +212,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       _statusMessage = null;
       _completedActions.clear();
       _guideCardExpanded = true;
-      _currentScene = GuidePresenterScene.welcome;
+      _currentScene = GuidePresenterScene.practiceIntro;
       _destinationPreviewVisible = false;
       _routeOptionsVisible = false;
       _routeGuideVisible = false;
@@ -233,12 +220,12 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       _destinationSaved = false;
       _addedToPlan = false;
       _collaborationShown = false;
-      _reminderShown = false;
-      _historyShown = false;
       _liveLoading = false;
       _fallbackReason = null;
+      _selectedCommuterType = 'Regular';
       _selectedRoute = null;
     });
+    GuideModeDemoState.reset();
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
   }
 
@@ -248,6 +235,8 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     _guideCardExpanded = true;
     _actionBusy = false;
     _liveLoading = false;
+
+    GuideModeDemoState.restoreForStep(targetIndex);
 
     if (targetIndex < 3) {
       _destinationPreviewVisible = false;
@@ -263,20 +252,17 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     if (targetIndex < 6) {
       _fareBreakdownVisible = false;
     }
-    if (targetIndex < 7) {
+    if (targetIndex < 8) {
       _destinationSaved = false;
     }
-    if (targetIndex < 8) {
+    if (targetIndex < 10) {
       _addedToPlan = false;
     }
-    if (targetIndex < 9) {
+    if (targetIndex < 12) {
       _collaborationShown = false;
     }
-    if (targetIndex < 10) {
-      _reminderShown = false;
-    }
-    if (targetIndex < 11) {
-      _historyShown = false;
+    if (targetIndex < 14) {
+      _selectedCommuterType = GuideModeDemoState.commuterType;
     }
   }
 
@@ -302,6 +288,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     final actionId = step.actionId;
     if (step.type == GuideQuestStepType.finish ||
         actionId == GuideQuestActionId.finish) {
+      GuideModeDemoState.finishGuide();
       _close(skipped: false, reason: 'finish');
       return;
     }
@@ -332,6 +319,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         _completeObjective(actionId, step.completionMessage);
         break;
       case GuideQuestActionId.selectIntramuros:
+        GuideModeDemoState.selectIntramuros();
         setState(() {
           _destinationPreviewVisible = true;
         });
@@ -357,16 +345,24 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         await _runViewRoutesAction(actionId);
         break;
       case GuideQuestActionId.pickRecommendedRoute:
+        final recommended = GuideModeDemoData.routeOptions.firstWhere(
+          (route) => route.recommended,
+        );
+        GuideModeDemoState.selectRecommendedRoute();
         setState(() {
-          _selectedRoute = GuideModeDemoData.routeOptions.last;
+          _selectedRoute = recommended;
           _routeGuideVisible = true;
         });
         _completeObjective(actionId, step.completionMessage);
         break;
       case GuideQuestActionId.continueToFareBreakdown:
+        GuideModeDemoState.viewFareBreakdown();
         setState(() {
           _fareBreakdownVisible = true;
         });
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      case GuideQuestActionId.reviewFareBreakdown:
         _completeObjective(actionId, step.completionMessage);
         break;
       case GuideQuestActionId.saveDestinationConcept:
@@ -374,6 +370,9 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         setState(() {
           _destinationSaved = true;
         });
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      case GuideQuestActionId.reviewSavedFavorite:
         widget.onStepChanged?.call(7);
         _completeObjective(actionId, step.completionMessage);
         break;
@@ -382,30 +381,28 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         setState(() {
           _addedToPlan = true;
         });
-        widget.onStepChanged?.call(8);
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      case GuideQuestActionId.openPlans:
+        widget.onStepChanged?.call(10);
         _completeObjective(actionId, step.completionMessage);
         break;
       case GuideQuestActionId.showCollaboration:
+        GuideModeDemoState.showCollaborationPreview();
         setState(() {
           _collaborationShown = true;
-        });
-        widget.onStepChanged?.call(9);
-        _completeObjective(actionId, step.completionMessage);
-        break;
-      case GuideQuestActionId.showReminders:
-        setState(() {
-          _reminderShown = true;
-        });
-        _completeObjective(actionId, step.completionMessage);
-        break;
-      case GuideQuestActionId.finishTripPreview:
-        setState(() {
-          _historyShown = true;
         });
         _completeObjective(actionId, step.completionMessage);
         break;
       case GuideQuestActionId.openSettings:
         widget.onStepChanged?.call(12);
+        _completeObjective(actionId, step.completionMessage);
+        break;
+      case GuideQuestActionId.selectCommuterType:
+        GuideModeDemoState.selectCommuterType(_selectedCommuterType);
+        setState(() {
+          _fareBreakdownVisible = true;
+        });
         _completeObjective(actionId, step.completionMessage);
         break;
       default:
@@ -431,6 +428,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       _fallbackReason =
           'This walkthrough uses stable sample route cards. Normal View Routes still uses live route results outside Guide Mode.';
     });
+    GuideModeDemoState.viewRoutes();
 
     _completeObjective(actionId, 'Route choices opened.');
   }
@@ -566,7 +564,10 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
               statusMessage: _statusMessage,
               onSkip: () => _close(skipped: true, reason: 'skip'),
               onBack: _back,
-              onFinish: () => _close(skipped: false, reason: 'finish'),
+              onFinish: () {
+                GuideModeDemoState.finishGuide();
+                _close(skipped: false, reason: 'finish');
+              },
               onPrimaryAction: () => _handleCardPrimary(step),
               onReminderTap: () => setState(() => _guideCardExpanded = true),
               onPracticeAgain: _restartGuide,
@@ -582,12 +583,14 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       GuideQuestActionId.viewRoutes => _buildDestinationActionStage,
       GuideQuestActionId.pickRecommendedRoute => _buildRouteOptionsActionStage,
       GuideQuestActionId.continueToFareBreakdown => _buildRouteGuideActionStage,
+      GuideQuestActionId.reviewFareBreakdown => _buildFareReviewActionStage,
       GuideQuestActionId.saveDestinationConcept => _buildFareActionStage,
+      GuideQuestActionId.reviewSavedFavorite => _buildFavoriteReviewStage,
       GuideQuestActionId.addToSamplePlan => _buildFavoriteActionStage,
-      GuideQuestActionId.showCollaboration => _buildPlanActionStage,
-      GuideQuestActionId.showReminders => _buildCollaborationActionStage,
-      GuideQuestActionId.finishTripPreview => _buildReminderActionStage,
-      GuideQuestActionId.openSettings => _buildHistoryActionStage,
+      GuideQuestActionId.openPlans => _buildPlanActionStage,
+      GuideQuestActionId.showCollaboration => _buildCollaborationActionStage,
+      GuideQuestActionId.openSettings => _buildSettingsActionStage,
+      GuideQuestActionId.selectCommuterType => _buildCommuterTypeActionStage,
       _ => null,
     };
   }
@@ -701,7 +704,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
               _DemoRouteOptionCard(
                 route: route,
                 selected: _selectedRoute == route,
-                onTap: route.title == 'Jeepney + Train'
+                onTap: route.recommended
                     ? () => _handleGuideAction(
                           GuideQuestActionId.pickRecommendedRoute,
                         )
@@ -776,6 +779,34 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     );
   }
 
+  Widget _buildFareReviewActionStage(BuildContext context) {
+    return _buildStageShell(
+      context: context,
+      child: _GuideExampleCard(
+        child: Column(
+          children: [
+            if (_fareBreakdownVisible) ...[
+              const _GuideNote(
+                text:
+                    'Fare details are open for the selected commute route. Walking stays ₱0.',
+              ),
+              const SizedBox(height: 10),
+            ],
+            _buildFareBreakdownExample(context),
+            const SizedBox(height: 12),
+            _StageActionButton(
+              icon: Icons.favorite_border_rounded,
+              label: 'Continue to Save destination',
+              onPressed: () => _handleGuideAction(
+                GuideQuestActionId.reviewFareBreakdown,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFavoriteActionStage(BuildContext context) {
     return _buildStageShell(
       context: context,
@@ -804,6 +835,36 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     );
   }
 
+  Widget _buildFavoriteReviewStage(BuildContext context) {
+    return _buildStageShell(
+      context: context,
+      child: _GuideExampleCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _GuideNote(
+              text:
+                  'Favorites is showing local Guide Mode state. Your real saved places are unchanged.',
+            ),
+            const SizedBox(height: 12),
+            _DestinationPreview(
+              destination: GuideModeDemoData.destinations.first,
+              saved: true,
+            ),
+            const SizedBox(height: 12),
+            _StageActionButton(
+              icon: Icons.check_circle_rounded,
+              label: 'Continue',
+              onPressed: () => _handleGuideAction(
+                GuideQuestActionId.reviewSavedFavorite,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildPlanActionStage(BuildContext context) {
     return _buildStageShell(
       context: context,
@@ -813,15 +874,11 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
             _buildPlanExample(context),
             const SizedBox(height: 12),
             _StageActionButton(
-              icon: Icons.groups_rounded,
-              label: _collaborationShown
-                  ? 'Collaboration shown'
-                  : 'Show collaboration',
-              onPressed: _collaborationShown
-                  ? null
-                  : () => _handleGuideAction(
-                        GuideQuestActionId.showCollaboration,
-                      ),
+              icon: Icons.check_circle_rounded,
+              label: 'Continue to collaboration',
+              onPressed: () => _handleGuideAction(
+                GuideQuestActionId.openPlans,
+              ),
             ),
           ],
         ),
@@ -838,12 +895,14 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
             _buildCollaborationExample(context),
             const SizedBox(height: 12),
             _StageActionButton(
-              icon: Icons.notifications_active_rounded,
-              label: _reminderShown ? 'Reminders shown' : 'Show reminders',
-              onPressed: _reminderShown
+              icon: Icons.settings_rounded,
+              label: _collaborationShown
+                  ? 'Collaboration reviewed'
+                  : 'Preview collaboration',
+              onPressed: _collaborationShown
                   ? null
                   : () => _handleGuideAction(
-                        GuideQuestActionId.showReminders,
+                        GuideQuestActionId.showCollaboration,
                       ),
             ),
           ],
@@ -852,44 +911,83 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     );
   }
 
-  Widget _buildReminderActionStage(BuildContext context) {
+  Widget _buildSettingsActionStage(BuildContext context) {
     return _buildStageShell(
       context: context,
       child: _GuideExampleCard(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildReminderExample(context),
+            const _GuideNote(
+              text:
+                  'The Profile tab includes commuter type, trip history, account options, and Settings access.',
+            ),
+            const SizedBox(height: 12),
+            _StageActionButton(
+              icon: Icons.confirmation_number_rounded,
+              label: 'Continue to commuter type',
+              onPressed: () => _handleGuideAction(
+                GuideQuestActionId.openSettings,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCommuterTypeActionStage(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    const types = ['Regular', 'Student', 'PWD', 'Senior'];
+    return _buildStageShell(
+      context: context,
+      child: _GuideExampleCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Choose a Guide Mode fare type',
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Student changes the sample estimate from ₱43 to ₱34. This does not update your real profile.',
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final type in types)
+                  ChoiceChip(
+                    selected: _selectedCommuterType == type,
+                    label: Text(type),
+                    onSelected: (_) {
+                      setState(() {
+                        _selectedCommuterType = type;
+                      });
+                      GuideModeDemoState.selectCommuterType(type);
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _buildFareBreakdownExample(context),
             const SizedBox(height: 12),
             _StageActionButton(
               icon: Icons.check_circle_rounded,
-              label: _historyShown
-                  ? 'Trip preview finished'
-                  : 'Finish trip preview',
-              onPressed: _historyShown
-                  ? null
-                  : () => _handleGuideAction(
-                        GuideQuestActionId.finishTripPreview,
-                      ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHistoryActionStage(BuildContext context) {
-    return _buildStageShell(
-      context: context,
-      child: _GuideExampleCard(
-        child: Column(
-          children: [
-            _buildHistoryExample(context),
-            const SizedBox(height: 12),
-            _StageActionButton(
-              icon: Icons.settings_rounded,
-              label: 'Open Settings',
-              onPressed: () =>
-                  _handleGuideAction(GuideQuestActionId.openSettings),
+              label: 'Confirm ${GuideModeDemoState.commuterType}',
+              onPressed: () => _handleGuideAction(
+                GuideQuestActionId.selectCommuterType,
+              ),
             ),
           ],
         ),
@@ -958,19 +1056,30 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
 
   Widget _buildFareBreakdownExample(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final fareLines = GuideModeDemoState.fareBreakdown();
     return _GuideExampleCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Fare breakdown',
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.w900,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Fare breakdown',
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _MiniInfoPill(
+                icon: Icons.confirmation_number_rounded,
+                label: GuideModeDemoState.commuterType,
+              ),
+            ],
           ),
           const SizedBox(height: 10),
-          for (final line in GuideModeDemoData.fareBreakdown) ...[
+          for (final line in fareLines) ...[
             if (line.isTotal) Divider(color: colorScheme.outlineVariant),
             _MiniFareRow(
               label: line.label,
@@ -1143,41 +1252,66 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   Widget _buildFinishExample(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return _GuideExampleCard(
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Image.asset(
-              'assets/icons/app_icon.png',
-              width: 44,
-              height: 44,
-              errorBuilder: (context, error, stackTrace) {
-                return Icon(Icons.navigation_rounded,
-                    color: colorScheme.primary);
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Guide complete',
-                  style: TextStyle(fontWeight: FontWeight.w900),
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.asset(
+                  'assets/icons/app_icon.png',
+                  width: 44,
+                  height: 44,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(Icons.navigation_rounded,
+                        color: colorScheme.primary);
+                  },
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'You can now search places, compare routes, and plan trips.',
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'You completed your Intramuros Practice Trip.',
                   style: TextStyle(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                    height: 1.2,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+          const SizedBox(height: 12),
+          for (final item in const [
+            'Chose a destination',
+            'Compared route options',
+            'Read route guide steps',
+            'Checked fare estimate',
+            'Saved a favorite',
+            'Created a sample plan',
+            'Previewed collaboration',
+            'Set commuter type',
+          ])
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle_rounded,
+                      size: 18, color: Colors.green[700]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item,
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -1314,9 +1448,36 @@ class _DemoRouteOptionCard extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      route.title,
-                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            route.title,
+                            style: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                        if (route.recommended) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              'Recommended',
+                              style: TextStyle(
+                                color: colorScheme.primary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   Text(

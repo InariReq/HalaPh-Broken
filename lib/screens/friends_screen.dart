@@ -49,10 +49,22 @@ class _FriendsScreenState extends State<FriendsScreen> {
     _myCode = 'GUIDE-JIA';
     _members = [
       Friend(
-        id: 'guide-friend',
-        name: 'Friend',
+        id: 'guide-jia',
+        name: 'Jia',
         role: 'Editor',
-        code: 'GUIDE-FRIEND',
+        code: 'GUIDE-JIA',
+      ),
+      Friend(
+        id: 'guide-alex',
+        name: 'Alex',
+        role: 'Editor',
+        code: 'GUIDE-ALEX',
+      ),
+      Friend(
+        id: 'guide-mika',
+        name: 'Mika',
+        role: 'Viewer',
+        code: 'GUIDE-MIKA',
       ),
     ];
     _pendingRequests = const [];

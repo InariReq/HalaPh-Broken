@@ -110,7 +110,9 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   @override
   Widget build(BuildContext context) {
     final personalPlans = widget.guideModeDemo
-        ? [GuideModeDemoData.travelPlanForApp()]
+        ? (GuideModeDemoState.samplePlanAdded
+            ? [GuideModeDemoData.travelPlanForApp()]
+            : <TravelPlan>[])
         : SimplePlanService.getUserPlans();
     final sharedPlans = widget.guideModeDemo
         ? <TravelPlan>[]

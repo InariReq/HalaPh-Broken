@@ -75,9 +75,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   void _applyGuideModeDemo() {
     final destinations = GuideModeDemoData.destinationsForGuideExplore();
     setState(() {
-      _searchController.text = 'Intramuros';
+      _searchController.clear();
       _selectedCategory = null;
-      _destinations = _filterDemoDestinations(destinations);
+      _destinations = destinations;
       _favoriteIds.clear();
       _favoriteBusyIds.clear();
       _isLoading = false;
@@ -944,6 +944,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
         destination.imageUrl.startsWith('http');
     final isFavorite = _favoriteIds.contains(destination.id);
     final isFavoriteBusy = _favoriteBusyIds.contains(destination.id);
+    final isGuideIntramuros = widget.guideModeDemo &&
+        destination.name.toLowerCase().contains('intramuros');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 22),
@@ -1013,38 +1015,66 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 Positioned(
                   top: 14,
                   left: 14,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.92),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                          color: Theme.of(context).colorScheme.outlineVariant),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _categoryIcon(destination.category),
-                          size: 14,
-                          color: Colors.blue[700],
+                  child: Wrap(
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
                         ),
-                        const SizedBox(width: 5),
-                        Text(
-                          DestinationService.getCategoryName(
-                              destination.category),
-                          style: TextStyle(
-                            color: Colors.blue[800],
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.1,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.92),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                              color:
+                                  Theme.of(context).colorScheme.outlineVariant),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _categoryIcon(destination.category),
+                              size: 14,
+                              color: Colors.blue[700],
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              DestinationService.getCategoryName(
+                                  destination.category),
+                              style: TextStyle(
+                                color: Colors.blue[800],
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isGuideIntramuros)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF8E1),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: const Color(0xFFFFECB3)),
+                          ),
+                          child: const Text(
+                            'Start here',
+                            style: TextStyle(
+                              color: Color(0xFF7A5200),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -0.1,
+                            ),
                           ),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
                 Positioned(

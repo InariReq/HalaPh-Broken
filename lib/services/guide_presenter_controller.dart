@@ -3,20 +3,22 @@ import 'package:flutter/foundation.dart';
 import '../models/destination.dart';
 
 enum GuidePresenterScene {
-  welcome,
-  home,
+  practiceIntro,
+  homeIntro,
   explore,
+  chooseDestination,
   destinationPreview,
   routeOptions,
   routeGuide,
   fareBreakdown,
+  saveDestination,
   favorites,
+  addToPlan,
   plans,
   collaboration,
-  reminders,
-  tripHistory,
-  settings,
-  finish,
+  profile,
+  commuterType,
+  finishSummary,
 }
 
 enum GuidePresenterSignal {
