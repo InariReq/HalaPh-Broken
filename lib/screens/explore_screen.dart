@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/services/destination_service.dart';
+import '../services/user_featured_places_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/guide_mode_demo_data.dart';
@@ -234,6 +235,30 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
+  List<Destination> _prependFeaturedPlaces(
+    List<Destination> featuredPlaces,
+    List<Destination> destinations, {
+    required int limit,
+  }) {
+    final merged = <Destination>[];
+    final seenIds = <String>{};
+
+    void add(Destination destination) {
+      if (seenIds.add(destination.id)) {
+        merged.add(destination);
+      }
+    }
+
+    for (final destination in featuredPlaces) {
+      add(destination);
+    }
+    for (final destination in destinations) {
+      add(destination);
+    }
+
+    return merged.take(limit).toList(growable: false);
+  }
+
   Future<void> _runDestinationSearch() async {
     if (widget.guideModeDemo) {
       final generation = ++_searchGeneration;
@@ -258,6 +283,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     try {
       if (query.isEmpty) {
         final location = await DestinationService.getCurrentLocation();
+        final featuredPlaces =
+            await UserFeaturedPlacesService.getActiveFeaturedPlaces();
         final destinations = await DestinationService.getTrendingDestinations();
         final deduped =
             DestinationService.deduplicateDestinationsById(destinations);
@@ -267,24 +294,38 @@ class _ExploreScreenState extends State<ExploreScreen> {
           radiusKm: 5,
           limit: 5,
         );
+        final exploreDestinations = _prependFeaturedPlaces(
+          featuredPlaces,
+          nearbyTrending,
+          limit: 5,
+        );
 
         if (!mounted || generation != _searchGeneration) return;
 
         setState(() {
           _selectedCategory = null;
-          _destinations = nearbyTrending;
+          _destinations = exploreDestinations;
           _placesUnavailable = false;
         });
       } else {
+        final featuredPlaces =
+            await UserFeaturedPlacesService.getActiveFeaturedPlaces(
+          query: query,
+        );
         final destinations = await DestinationService.searchDestinations(query);
         final deduped =
             DestinationService.deduplicateDestinationsById(destinations);
+        final exploreDestinations = _prependFeaturedPlaces(
+          featuredPlaces,
+          deduped,
+          limit: 5,
+        );
 
         if (!mounted || generation != _searchGeneration) return;
 
         setState(() {
           _selectedCategory = null;
-          _destinations = deduped.take(5).toList(growable: false);
+          _destinations = exploreDestinations;
           _placesUnavailable = false;
         });
       }
@@ -390,6 +431,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   int _nearbyTrendingPriority(Destination destination) {
+    if (destination.tags.contains('Admin Featured')) return -1;
     return switch (destination.category) {
       DestinationCategory.food => 0,
       DestinationCategory.malls => 1,
@@ -431,6 +473,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final location = await DestinationService.getCurrentLocation();
 
       if (category == null) {
+        final featuredPlaces =
+            await UserFeaturedPlacesService.getActiveFeaturedPlaces();
         final destinations = await DestinationService.getTrendingDestinations();
         final deduped =
             DestinationService.deduplicateDestinationsById(destinations);
@@ -440,16 +484,25 @@ class _ExploreScreenState extends State<ExploreScreen> {
           radiusKm: 5,
           limit: 5,
         );
+        final exploreDestinations = _prependFeaturedPlaces(
+          featuredPlaces,
+          nearbyTrending,
+          limit: 5,
+        );
 
         if (!mounted || generation != _searchGeneration) return;
 
         setState(() {
-          _destinations = nearbyTrending;
+          _destinations = exploreDestinations;
           _placesUnavailable = false;
         });
         return;
       }
 
+      final featuredPlaces =
+          await UserFeaturedPlacesService.getActiveFeaturedPlaces(
+        category: category,
+      );
       final destinations = await DestinationService.searchRealPlaces(
         query: '',
         location: location,
@@ -469,10 +522,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
         filtered = deduped.take(5).toList(growable: false);
       }
 
+      final exploreDestinations = _prependFeaturedPlaces(
+        featuredPlaces,
+        filtered,
+        limit: 5,
+      );
+
       if (!mounted || generation != _searchGeneration) return;
 
       setState(() {
-        _destinations = filtered.take(5).toList(growable: false);
+        _destinations = exploreDestinations;
         _placesUnavailable = false;
       });
     } catch (e) {
