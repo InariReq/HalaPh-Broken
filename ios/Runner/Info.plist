@@ -7,21 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Halaph</string>
-	<!-- Location permissions -->
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs location access to show nearby destinations and provide accurate distances.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>This app needs location access to show nearby destinations and provide accurate distances.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>This app needs location access to show nearby destinations and provide accurate distances.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app needs photo library access to select profile pictures and destination images.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>This app needs camera access to take profile pictures and destination photos.</string>
-	<!-- Google Maps API Key -->
-	<key>GMSServicesAPIKey</key>
-	<string>$(MAPS_API_KEY)</string>
+	<string>HalaPh</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -29,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>halaph</string>
+	<string>HalaPh</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -38,8 +24,20 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>GMSServicesAPIKey</key>
+	<string>$(MAPS_API_KEY)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs camera access to take profile pictures and destination photos.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>This app needs location access to show nearby destinations and provide accurate distances.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs location access to show nearby destinations and provide accurate distances.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs location access to show nearby destinations and provide accurate distances.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs photo library access to select profile pictures and destination images.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -68,8 +66,6 @@
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
-	<key>UNUserNotificationCenterDelegate</key>
-	<string>$(PRODUCT_MODULE_NAME).AppDelegate</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -87,5 +83,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UNUserNotificationCenterDelegate</key>
+	<string>$(PRODUCT_MODULE_NAME).AppDelegate</string>
 </dict>
 </plist>
