@@ -118,6 +118,11 @@ service cloud.firestore {
       allow create, update, delete: if isContentAdmin();
     }
 
+    match /admin_ads/{adId} {
+      allow get, list: if isAdminUid(request.auth.uid);
+      allow create, update, delete: if isContentAdmin();
+    }
+
     // User document - profile access
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdminUid(request.auth.uid);

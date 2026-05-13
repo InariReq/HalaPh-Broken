@@ -43,7 +43,7 @@ class AdminRoutes {
       id: AdminRouteId.advertisements,
       title: 'Advertisements',
       icon: Icons.campaign_rounded,
-      minimumRole: AdminUserRole.headAdmin,
+      minimumRole: AdminUserRole.admin,
     ),
     AdminRouteConfig(
       id: AdminRouteId.featuredPlaces,

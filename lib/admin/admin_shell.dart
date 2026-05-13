@@ -208,7 +208,8 @@ class _AdminShellState extends State<AdminShell> {
       AdminRouteId.dashboard => const AdminDashboardScreen(),
       AdminRouteId.locations =>
         AdminLocationsScreen(currentAdmin: widget.adminUser),
-      AdminRouteId.advertisements => const AdminAdsScreen(),
+      AdminRouteId.advertisements =>
+        AdminAdsScreen(currentAdmin: widget.adminUser),
       AdminRouteId.featuredPlaces =>
         AdminFeaturedPlacesScreen(currentAdmin: widget.adminUser),
       AdminRouteId.appSettings => const AdminAppSettingsScreen(),

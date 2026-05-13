@@ -71,6 +71,11 @@ class AdminDashboardService {
         successSubtitle: 'Admin-managed featured destination records.',
       ),
       _countCollection(
+        key: 'ads',
+        collectionPath: 'admin_ads',
+        successSubtitle: 'Admin-managed advertisement records.',
+      ),
+      _countCollection(
         key: 'adminUsers',
         collectionPath: 'admin_users',
         successSubtitle: 'Registered admin accounts.',

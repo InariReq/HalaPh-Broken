@@ -131,6 +131,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     _statCard(
                       stats: stats,
+                      keyName: 'ads',
+                      icon: Icons.campaign_rounded,
+                      title: 'Ads',
+                    ),
+                    _statCard(
+                      stats: stats,
                       keyName: 'adminUsers',
                       icon: Icons.admin_panel_settings_rounded,
                       title: 'Admin Users',
