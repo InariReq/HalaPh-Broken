@@ -33,7 +33,7 @@ class ExploreDetailsScreen extends StatefulWidget {
   @override
   State<ExploreDetailsScreen> createState() => _ExploreDetailsScreenState();
 
-  static void showAsBottomSheet(
+  static Future<void> showAsBottomSheet(
     BuildContext context, {
     required String destinationId,
     String? source,
@@ -41,8 +41,9 @@ class ExploreDetailsScreen extends StatefulWidget {
     bool guideModeDemo = false,
     GuidePresenterController? guidePresenterController,
   }) {
-    showModalBottomSheet(
+    return showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: false,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => SizedBox(
@@ -65,16 +66,15 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   final FavoritesService _favoritesService = FavoritesService();
   bool _isFavorite = false;
   bool _favoriteBusy = false;
+  bool _guideDetailsSignaled = false;
+  bool _isOpeningRoutes = false;
   StreamSubscription? _subscription;
 
   @override
   void initState() {
     super.initState();
     if (widget.guideModeDemo) {
-      GuideModeDemoState.openDestinationDetails();
-      widget.guidePresenterController?.signal(
-        GuidePresenterSignal.destinationDetailsOpened,
-      );
+      _signalGuideDetailsOpenedOnce();
     }
     _loadDestination();
     if (!widget.guideModeDemo) {
@@ -84,6 +84,15 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
         }
       });
     }
+  }
+
+  void _signalGuideDetailsOpenedOnce() {
+    if (_guideDetailsSignaled) return;
+    _guideDetailsSignaled = true;
+    GuideModeDemoState.openDestinationDetails();
+    widget.guidePresenterController?.signal(
+      GuidePresenterSignal.destinationDetailsOpened,
+    );
   }
 
   @override
@@ -101,6 +110,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   }
 
   Future<void> _loadDestination() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
@@ -875,26 +885,35 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
       child: ElevatedButton(
         onPressed: _destination == null
             ? null
-            : () {
+            : () async {
+                if (_isOpeningRoutes) return;
+                setState(() => _isOpeningRoutes = true);
                 if (widget.guideModeDemo) {
                   GuideModeDemoState.viewRoutes();
                   widget.guidePresenterController?.signal(
                     GuidePresenterSignal.viewRoutesTapped,
                   );
                 }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => RouteOptionsScreen(
-                      destinationId: widget.destinationId,
-                      destinationName: _destination?.name ?? 'Destination',
-                      destination: _destination,
-                      source: widget.source,
-                      guideModeDemo: widget.guideModeDemo,
-                      guidePresenterController: widget.guidePresenterController,
+                try {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => RouteOptionsScreen(
+                        destinationId: widget.destinationId,
+                        destinationName: _destination?.name ?? 'Destination',
+                        destination: _destination,
+                        source: widget.source,
+                        guideModeDemo: widget.guideModeDemo,
+                        guidePresenterController:
+                            widget.guidePresenterController,
+                      ),
                     ),
-                  ),
-                );
+                  );
+                } finally {
+                  if (mounted) {
+                    setState(() => _isOpeningRoutes = false);
+                  }
+                }
               },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.blue,

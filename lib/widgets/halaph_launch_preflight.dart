@@ -971,7 +971,8 @@ class _RouteBoardPainter extends CustomPainter {
 double _phase(double value, double start, double end) {
   if (value <= start) return 0;
   if (value >= end) return 1;
-  return Curves.easeOutCubic.transform((value - start) / (end - start));
+  final t = ((value - start) / (end - start)).clamp(0.0, 1.0).toDouble();
+  return Curves.easeOutCubic.transform(t);
 }
 
 class _StatusPanel extends StatelessWidget {

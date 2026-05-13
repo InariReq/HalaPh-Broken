@@ -41,6 +41,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   int _searchGeneration = 0;
   final TextEditingController _searchController = TextEditingController();
   DestinationCategory? _selectedCategory;
+  bool _isOpeningGuideDetails = false;
+  String? _lastOpenedGuideDestinationId;
 
   @override
   void initState() {
@@ -85,7 +87,42 @@ class _ExploreScreenState extends State<ExploreScreen> {
       _favoriteBusyIds.clear();
       _isLoading = false;
       _placesUnavailable = false;
+      _isOpeningGuideDetails = false;
+      _lastOpenedGuideDestinationId = null;
     });
+  }
+
+  Future<void> _openGuideDestinationDetails(Destination destination) async {
+    if (_isOpeningGuideDetails ||
+        _lastOpenedGuideDestinationId == destination.id) {
+      debugPrint(
+        'Guide Mode details: ignored duplicate open for ${destination.name}',
+      );
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _isOpeningGuideDetails = true;
+      _lastOpenedGuideDestinationId = destination.id;
+    });
+    widget.onGuideDestinationSelected?.call(destination);
+    try {
+      await ExploreDetailsScreen.showAsBottomSheet(
+        context,
+        destinationId: destination.id,
+        source: 'guide_mode',
+        destination: destination,
+        guideModeDemo: true,
+        guidePresenterController: widget.guidePresenterController,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isOpeningGuideDetails = false;
+          _lastOpenedGuideDestinationId = null;
+        });
+      }
+    }
   }
 
   @override
@@ -1198,16 +1235,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       borderRadius: BorderRadius.circular(18),
                       onTap: () {
                         if (widget.guideModeDemo) {
-                          widget.onGuideDestinationSelected?.call(destination);
-                          ExploreDetailsScreen.showAsBottomSheet(
-                            context,
-                            destinationId: destination.id,
-                            source: 'guide_mode',
-                            destination: destination,
-                            guideModeDemo: true,
-                            guidePresenterController:
-                                widget.guidePresenterController,
-                          );
+                          unawaited(_openGuideDestinationDetails(destination));
                           return;
                         }
                         ExploreDetailsScreen.showAsBottomSheet(

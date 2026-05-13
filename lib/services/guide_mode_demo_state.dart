@@ -74,6 +74,9 @@ class GuideModeDemoState {
   }
 
   static void openDestinationDetails() {
+    if (_destinationDetailsOpened) {
+      return;
+    }
     _destinationDetailsOpened = true;
     _currentObjective = 'Tap View Routes';
     version.value += 1;

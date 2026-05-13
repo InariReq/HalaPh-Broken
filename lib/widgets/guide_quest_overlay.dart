@@ -640,7 +640,9 @@ class _QuestProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final value = (stepIndex + 1) / totalSteps;
+    final value = totalSteps <= 0
+        ? 0.0
+        : ((stepIndex + 1) / totalSteps).clamp(0.0, 1.0).toDouble();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
