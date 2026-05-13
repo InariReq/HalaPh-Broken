@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:go_router/go_router.dart';
 
+import 'admin/admin_app.dart';
 import 'models/destination.dart';
 import 'services/simple_plan_service.dart';
 import 'services/auth_service.dart';
@@ -64,7 +65,8 @@ void main() async {
     );
   };
 
-  runApp(const HalaPhApp());
+  final isAdminPath = kIsWeb && Uri.base.path.startsWith('/admin');
+  runApp(isAdminPath ? const AdminApp() : const HalaPhApp());
 }
 
 Future<void> _loadEnvSafe() async {
