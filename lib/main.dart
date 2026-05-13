@@ -12,7 +12,6 @@ import 'models/destination.dart';
 import 'services/simple_plan_service.dart';
 import 'services/auth_service.dart';
 import 'services/firebase_app_service.dart';
-import 'services/plan_notification_service.dart';
 import 'services/theme_mode_service.dart';
 import 'services/app_tutorial_service.dart';
 import 'services/guide_presenter_controller.dart';
@@ -49,9 +48,22 @@ void main() async {
   await _loadEnvSafe();
   // Allow time for env to be ready
   await Future.delayed(const Duration(milliseconds: 100));
-  await FirebaseAppService.initialize();
-  await PlanNotificationService.initialize();
-  await ThemeModeService.initialize();
+  await FirebaseAppService.initialize().timeout(
+    const Duration(seconds: 4),
+    onTimeout: () {
+      debugPrint('Startup: Firebase initialization timed out; continuing.');
+      return false;
+    },
+  );
+  await ThemeModeService.initialize().timeout(
+    const Duration(milliseconds: 900),
+    onTimeout: () {
+      debugPrint(
+          'Startup: theme initialization timed out; using default theme.');
+    },
+  );
+  debugPrint(
+      'Startup: notification initialization deferred until reminders use.');
 
   ErrorWidget.builder = (FlutterErrorDetails details) {
     debugPrint('Flutter widget error: ${details.exceptionAsString()}');
@@ -107,7 +119,17 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<void> _startAuthListener() async {
-    if (!await FirebaseAppService.initialize()) return;
+    final firebaseReady = await FirebaseAppService.initialize().timeout(
+      const Duration(seconds: 3),
+      onTimeout: () {
+        debugPrint('AuthWrapper: Firebase listener setup timed out.');
+        return false;
+      },
+    );
+    if (!firebaseReady) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     if (!mounted) return;
 
     _authSubscription =
@@ -136,14 +158,25 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _checkLogin() async {
     final auth = AuthService();
-    final user = await auth.getCurrentUser();
+    final user = await auth.getCurrentUser().timeout(
+      const Duration(seconds: 3),
+      onTimeout: () {
+        debugPrint('AuthWrapper: auth session check timed out.');
+        return null;
+      },
+    );
     if (user != null) {
-      await SimplePlanService.initialize();
+      unawaited(SimplePlanService.initialize().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          debugPrint('AuthWrapper: plan initialization timed out; continuing.');
+        },
+      ));
     }
     if (mounted) {
       setState(() {
         _isLoggedIn = user != null;
-        _sessionUid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+        _sessionUid = _safeCurrentFirebaseUid();
         _loading = false;
         _guideModeStartupEvaluated = false;
         if (user == null) {
@@ -158,7 +191,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     unawaited(SimplePlanService.initialize());
     setState(() {
       _isLoggedIn = true;
-      _sessionUid = firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+      _sessionUid = _safeCurrentFirebaseUid();
       _guideModeStartupEvaluated = false;
       _guideModeStartupInFlight = false;
       _checkingGuideMode = false;
@@ -169,6 +202,16 @@ class _AuthWrapperState extends State<AuthWrapper> {
     setState(() {
       _launchAccepted = true;
     });
+  }
+
+  String? _safeCurrentFirebaseUid() {
+    if (!FirebaseAppService.isInitialized) return null;
+    try {
+      return firebase_auth.FirebaseAuth.instance.currentUser?.uid;
+    } catch (error) {
+      debugPrint('AuthWrapper: current Firebase UID unavailable: $error');
+      return null;
+    }
   }
 
   void _continueAfterTutorial(String reason) {

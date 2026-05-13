@@ -32,16 +32,22 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
   bool _accountChecked = false;
   bool _notificationsReady = false;
   bool _locationReady = false;
+  bool _checksFinalized = false;
+  bool _startTriggered = false;
 
   String _notificationMessage = 'Checking notifications';
   String _locationMessage = 'Checking location';
   String _accountMessage = 'Checking account session';
+  late final Stopwatch _preflightStopwatch;
+  Timer? _autoStartTimer;
 
   bool get _canStart => _animationComplete && _checksComplete;
 
   @override
   void initState() {
     super.initState();
+    _preflightStopwatch = Stopwatch()..start();
+    debugPrint('Preflight: started');
 
     _introController = AnimationController(
       vsync: this,
@@ -84,6 +90,7 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
     _introController.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
         setState(() => _animationComplete = true);
+        _scheduleAutoStartIfReady();
       }
     });
 
@@ -92,6 +99,7 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
   }
 
   Future<void> _runChecks() async {
+    var timedOut = false;
     await Future.wait<void>([
       _checkNotifications(),
       _checkLocation(),
@@ -100,7 +108,10 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
       const Duration(seconds: 3),
       onTimeout: () {
         if (!mounted) return <void>[];
+        timedOut = true;
+        debugPrint('Preflight: timed out, continuing');
         setState(() {
+          _checksFinalized = true;
           if (_notificationMessage == 'Checking notifications') {
             _notificationMessage = 'Notifications checked';
           }
@@ -116,6 +127,7 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
 
     if (!mounted) return;
     setState(() {
+      _checksFinalized = true;
       _checksComplete = true;
       _accountChecked = true;
       if (_notificationMessage == 'Checking notifications') {
@@ -126,55 +138,64 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
       }
       _accountMessage = 'Account session checked';
     });
+    if (timedOut) {
+      debugPrint('Preflight: completed after timeout fallback');
+    }
+    debugPrint(
+      'Preflight: completed in ${_preflightStopwatch.elapsedMilliseconds} ms',
+    );
+    _scheduleAutoStartIfReady();
   }
 
   Future<void> _checkNotifications() async {
     try {
-      await PlanNotificationService.initialize()
-          .timeout(const Duration(milliseconds: 900));
       final remindersEnabled =
           await PlanNotificationService.arePlanRemindersEnabled()
-              .timeout(const Duration(milliseconds: 900));
-      if (!mounted) return;
+              .timeout(const Duration(milliseconds: 500));
+      if (!mounted || _checksFinalized) return;
       setState(() {
         _notificationsReady = remindersEnabled;
         _notificationMessage = remindersEnabled
             ? 'Notifications checked'
             : 'Notifications not enabled. You can turn them on later.';
       });
+      debugPrint('Preflight: notification check done');
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || _checksFinalized) return;
       setState(() {
         _notificationsReady = false;
         _notificationMessage =
             'Notifications will be requested when reminders are enabled.';
       });
+      debugPrint('Preflight: notification check done');
     }
   }
 
   Future<void> _checkLocation() async {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled()
-          .timeout(const Duration(milliseconds: 900));
+          .timeout(const Duration(milliseconds: 500));
       final permission = await Geolocator.checkPermission()
-          .timeout(const Duration(milliseconds: 900));
+          .timeout(const Duration(milliseconds: 500));
       final ready = serviceEnabled &&
           (permission == LocationPermission.always ||
               permission == LocationPermission.whileInUse);
 
-      if (!mounted) return;
+      if (!mounted || _checksFinalized) return;
       setState(() {
         _locationReady = ready;
         _locationMessage = ready
             ? 'Location checked'
             : 'Location not enabled. You can continue and allow it later.';
       });
+      debugPrint('Preflight: location check done');
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || _checksFinalized) return;
       setState(() {
         _locationReady = false;
         _locationMessage = 'Location will be requested when needed.';
       });
+      debugPrint('Preflight: location check done');
     }
   }
 
@@ -185,15 +206,34 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
       // AuthWrapper owns the real auth flow after Start.
     }
 
-    if (!mounted) return;
+    if (!mounted || _checksFinalized) return;
     setState(() {
       _accountChecked = true;
       _accountMessage = 'Account session checked';
     });
+    debugPrint('Preflight: auth check done');
+  }
+
+  void _scheduleAutoStartIfReady() {
+    if (!_canStart || _startTriggered || _autoStartTimer != null) return;
+    _autoStartTimer = Timer(const Duration(milliseconds: 650), () {
+      if (!mounted || !_canStart || _startTriggered) return;
+      _completeStart();
+    });
+  }
+
+  void _completeStart() {
+    if (_startTriggered) return;
+    _startTriggered = true;
+    _autoStartTimer?.cancel();
+    _autoStartTimer = null;
+    debugPrint('Preflight: routing to login or app shell');
+    widget.onStart();
   }
 
   @override
   void dispose() {
+    _autoStartTimer?.cancel();
     _introController.dispose();
     _routeController.dispose();
     super.dispose();
@@ -330,7 +370,7 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
                                         key: const ValueKey('start-ready'),
                                         width: double.infinity,
                                         child: FilledButton.icon(
-                                          onPressed: widget.onStart,
+                                          onPressed: _completeStart,
                                           icon: const Icon(
                                             Icons.arrow_forward_rounded,
                                           ),
