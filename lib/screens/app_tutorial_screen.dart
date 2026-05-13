@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../services/app_tutorial_service.dart';
 import '../services/guide_mode_demo_data.dart';
+import '../services/guide_mode_demo_state.dart';
 import '../services/guide_presenter_controller.dart';
 import '../services/guide_quest_controller.dart';
 import '../widgets/guide_quest_overlay.dart';
@@ -83,6 +84,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   @override
   void initState() {
     super.initState();
+    GuideModeDemoState.reset();
     widget.presenterController?.addListener(_handlePresenterSignal);
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
   }
@@ -368,6 +370,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         _completeObjective(actionId, step.completionMessage);
         break;
       case GuideQuestActionId.saveDestinationConcept:
+        GuideModeDemoState.saveIntramurosFavorite();
         setState(() {
           _destinationSaved = true;
         });

@@ -6,7 +6,7 @@ import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/screens/route_options_screen.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/favorites_service.dart';
-import 'package:halaph/services/guide_mode_demo_data.dart';
+import 'package:halaph/services/guide_mode_demo_state.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
 
 class FavoritesScreen extends StatefulWidget {
@@ -41,6 +41,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   void initState() {
     super.initState();
     if (widget.guideModeDemo) {
+      GuideModeDemoState.version.addListener(_applyGuideModeDemo);
       _applyGuideModeDemo();
       return;
     }
@@ -59,10 +60,12 @@ class _FavoritesScreenState extends State<FavoritesScreen>
     if (widget.guideModeDemo) {
       WidgetsBinding.instance.removeObserver(this);
       _subscription?.cancel();
+      GuideModeDemoState.version.addListener(_applyGuideModeDemo);
       _applyGuideModeDemo();
       return;
     }
 
+    GuideModeDemoState.version.removeListener(_applyGuideModeDemo);
     WidgetsBinding.instance.addObserver(this);
     _loadFavorites();
     _subscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
@@ -71,8 +74,9 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   }
 
   void _applyGuideModeDemo() {
+    if (!mounted) return;
     setState(() {
-      _favorites = GuideModeDemoData.destinationsForApp().take(3).toList();
+      _favorites = GuideModeDemoState.favoriteDestinations();
       _busyFavoriteIds.clear();
       _loading = false;
       _loadRequestId++;
@@ -81,6 +85,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
 
   @override
   void dispose() {
+    GuideModeDemoState.version.removeListener(_applyGuideModeDemo);
     WidgetsBinding.instance.removeObserver(this);
     _subscription?.cancel();
     super.dispose();
@@ -376,7 +381,8 @@ class _EmptyFavoritesCard extends StatelessWidget {
     return const EmptyStatePanel(
       icon: Icons.favorite_border_rounded,
       title: 'No favorites yet',
-      message: 'Tap the heart on a destination to save it here.',
+      message:
+          'Guide Mode will place Intramuros here after you tap Save destination.',
     );
   }
 }
