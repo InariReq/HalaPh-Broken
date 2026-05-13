@@ -2,12 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../models/destination.dart';
 import '../services/app_tutorial_service.dart';
 import '../services/guide_mode_demo_data.dart';
 import '../services/guide_presenter_controller.dart';
 import '../services/guide_quest_controller.dart';
-import '../screens/route_options_screen.dart';
 import '../widgets/guide_quest_overlay.dart';
 import '../widgets/transport_mode_widgets.dart';
 
@@ -72,7 +70,6 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   bool _liveLoading = false;
   String? _fallbackReason;
   String? _statusMessage;
-  Destination? _selectedDestination;
   GuideModeDemoRouteOption? _selectedRoute;
   final Set<String> _completedActions = <String>{};
   int _transitionToken = 0;
@@ -120,7 +117,6 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
           return;
         }
         setState(() {
-          _selectedDestination = destination;
           _destinationPreviewVisible = true;
         });
         _completeIfExpected(
@@ -239,7 +235,6 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       _historyShown = false;
       _liveLoading = false;
       _fallbackReason = null;
-      _selectedDestination = null;
       _selectedRoute = null;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
@@ -336,7 +331,6 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         break;
       case GuideQuestActionId.selectIntramuros:
         setState(() {
-          _selectedDestination = GuideModeDemoData.destinationsForApp().first;
           _destinationPreviewVisible = true;
         });
         _completeObjective(actionId, step.completionMessage);
@@ -417,46 +411,24 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
 
   Future<void> _runViewRoutesAction(String actionId) async {
     final actionToken = ++_liveActionToken;
-    debugPrint('Guide Mode viewRoutes: started');
-    setState(() {
-      _actionBusy = true;
-      _liveLoading = true;
-      _fallbackReason = null;
-    });
-    try {
-      await _previewLiveRouteOptions();
-      if (!_isCurrentViewRoutesAction(actionToken, 'live preview result')) {
-        return;
-      }
-      setState(() {
-        _routeOptionsVisible = true;
-        _fallbackReason =
-            'Live preview closed. The walkthrough continues with safe route cards.';
-      });
-      _completeObjective(actionId, 'Route choices opened.');
-    } catch (error) {
-      debugPrint('Guide Mode viewRoutes: fallback used because $error');
-      if (!_isCurrentViewRoutesAction(actionToken, 'fallback result')) {
-        return;
-      }
-      setState(() {
-        _routeOptionsVisible = true;
-        _fallbackReason =
-            'Live route data was unavailable, so this guide is using offline demo routes.';
-      });
-      _completeObjective(actionId, 'Offline route options loaded.');
-    } finally {
-      if (_isCurrentViewRoutesAction(
-        actionToken,
-        'loading cleanup',
-        logIgnored: false,
-      )) {
-        setState(() {
-          _actionBusy = false;
-          _liveLoading = false;
-        });
-      }
+    debugPrint('Guide Mode viewRoutes: using stable demo route panel');
+    debugPrint(
+      'Guide Mode viewRoutes: skipped live RouteOptionsScreen in guide mode',
+    );
+
+    if (!_isCurrentViewRoutesAction(actionToken, 'stable demo start')) {
+      return;
     }
+
+    setState(() {
+      _actionBusy = false;
+      _liveLoading = false;
+      _routeOptionsVisible = true;
+      _fallbackReason =
+          'Guide Mode is using a stable sample route panel for this walkthrough. Normal View Routes still uses live route results outside the guide.';
+    });
+
+    _completeObjective(actionId, 'Route choices opened.');
   }
 
   bool _isCurrentViewRoutesAction(
@@ -536,61 +508,6 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     );
     if (!mounted || shouldExit != true) return;
     await _close(skipped: true, reason: 'back');
-  }
-
-  Future<void> _previewLiveRouteOptions() async {
-    final destination =
-        _selectedDestination ?? GuideModeDemoData.destinationsForApp().first;
-    _selectedDestination = destination;
-
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        final colorScheme = Theme.of(sheetContext).colorScheme;
-        return DraggableScrollableSheet(
-          initialChildSize: 0.88,
-          minChildSize: 0.48,
-          maxChildSize: 0.96,
-          expand: false,
-          builder: (context, scrollController) {
-            return ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(24)),
-              child: Material(
-                color: colorScheme.surface,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 5,
-                      margin: const EdgeInsets.only(top: 10, bottom: 8),
-                      decoration: BoxDecoration(
-                        color: colorScheme.outlineVariant,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                    Expanded(
-                      child: RouteOptionsScreen(
-                        destinationId: destination.id,
-                        destinationName: destination.name,
-                        source: 'guide_mode_live_preview',
-                        destination: destination,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    if (!mounted) return;
   }
 
   GlobalKey? _targetKeyFor(GuideQuestStep step) {

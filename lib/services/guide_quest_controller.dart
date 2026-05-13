@@ -145,7 +145,7 @@ class GuideQuestController {
         explanation:
             'A destination preview shows why the place matters, whether it is saved, and the route action that turns browsing into a commute plan.',
         instruction:
-            'Tap View Routes in the preview. Live route loading can run only after this tap; if it fails, the guide keeps an offline example.',
+            'Tap View Routes in the preview. The guide will open a stable sample route panel so the walkthrough stays smooth while normal View Routes remains live outside Guide Mode.',
         icon: Icons.place_rounded,
         type: GuideQuestStepType.liveAction,
         actionId: GuideQuestActionId.viewRoutes,
