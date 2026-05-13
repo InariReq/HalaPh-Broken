@@ -154,75 +154,10 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 460, child: _OwnerSetupCard()),
                 ],
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OwnerSetupCard extends StatelessWidget {
-  const _OwnerSetupCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final steps = [
-      'Go to Firebase Console.',
-      'Open Authentication.',
-      'Find jeraldforschool@gmail.com.',
-      'Copy the UID.',
-      'Open Firestore.',
-      'Create collection admin_users if it does not exist.',
-      'Create a document using the copied UID as the document ID.',
-      'Add email, displayName, role owner, isActive true, timestamps, and manual_setup audit fields.',
-    ];
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(26),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'First owner setup',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Do not create admin accounts from the client. The first owner must be added manually.',
-            ),
-            const SizedBox(height: 16),
-            for (var i = 0; i < steps.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${i + 1}. '),
-                    Expanded(child: Text(steps[i])),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 12),
-            const SelectableText(
-              'admin_users/{uid}\n'
-              'email: jeraldforschool@gmail.com\n'
-              'displayName: Cheong, C Jerald Jia Le D.\n'
-              'role: owner\n'
-              'isActive: true\n'
-              'createdAt: current timestamp\n'
-              'updatedAt: current timestamp\n'
-              'createdBy: manual_setup\n'
-              'updatedBy: manual_setup',
-            ),
-          ],
         ),
       ),
     );
