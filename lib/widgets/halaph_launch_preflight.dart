@@ -34,12 +34,12 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
   bool _locationReady = false;
   bool _checksFinalized = false;
   bool _startTriggered = false;
+  bool _readyLogged = false;
 
   String _notificationMessage = 'Checking notifications';
   String _locationMessage = 'Checking location';
   String _accountMessage = 'Checking account session';
   late final Stopwatch _preflightStopwatch;
-  Timer? _autoStartTimer;
 
   bool get _canStart => _animationComplete && _checksComplete;
 
@@ -90,7 +90,7 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
     _introController.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
         setState(() => _animationComplete = true);
-        _scheduleAutoStartIfReady();
+        _logReadyForContinueIfReady();
       }
     });
 
@@ -144,7 +144,7 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
     debugPrint(
       'Preflight: completed in ${_preflightStopwatch.elapsedMilliseconds} ms',
     );
-    _scheduleAutoStartIfReady();
+    _logReadyForContinueIfReady();
   }
 
   Future<void> _checkNotifications() async {
@@ -214,26 +214,25 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
     debugPrint('Preflight: auth check done');
   }
 
-  void _scheduleAutoStartIfReady() {
-    if (!_canStart || _startTriggered || _autoStartTimer != null) return;
-    _autoStartTimer = Timer(const Duration(milliseconds: 650), () {
-      if (!mounted || !_canStart || _startTriggered) return;
-      _completeStart();
-    });
+  void _logReadyForContinueIfReady() {
+    if (!_canStart || _readyLogged || _startTriggered) return;
+    _readyLogged = true;
+    debugPrint('Preflight: ready for continue');
   }
 
   void _completeStart() {
     if (_startTriggered) return;
     _startTriggered = true;
-    _autoStartTimer?.cancel();
-    _autoStartTimer = null;
+    debugPrint('Preflight: continue tapped');
+    _introController.stop();
+    _routeController.stop();
+    debugPrint('Preflight: animation stopped before route');
     debugPrint('Preflight: routing to login or app shell');
     widget.onStart();
   }
 
   @override
   void dispose() {
-    _autoStartTimer?.cancel();
     _introController.dispose();
     _routeController.dispose();
     super.dispose();
@@ -252,6 +251,9 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
         child: AnimatedBuilder(
           animation: Listenable.merge([_introController, _routeController]),
           builder: (context, child) {
+            final introProgress = _safeUnit(_introController.value);
+            final routeProgress = _safeModuloUnit(_routeController.value);
+
             return Center(
               child: SingleChildScrollView(
                 padding:
@@ -262,8 +264,8 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _LaunchRouteBoard(
-                        introProgress: _introController.value,
-                        routeProgress: _routeController.value,
+                        introProgress: introProgress,
+                        routeProgress: routeProgress,
                         logoScale: _logoScale,
                         colorScheme: colorScheme,
                         isDark: isDark,
@@ -339,7 +341,7 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
                               const SizedBox(height: 24),
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 260),
-                                switchInCurve: Curves.easeOutBack,
+                                switchInCurve: Curves.easeOutCubic,
                                 transitionBuilder: (child, animation) {
                                   final offset = Tween<Offset>(
                                     begin: const Offset(0, 0.14),
@@ -463,10 +465,12 @@ class _LaunchRouteBoard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final routeDraw = _phase(introProgress, 0.20, 0.72);
-    final pinsIn = _phase(introProgress, 0.08, 0.36);
-    final chipsIn = _phase(introProgress, 0.48, 0.86);
-    final cardsIn = _phase(introProgress, 0.62, 1);
+    final safeIntroProgress = _safeUnit(introProgress);
+    final safeRouteProgress = _safeModuloUnit(routeProgress);
+    final routeDraw = _phase(safeIntroProgress, 0.20, 0.72);
+    final pinsIn = _phase(safeIntroProgress, 0.08, 0.36);
+    final chipsIn = _phase(safeIntroProgress, 0.48, 0.86);
+    final cardsIn = _phase(safeIntroProgress, 0.62, 1);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -540,7 +544,7 @@ class _LaunchRouteBoard extends StatelessWidget {
                       child: CustomPaint(
                         painter: _RouteBoardPainter(
                           drawProgress: routeDraw,
-                          pulseProgress: routeProgress,
+                          pulseProgress: safeRouteProgress,
                           primary: colorScheme.primary,
                           secondary: colorScheme.secondary,
                           surface:
@@ -562,7 +566,7 @@ class _LaunchRouteBoard extends StatelessWidget {
                     _BoardPin(
                       left: size.width * 0.73,
                       top: size.height * 0.08,
-                      progress: _phase(introProgress, 0.18, 0.42),
+                      progress: _phase(safeIntroProgress, 0.18, 0.42),
                       icon: Icons.flag_rounded,
                       label: 'Destination',
                       color: colorScheme.tertiary,
@@ -587,19 +591,19 @@ class _LaunchRouteBoard extends StatelessWidget {
               _ModePrepChip(
                 icon: Icons.directions_bus_filled_rounded,
                 label: 'Jeepney',
-                progress: _phase(introProgress, 0.54, 0.88),
+                progress: _phase(safeIntroProgress, 0.54, 0.88),
                 color: colorScheme.secondary,
               ),
               _ModePrepChip(
                 icon: Icons.train_rounded,
                 label: 'Train',
-                progress: _phase(introProgress, 0.60, 0.92),
+                progress: _phase(safeIntroProgress, 0.60, 0.92),
                 color: colorScheme.tertiary,
               ),
               _ModePrepChip(
                 icon: Icons.payments_rounded,
                 label: 'Fare',
-                progress: _phase(introProgress, 0.66, 0.96),
+                progress: _phase(safeIntroProgress, 0.66, 0.96),
                 color: Colors.green[700]!,
               ),
             ],
@@ -620,7 +624,7 @@ class _LaunchRouteBoard extends StatelessWidget {
                 child: _ReadyPreviewCard(
                   icon: Icons.local_atm_rounded,
                   label: 'Fare tools',
-                  progress: _phase(introProgress, 0.68, 1),
+                  progress: _phase(safeIntroProgress, 0.68, 1),
                   colorScheme: colorScheme,
                 ),
               ),
@@ -629,7 +633,7 @@ class _LaunchRouteBoard extends StatelessWidget {
                 child: _ReadyPreviewCard(
                   icon: Icons.event_available_rounded,
                   label: 'Plans',
-                  progress: _phase(introProgress, 0.74, 1),
+                  progress: _phase(safeIntroProgress, 0.74, 1),
                   colorScheme: colorScheme,
                 ),
               ),
@@ -693,7 +697,7 @@ class _BoardPin extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final clamped = progress.clamp(0.0, 1.0);
+    final clamped = _safeUnit(progress);
     return Positioned(
       left: left,
       top: top - (1 - clamped) * 8,
@@ -750,7 +754,7 @@ class _ModePrepChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final clamped = progress.clamp(0.0, 1.0);
+    final clamped = _safeUnit(progress);
     return Opacity(
       opacity: clamped,
       child: Transform.translate(
@@ -798,7 +802,7 @@ class _ReadyPreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final clamped = progress.clamp(0.0, 1.0);
+    final clamped = _safeUnit(progress);
     return Opacity(
       opacity: clamped,
       child: Transform.translate(
@@ -857,6 +861,8 @@ class _RouteBoardPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final safeDrawProgress = _safeUnit(drawProgress);
+    final safePulseProgress = _safeModuloUnit(pulseProgress);
     final panel = RRect.fromRectAndRadius(
       Offset.zero & size,
       const Radius.circular(22),
@@ -910,7 +916,7 @@ class _RouteBoardPainter extends CustomPainter {
     canvas.drawPath(route, basePaint);
 
     final metric = route.computeMetrics().first;
-    final activeLength = metric.length * drawProgress.clamp(0.0, 1.0);
+    final activeLength = metric.length * safeDrawProgress;
     final activePath = metric.extractPath(0, activeLength);
     final activePaint = Paint()
       ..shader = LinearGradient(colors: [primary, secondary]).createShader(
@@ -925,9 +931,9 @@ class _RouteBoardPainter extends CustomPainter {
     for (var i = 0; i < waypoints.length; i++) {
       final tangent = metric.getTangentForOffset(metric.length * waypoints[i]);
       if (tangent == null) continue;
-      final localPulse =
-          (math.sin((pulseProgress * 2 * math.pi) - i * 1.05) + 1) / 2;
-      final reached = drawProgress >= waypoints[i] || i == 0;
+      final localPulse = _safeUnit(
+          (math.sin((safePulseProgress * 2 * math.pi) - i * 1.05) + 1) / 2);
+      final reached = safeDrawProgress >= waypoints[i] || i == 0;
       final dotPaint = Paint()
         ..color = reached ? primary : surface.withValues(alpha: 0.95)
         ..style = PaintingStyle.fill;
@@ -948,9 +954,9 @@ class _RouteBoardPainter extends CustomPainter {
       );
     }
 
-    final markerProgress = drawProgress < 0.98
-        ? drawProgress.clamp(0.06, 0.94)
-        : (0.08 + pulseProgress * 0.84) % 1.0;
+    final markerProgress = safeDrawProgress < 0.98
+        ? safeDrawProgress.clamp(0.06, 0.94).toDouble()
+        : _safeModuloUnit(0.08 + safePulseProgress * 0.84);
     final vehicleTangent =
         metric.getTangentForOffset(metric.length * markerProgress);
     if (vehicleTangent != null) {
@@ -1009,10 +1015,22 @@ class _RouteBoardPainter extends CustomPainter {
 }
 
 double _phase(double value, double start, double end) {
-  if (value <= start) return 0;
-  if (value >= end) return 1;
-  final t = ((value - start) / (end - start)).clamp(0.0, 1.0).toDouble();
+  final safeValue = _safeUnit(value);
+  if (safeValue <= start) return 0;
+  if (safeValue >= end) return 1;
+  final t = _safeUnit((safeValue - start) / (end - start));
   return Curves.easeOutCubic.transform(t);
+}
+
+double _safeUnit(double value) {
+  if (value.isNaN || value.isInfinite) return 0;
+  return value.clamp(0.0, 1.0).toDouble();
+}
+
+double _safeModuloUnit(double value) {
+  if (value.isNaN || value.isInfinite) return 0;
+  final normalized = value % 1.0;
+  return _safeUnit(normalized < 0 ? normalized + 1.0 : normalized);
 }
 
 class _StatusPanel extends StatelessWidget {

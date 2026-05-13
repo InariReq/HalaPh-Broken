@@ -103,6 +103,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   bool _guideModeShownThisSession = false;
   bool _guideModeStartupEvaluated = false;
   bool _guideModeStartupInFlight = false;
+  bool _guideModeStartupScheduled = false;
   bool _isLoggedIn = false;
   bool _loading = true;
   String? _sessionUid;
@@ -151,6 +152,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         if (sessionChanged) {
           _guideModeStartupEvaluated = false;
           _guideModeStartupInFlight = false;
+          _guideModeStartupScheduled = false;
           _checkingGuideMode = false;
           if (!_showGuideMode) {
             _guideModeShownThisSession = false;
@@ -191,6 +193,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         _checkingGuideMode = false;
         _guideModeStartupEvaluated = false;
         _guideModeStartupInFlight = false;
+        _guideModeStartupScheduled = false;
       });
     }
   }
@@ -206,6 +209,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       _showGuideMode = false;
       _guideModeStartupInFlight = false;
       _guideModeStartupEvaluated = false;
+      _guideModeStartupScheduled = false;
       _guideModeShownThisSession = false;
     });
   }
@@ -217,6 +221,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       _sessionUid = _safeCurrentFirebaseUid();
       _guideModeStartupEvaluated = false;
       _guideModeStartupInFlight = false;
+      _guideModeStartupScheduled = false;
       _checkingGuideMode = false;
     });
   }
@@ -244,6 +249,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       _guideModeShownThisSession = true;
       _guideModeStartupEvaluated = true;
       _guideModeStartupInFlight = false;
+      _guideModeStartupScheduled = false;
       _checkingGuideMode = false;
     });
   }
@@ -254,14 +260,28 @@ class _AuthWrapperState extends State<AuthWrapper> {
         !_isLoggedIn ||
         _guideModeStartupEvaluated ||
         _guideModeStartupInFlight ||
+        _guideModeStartupScheduled ||
         _guideModeShownThisSession ||
         _showGuideMode) {
       return;
     }
+    _guideModeStartupScheduled = true;
+    debugPrint('Guide Mode startup: scheduled after launch');
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      unawaited(Future<void>.delayed(const Duration(milliseconds: 220), () {
+        if (!mounted) return;
+        _guideModeStartupScheduled = false;
+        if (!_launchAccepted ||
+            _loading ||
+            !_isLoggedIn ||
+            _guideModeStartupEvaluated ||
+            _guideModeStartupInFlight ||
+            _guideModeShownThisSession ||
+            _showGuideMode) {
+          return;
+        }
         unawaited(_evaluateGuideModeStartup());
-      }
+      }));
     });
   }
 
@@ -315,6 +335,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       setState(() {
         _checkingGuideMode = false;
         _guideModeStartupInFlight = false;
+        _guideModeStartupScheduled = false;
         _guideModeStartupEvaluated = true;
       });
       return;
@@ -325,6 +346,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       setState(() {
         _checkingGuideMode = false;
         _guideModeStartupInFlight = false;
+        _guideModeStartupScheduled = false;
         _guideModeStartupEvaluated = true;
       });
       return;
@@ -334,6 +356,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
     setState(() {
       _checkingGuideMode = false;
       _guideModeStartupInFlight = false;
+      _guideModeStartupScheduled = false;
       _guideModeStartupEvaluated = true;
       _showGuideMode = true;
     });
@@ -358,6 +381,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       _guideModeShownThisSession = true;
       _guideModeStartupEvaluated = true;
       _guideModeStartupInFlight = false;
+      _guideModeStartupScheduled = false;
     });
   }
 
