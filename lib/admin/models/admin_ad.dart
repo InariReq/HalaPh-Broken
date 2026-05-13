@@ -9,13 +9,13 @@ enum AdminAdPlacement {
     return switch (value?.trim()) {
       'fullscreen' => AdminAdPlacement.fullscreen,
       'sponsoredCard' => AdminAdPlacement.sponsoredCard,
-      _ => AdminAdPlacement.banner,
+      _ => AdminAdPlacement.sponsoredCard,
     };
   }
 
   String get label {
     return switch (this) {
-      AdminAdPlacement.banner => 'Banner',
+      AdminAdPlacement.banner => 'Legacy Banner',
       AdminAdPlacement.fullscreen => 'Fullscreen',
       AdminAdPlacement.sponsoredCard => 'Sponsored Card',
     };

@@ -89,7 +89,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Manage banner, fullscreen, and sponsored card ads for HalaPH.',
+                          'Manage sponsored card and fullscreen ads for HalaPH.',
                         ),
                       ],
                     ),
@@ -443,7 +443,7 @@ class _AdFormDialogState extends State<_AdFormDialog> {
     _endsAtController = TextEditingController(
       text: ad?.endsAt == null ? '' : _formatDateInput(ad!.endsAt!),
     );
-    _placement = ad?.placement ?? AdminAdPlacement.banner;
+    _placement = ad?.placement ?? AdminAdPlacement.sponsoredCard;
     _isActive = ad?.isActive ?? true;
   }
 
@@ -489,7 +489,10 @@ class _AdFormDialogState extends State<_AdFormDialog> {
                   initialValue: _placement,
                   decoration: const InputDecoration(labelText: 'Placement'),
                   items: [
-                    for (final placement in AdminAdPlacement.values)
+                    for (final placement in [
+                      AdminAdPlacement.sponsoredCard,
+                      AdminAdPlacement.fullscreen
+                    ])
                       DropdownMenuItem(
                         value: placement,
                         child: Text(placement.label),
@@ -689,7 +692,7 @@ class _EmptyAdsCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             const Text(
-              'Add banner, fullscreen, or sponsored card ads when they are ready for admin management.',
+              'Add sponsored card or fullscreen ads when they are ready for admin management.',
               textAlign: TextAlign.center,
             ),
           ],
