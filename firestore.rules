@@ -121,7 +121,8 @@ service cloud.firestore {
     }
 
     match /admin_ads/{adId} {
-      allow get, list: if isAdminUid(request.auth.uid);
+      allow get: if isAdminUid(request.auth.uid) || resource.data.isActive == true;
+      allow list: if isAdminUid(request.auth.uid) || signedIn();
       allow create, update, delete: if isContentAdmin();
     }
 

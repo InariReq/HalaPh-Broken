@@ -3,13 +3,17 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:halaph/models/app_public_config.dart';
 import 'package:halaph/models/destination.dart';
+import 'package:halaph/models/sponsored_ad.dart';
+import 'package:halaph/services/app_public_config_service.dart';
 import 'package:halaph/services/destination_service.dart';
 import '../services/user_featured_places_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/guide_mode_demo_data.dart';
 import 'package:halaph/services/guide_presenter_controller.dart';
+import 'package:halaph/services/user_ads_service.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -36,12 +40,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
   bool _placesUnavailable = false;
   final Set<String> _favoriteIds = {};
   final Set<String> _favoriteBusyIds = {};
+  final AppPublicConfigService _publicConfigService = AppPublicConfigService();
   final FavoritesService _favoritesService = FavoritesService();
+  final UserAdsService _adsService = UserAdsService();
   StreamSubscription? _subscription;
   Timer? _searchDebounce;
   int _searchGeneration = 0;
   final TextEditingController _searchController = TextEditingController();
   DestinationCategory? _selectedCategory;
+  AppPublicConfig _publicConfig = AppPublicConfigService.cachedConfig;
+  List<SponsoredAd> _sponsoredAds = const [];
   bool _isOpeningGuideDetails = false;
   String? _lastOpenedGuideDestinationId;
 
@@ -52,6 +60,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       _applyGuideModeDemo();
       return;
     }
+    unawaited(_loadAdConfigAndSponsoredCards());
     _loadDestinations();
     _loadFavorites();
     _subscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
@@ -72,6 +81,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
 
     _loadDestinations();
+    unawaited(_loadAdConfigAndSponsoredCards());
     _loadFavorites();
     _subscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
       _loadFavorites();
@@ -86,6 +96,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       _destinations = destinations;
       _favoriteIds.clear();
       _favoriteBusyIds.clear();
+      _sponsoredAds = const [];
       _isLoading = false;
       _placesUnavailable = false;
       _isOpeningGuideDetails = false;
@@ -151,6 +162,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  Future<void> _loadAdConfigAndSponsoredCards() async {
+    if (widget.guideModeDemo) return;
+    final results = await Future.wait<Object>([
+      _publicConfigService.loadPublicConfig(),
+      _adsService.loadSponsoredCards(),
+    ]);
+    if (!mounted || widget.guideModeDemo) return;
+
+    final config = results[0] as AppPublicConfig;
+    final ads = results[1] as List<SponsoredAd>;
+    setState(() {
+      _publicConfig = config;
+      _sponsoredAds = ads;
+    });
   }
 
   Future<void> _toggleFavorite(Destination destination) async {
@@ -856,6 +883,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
 
     final hasFewResults = _destinations.length < 5;
+    final sponsoredAd = _sponsoredAdForResults();
+    final sponsoredInsertIndex = sponsoredAd == null
+        ? null
+        : _publicConfig.minCardsBeforeSponsored.clamp(0, _destinations.length);
+    final itemCount = _destinations.length + (sponsoredAd == null ? 0 : 1);
 
     return Column(
       children: [
@@ -863,9 +895,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: _destinations.length,
+            itemCount: itemCount,
             itemBuilder: (context, index) {
-              final destination = _destinations[index];
+              final isSponsoredCard =
+                  sponsoredAd != null && index == sponsoredInsertIndex;
+              final destinationIndex =
+                  sponsoredAd != null && index > sponsoredInsertIndex!
+                      ? index - 1
+                      : index;
               return TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: 1),
                 duration:
@@ -880,13 +917,29 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     ),
                   );
                 },
-                child: _buildDestinationCard(destination),
+                child: isSponsoredCard
+                    ? _buildSponsoredCard(sponsoredAd)
+                    : _buildDestinationCard(_destinations[destinationIndex]),
               );
             },
           ),
         ),
       ],
     );
+  }
+
+  SponsoredAd? _sponsoredAdForResults() {
+    if (widget.guideModeDemo) return null;
+    if (!_publicConfig.adsEnabled || !_publicConfig.sponsoredCardsEnabled) {
+      return null;
+    }
+    if (_publicConfig.maxAdsPerScreen < 1 || _sponsoredAds.isEmpty) {
+      return null;
+    }
+    if (_destinations.length < _publicConfig.minCardsBeforeSponsored) {
+      return null;
+    }
+    return _sponsoredAds.first;
   }
 
   Widget _buildFewResultsPrompt() {
@@ -924,6 +977,149 @@ class _ExploreScreenState extends State<ExploreScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSponsoredCard(SponsoredAd ad) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final hasImage = ad.hasHttpImage;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 22),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.34),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasImage)
+              SizedBox(
+                height: 138,
+                width: double.infinity,
+                child: CachedNetworkImage(
+                  imageUrl: ad.imageUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: colorScheme.surfaceContainerHighest,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.blue[600],
+                      ),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) {
+                    return _buildSponsoredImageFallback();
+                  },
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          'Sponsored',
+                          style: TextStyle(
+                            color: colorScheme.onSecondaryContainer,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          ad.advertiserName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    ad.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      height: 1.18,
+                    ),
+                  ),
+                  if (ad.description.isNotEmpty) ...[
+                    const SizedBox(height: 7),
+                    Text(
+                      ad.description,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                  if (ad.targetUrl.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Learn more',
+                      style: TextStyle(
+                        color: Colors.blue[700],
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSponsoredImageFallback() {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.campaign_rounded,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        size: 36,
       ),
     );
   }
