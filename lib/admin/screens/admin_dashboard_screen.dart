@@ -119,6 +119,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     _statCard(
                       stats: stats,
+                      keyName: 'featuredPlaces',
+                      icon: Icons.star_rounded,
+                      title: 'Featured Places',
+                    ),
+                    _statCard(
+                      stats: stats,
                       keyName: 'adminUsers',
                       icon: Icons.admin_panel_settings_rounded,
                       title: 'Admin Users',

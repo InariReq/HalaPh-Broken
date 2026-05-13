@@ -94,11 +94,23 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role == 'owner';
     }
 
+    function isContentAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.isActive == true
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role in ['owner', 'headAdmin', 'editor'];
+    }
+
     // Admin users - self-read for admin login, owner-managed writes.
     match /admin_users/{adminUid} {
       allow get: if signedIn() && request.auth.uid == adminUid;
       allow list: if isOwnerAdmin();
       allow create, update, delete: if isOwnerAdmin();
+    }
+
+    match /admin_featured_places/{placeId} {
+      allow get, list: if isAdminUid(request.auth.uid);
+      allow create, update, delete: if isContentAdmin();
     }
 
     // User document - profile access

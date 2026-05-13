@@ -49,7 +49,7 @@ class AdminRoutes {
       id: AdminRouteId.featuredPlaces,
       title: 'Featured Places',
       icon: Icons.star_rounded,
-      minimumRole: AdminUserRole.headAdmin,
+      minimumRole: AdminUserRole.admin,
     ),
     AdminRouteConfig(
       id: AdminRouteId.appSettings,
