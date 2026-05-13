@@ -103,7 +103,8 @@ service cloud.firestore {
 
     // User document - profile access
     match /users/{userId} {
-      allow get: if isOwner(userId);
+      allow get: if isOwner(userId) || isAdminUid(request.auth.uid);
+      allow list: if isAdminUid(request.auth.uid);
 
       allow create: if isOwner(userId)
         && request.resource.data.uid == request.auth.uid
@@ -283,6 +284,7 @@ service cloud.firestore {
 
     // Friend codes mapping
     match /friendCodes/{code} {
+      allow list: if isAdminUid(request.auth.uid);
       allow read: if signedIn();
       allow create: if signedIn()
         && request.auth.uid == request.resource.data.uid
@@ -298,6 +300,7 @@ service cloud.firestore {
 
     // Public profiles - searchable by code only
     match /publicProfiles/{code} {
+      allow list: if isAdminUid(request.auth.uid);
       function ownsFriendCode() {
         return exists(/databases/$(database)/documents/friendCodes/$(code))
           && get(/databases/$(database)/documents/friendCodes/$(code)).data.uid == request.auth.uid;
@@ -330,6 +333,7 @@ service cloud.firestore {
 
     // Shared plans - ONLY participants can read/write
     match /sharedPlans/{planId} {
+      allow list: if isAdminUid(request.auth.uid);
       allow get: if signedIn() && isPlanParticipant(resource.data);
       allow list: if signedIn() && isPlanParticipant(resource.data);
       allow create: if signedIn()
