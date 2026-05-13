@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:halaph/models/destination.dart';
+import 'package:halaph/services/user_admin_locations_service.dart';
 import 'package:halaph/utils/dev_mode.dart';
 
 class DestinationService {
@@ -196,6 +197,8 @@ class DestinationService {
     final queryLower = trimmed.toLowerCase();
     final hasTypedQuery = trimmed.isNotEmpty;
     final location = await _getSearchLocation();
+    final adminLocations =
+        await UserAdminLocationsService.getActiveLocations(query: trimmed);
 
     // Typed searches should come from Google Places, not hardcoded fallback data.
     // Keep hardcoded malls only for empty/default discovery.
@@ -203,6 +206,7 @@ class DestinationService {
         hasTypedQuery && DevModeService.allowPaidGoogleApis
             ? <Destination>[]
             : [..._popularMalls];
+    allDestinations.addAll(adminLocations);
 
     final isMallQuery = queryLower.contains('mall') ||
         queryLower.contains('shopping') ||
@@ -264,7 +268,9 @@ class DestinationService {
   static Future<List<Destination>> getTrendingDestinations() async {
     try {
       // Start with popular malls
-      final List<Destination> trending = [..._popularMalls];
+      final adminLocations =
+          await UserAdminLocationsService.getActiveLocations();
+      final List<Destination> trending = [...adminLocations, ..._popularMalls];
 
       final location = await _getSearchLocation();
 
@@ -289,9 +295,14 @@ class DestinationService {
     DestinationCategory? category,
   }) async {
     final searchLocation = location ?? await _getSearchLocation();
+    final adminLocations = await UserAdminLocationsService.getActiveLocations(
+      query: query,
+      category: category,
+    );
 
     if (!DevModeService.allowPaidGoogleApis) {
-      final localDestinations = _popularMalls.where((destination) {
+      final localDestinations =
+          [...adminLocations, ..._popularMalls].where((destination) {
         final searchable = [
           destination.name,
           destination.location,
@@ -299,6 +310,8 @@ class DestinationService {
           destination.tags.join(' '),
         ].join(' ').toLowerCase();
         return searchable.contains(query.toLowerCase());
+      }).where((destination) {
+        return category == null || destination.category == category;
       }).toList();
 
       return _rankAndLimit(localDestinations, searchLocation, limit: 5);
@@ -313,7 +326,11 @@ class DestinationService {
     final filtered = category == null
         ? places
         : places.where((place) => place.category == category).toList();
-    return _rankAndLimit(filtered, searchLocation, limit: 5);
+    return _rankAndLimit(
+      [...adminLocations, ...filtered],
+      searchLocation,
+      limit: 5,
+    );
   }
 
   static Future<List<String>> getAutocompleteSuggestions(
