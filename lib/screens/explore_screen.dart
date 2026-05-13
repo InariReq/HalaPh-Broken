@@ -805,50 +805,58 @@ class _ExploreScreenState extends State<ExploreScreen> {
         : _selectedCategory == null
             ? 'Featured and nearby destinations are shown here.'
             : 'Featured and nearby destinations for this category.';
+    final sponsoredAd = _sponsoredAdForResults();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Theme.of(context)
-                .colorScheme
-                .outlineVariant
-                .withValues(alpha: 0.28),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (sponsoredAd != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _buildSponsoredCard(sponsoredAd),
           ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              isSearching
-                  ? Icons.search_rounded
-                  : _selectedCategory == null
-                      ? Icons.trending_up_rounded
-                      : Icons.near_me_rounded,
-              size: 18,
-              color: Colors.blue[700],
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                summary,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Theme.of(context).colorScheme.onSurface
-                      : Colors.blueGrey[800],
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.1,
-                ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withValues(alpha: 0.28),
               ),
             ),
-          ],
+            child: Row(
+              children: [
+                Icon(
+                  isSearching
+                      ? Icons.search_rounded
+                      : _selectedCategory == null
+                          ? Icons.trending_up_rounded
+                          : Icons.near_me_rounded,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    summary,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -883,26 +891,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
 
     final hasFewResults = _destinations.length < 5;
-    final sponsoredAd = _sponsoredAdForResults();
-    final sponsoredInsertIndex = sponsoredAd == null
-        ? null
-        : _publicConfig.minCardsBeforeSponsored.clamp(0, _destinations.length);
-    final itemCount = _destinations.length + (sponsoredAd == null ? 0 : 1);
-
     return Column(
       children: [
         if (hasFewResults) _buildFewResultsPrompt(),
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: itemCount,
+            itemCount: _destinations.length,
             itemBuilder: (context, index) {
-              final isSponsoredCard =
-                  sponsoredAd != null && index == sponsoredInsertIndex;
-              final destinationIndex =
-                  sponsoredAd != null && index > sponsoredInsertIndex!
-                      ? index - 1
-                      : index;
+              final destination = _destinations[index];
               return TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: 1),
                 duration:
@@ -917,9 +914,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     ),
                   );
                 },
-                child: isSponsoredCard
-                    ? _buildSponsoredCard(sponsoredAd)
-                    : _buildDestinationCard(_destinations[destinationIndex]),
+                child: _buildDestinationCard(destination),
               );
             },
           ),
@@ -934,9 +929,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
       return null;
     }
     if (_publicConfig.maxAdsPerScreen < 1 || _sponsoredAds.isEmpty) {
-      return null;
-    }
-    if (_destinations.length < _publicConfig.minCardsBeforeSponsored) {
       return null;
     }
     return _sponsoredAds.first;
