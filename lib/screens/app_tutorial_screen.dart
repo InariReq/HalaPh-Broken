@@ -425,7 +425,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       _liveLoading = false;
       _routeOptionsVisible = true;
       _fallbackReason =
-          'Guide Mode is using a stable sample route panel for this walkthrough. Normal View Routes still uses live route results outside the guide.';
+          'This walkthrough uses stable sample route cards. Normal View Routes still uses live route results outside Guide Mode.';
     });
 
     _completeObjective(actionId, 'Route choices opened.');
@@ -601,19 +601,44 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     required BuildContext context,
     required Widget child,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Positioned.fill(
       child: IgnorePointer(
         ignoring: _showObjectiveComplete,
         child: SafeArea(
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 88, 16, 24),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 78, 16, 100),
+            child: Align(
+              alignment: Alignment.topCenter,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 460),
-                child: Material(
-                  color: Colors.transparent,
-                  child: child,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface.withValues(alpha: 0.94),
+                    borderRadius: BorderRadius.circular(26),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.22),
+                        blurRadius: 30,
+                        offset: const Offset(0, 16),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(26),
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.all(14),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: child,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -669,7 +694,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
             if (_routeOptionsVisible) ...[
               const _GuideNote(
                 text:
-                    'Route choices are shown from Guide Mode data after the live preview step.',
+                    'These sample route choices show how HalaPH compares commute options.',
               ),
               const SizedBox(height: 10),
             ],
@@ -704,8 +729,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
           children: [
             if (_routeGuideVisible) ...[
               const _GuideNote(
-                text:
-                    'This route guide follows the selected Jeepney + Train option.',
+                text: 'This guide follows the selected Jeepney + Train route.',
               ),
               const SizedBox(height: 10),
             ],
@@ -1177,10 +1201,10 @@ class _GuideExampleCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.56),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+          color: colorScheme.outlineVariant.withValues(alpha: 0.65),
         ),
       ),
       child: child,
