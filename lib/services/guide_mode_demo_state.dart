@@ -6,11 +6,14 @@ class GuideModeDemoState {
   static final ValueNotifier<int> version = ValueNotifier<int>(0);
 
   static bool _intramurosSaved = false;
+  static bool _samplePlanAdded = false;
 
   static bool get intramurosSaved => _intramurosSaved;
+  static bool get samplePlanAdded => _samplePlanAdded;
 
   static void reset() {
     _intramurosSaved = false;
+    _samplePlanAdded = false;
     version.value += 1;
     debugPrint('Guide Mode demo state: reset');
   }
@@ -19,6 +22,12 @@ class GuideModeDemoState {
     _intramurosSaved = true;
     version.value += 1;
     debugPrint('Guide Mode demo state: Intramuros saved to demo favorites');
+  }
+
+  static void addSamplePlan() {
+    _samplePlanAdded = true;
+    version.value += 1;
+    debugPrint('Guide Mode demo state: sample plan added');
   }
 
   static List<Destination> favoriteDestinations() {

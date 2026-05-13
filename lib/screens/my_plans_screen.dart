@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/guide_mode_demo_data.dart';
+import 'package:halaph/services/guide_mode_demo_state.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:halaph/models/destination.dart';
@@ -32,8 +33,8 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   void initState() {
     super.initState();
     if (widget.guideModeDemo) {
-      _isLoading = false;
-      _myCode = 'guide_user';
+      GuideModeDemoState.version.addListener(_applyGuideModeDemo);
+      _applyGuideModeDemo();
       return;
     }
     _loadPlans();
@@ -49,21 +50,29 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
 
     if (widget.guideModeDemo) {
       _plansSubscription?.cancel();
-      setState(() {
-        _isLoading = false;
-        _myCode = 'guide_user';
-      });
+      GuideModeDemoState.version.addListener(_applyGuideModeDemo);
+      _applyGuideModeDemo();
       return;
     }
 
+    GuideModeDemoState.version.removeListener(_applyGuideModeDemo);
     _loadPlans();
     _plansSubscription = SimplePlanService.changes.listen((_) {
       _loadPlans(forceRefresh: true);
     });
   }
 
+  void _applyGuideModeDemo() {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _myCode = 'guide_user';
+    });
+  }
+
   @override
   void dispose() {
+    GuideModeDemoState.version.removeListener(_applyGuideModeDemo);
     _plansSubscription?.cancel();
     super.dispose();
   }

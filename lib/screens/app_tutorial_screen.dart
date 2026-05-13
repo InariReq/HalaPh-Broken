@@ -378,6 +378,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         _completeObjective(actionId, step.completionMessage);
         break;
       case GuideQuestActionId.addToSamplePlan:
+        GuideModeDemoState.addSamplePlan();
         setState(() {
           _addedToPlan = true;
         });
