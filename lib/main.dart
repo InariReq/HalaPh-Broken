@@ -125,8 +125,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
         return false;
       },
     );
+
     if (!firebaseReady) {
-      if (mounted) setState(() => _loading = false);
+      _showLoggedOutAccounts('auth timeout, showing accounts');
       return;
     }
     if (!mounted) return;
@@ -134,20 +135,24 @@ class _AuthWrapperState extends State<AuthWrapper> {
     _authSubscription =
         firebase_auth.FirebaseAuth.instance.userChanges().listen((user) {
       if (!mounted) return;
-      final nextUid = user?.uid;
+
+      if (user == null) {
+        _showLoggedOutAccounts('unauthenticated, showing accounts');
+        return;
+      }
+
+      final nextUid = user.uid;
       final sessionChanged = _sessionUid != nextUid;
+      debugPrint('AppStartup: authenticated, showing home');
       setState(() {
-        _isLoggedIn = user != null;
+        _isLoggedIn = true;
         _sessionUid = nextUid;
         _loading = false;
         if (sessionChanged) {
           _guideModeStartupEvaluated = false;
           _guideModeStartupInFlight = false;
           _checkingGuideMode = false;
-          if (nextUid == null) {
-            _showGuideMode = false;
-            _guideModeShownThisSession = false;
-          } else if (!_showGuideMode) {
+          if (!_showGuideMode) {
             _guideModeShownThisSession = false;
           }
         }
@@ -164,26 +169,45 @@ class _AuthWrapperState extends State<AuthWrapper> {
         return null;
       },
     );
-    if (user != null) {
-      unawaited(SimplePlanService.initialize().timeout(
-        const Duration(seconds: 3),
-        onTimeout: () {
-          debugPrint('AuthWrapper: plan initialization timed out; continuing.');
-        },
-      ));
+
+    if (user == null) {
+      _showLoggedOutAccounts('auth timeout, showing accounts');
+      return;
     }
+
+    unawaited(SimplePlanService.initialize().timeout(
+      const Duration(seconds: 3),
+      onTimeout: () {
+        debugPrint('AuthWrapper: plan initialization timed out; continuing.');
+      },
+    ));
+
     if (mounted) {
+      debugPrint('AppStartup: authenticated, showing home');
       setState(() {
-        _isLoggedIn = user != null;
+        _isLoggedIn = true;
         _sessionUid = _safeCurrentFirebaseUid();
         _loading = false;
+        _checkingGuideMode = false;
         _guideModeStartupEvaluated = false;
-        if (user == null) {
-          _showGuideMode = false;
-          _guideModeShownThisSession = false;
-        }
+        _guideModeStartupInFlight = false;
       });
     }
+  }
+
+  void _showLoggedOutAccounts(String reason) {
+    if (!mounted) return;
+    debugPrint('AppStartup: $reason');
+    setState(() {
+      _isLoggedIn = false;
+      _sessionUid = null;
+      _loading = false;
+      _checkingGuideMode = false;
+      _showGuideMode = false;
+      _guideModeStartupInFlight = false;
+      _guideModeStartupEvaluated = false;
+      _guideModeShownThisSession = false;
+    });
   }
 
   void _onLoginSuccess() {
@@ -357,6 +381,17 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     if (!_launchAccepted) {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        debugPrint('AppStartup: Android launch preflight skipped');
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _launchAccepted) return;
+          _onLaunchStart();
+        });
+        return _loading
+            ? const SizedBox.shrink()
+            : AccountsScreen(onLoginSuccess: _onLoginSuccess);
+      }
+
       return HalaPhLaunchPreflight(
         onStart: _onLaunchStart,
       );

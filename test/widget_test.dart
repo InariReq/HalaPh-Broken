@@ -21,8 +21,12 @@ void main() {
     final hasStart = find.textContaining('Start').evaluate().isNotEmpty;
     final hasGuideMode =
         find.textContaining('Guide Mode').evaluate().isNotEmpty;
-    final hasAuthForm =
-        find.textContaining('Sign in to your account').evaluate().isNotEmpty;
+    final hasAuthForm = find.textContaining('Sign In').evaluate().isNotEmpty ||
+        find.textContaining('Create Account').evaluate().isNotEmpty ||
+        find
+            .textContaining('Sign in to switch or continue using HalaPH')
+            .evaluate()
+            .isNotEmpty;
 
     expect(
       hasLaunchPreflight ||
