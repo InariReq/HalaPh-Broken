@@ -77,8 +77,7 @@ void main() async {
     );
   };
 
-  final isAdminPath = kIsWeb && Uri.base.path.startsWith('/admin');
-  runApp(isAdminPath ? const AdminApp() : const HalaPhApp());
+  runApp(kIsWeb ? const AdminApp() : const HalaPhApp());
 }
 
 Future<void> _loadEnvSafe() async {
