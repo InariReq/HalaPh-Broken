@@ -776,8 +776,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final summary = isSearching
         ? 'Showing up to 5 search results'
         : _selectedCategory == null
-            ? 'Guide Mode demo destinations. Start with Intramuros.'
-            : 'Guide Mode demo destinations for this category';
+            ? 'Featured and nearby destinations are shown here.'
+            : 'Featured and nearby destinations for this category.';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
