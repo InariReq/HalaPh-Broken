@@ -126,7 +126,8 @@ service cloud.firestore {
     }
 
     match /admin_app_settings/{settingsId} {
-      allow get, list: if isAdminUid(request.auth.uid);
+      allow get: if settingsId == 'public_config' || isAdminUid(request.auth.uid);
+      allow list: if isAdminUid(request.auth.uid);
       allow create, update, delete: if isOwnerAdmin();
     }
 

@@ -8,8 +8,10 @@ import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/guide_mode_demo_data.dart';
+import 'package:halaph/models/app_public_config.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
+import 'package:halaph/services/app_public_config_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -67,15 +69,19 @@ class _PracticeTripChip extends StatelessWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static bool _announcementDismissedThisSession = false;
+
   List<Destination> _trendingDestinations = [];
   bool _isLoading = false;
   bool _isTrendingLoadInProgress = false;
   final Set<String> _favoriteIds = {};
   final Set<String> _favoriteBusyIds = {};
+  final AppPublicConfigService _publicConfigService = AppPublicConfigService();
   final FavoritesService _favoritesService = FavoritesService();
   final FriendService _friendService = FriendService();
   StreamSubscription? _favoritesSubscription;
   StreamSubscription? _plansSubscription;
+  AppPublicConfig _publicConfig = AppPublicConfigService.cachedConfig;
   TravelPlan? _nextPlan;
   bool _plansLoading = true;
 
@@ -86,6 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _applyGuideModeDemo();
       return;
     }
+    unawaited(_loadPublicConfig());
     _initializeLocationAndTrending();
     _loadFavorites();
     _loadUpcomingPlan();
@@ -110,6 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     _initializeLocationAndTrending();
+    unawaited(_loadPublicConfig());
     _loadFavorites();
     _loadUpcomingPlan();
     _favoritesSubscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
@@ -117,6 +125,15 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     _plansSubscription = SimplePlanService.changes.listen((_) {
       _loadUpcomingPlan();
+    });
+  }
+
+  Future<void> _loadPublicConfig() async {
+    if (widget.guideModeDemo) return;
+    final config = await _publicConfigService.loadPublicConfig();
+    if (!mounted || widget.guideModeDemo) return;
+    setState(() {
+      _publicConfig = config;
     });
   }
 
@@ -337,10 +354,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: _buildCurrentPlan(context),
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: _buildAnnouncementSpacing()),
             SliverToBoxAdapter(
               child: _buildHomeEntrance(
                 order: 2,
+                child: _buildAnnouncementCard(context),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(
+              child: _buildHomeEntrance(
+                order: 3,
                 child: _buildTrendingSection(context),
               ),
             ),
@@ -369,6 +393,93 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
       child: child,
+    );
+  }
+
+  Widget _buildAnnouncementSpacing() {
+    if (!_shouldShowAnnouncement) return const SizedBox.shrink();
+    return const SizedBox(height: 16);
+  }
+
+  bool get _shouldShowAnnouncement {
+    return !widget.guideModeDemo &&
+        !_announcementDismissedThisSession &&
+        _publicConfig.hasAnnouncement;
+  }
+
+  Widget _buildAnnouncementCard(BuildContext context) {
+    if (!_shouldShowAnnouncement) return const SizedBox.shrink();
+
+    final colorScheme = Theme.of(context).colorScheme;
+    final title = _publicConfig.announcementTitle.trim();
+    final body = _publicConfig.announcementBody.trim();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer.withValues(alpha: 0.48),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.campaign_rounded,
+            color: colorScheme.secondary,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (title.isNotEmpty)
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      height: 1.2,
+                    ),
+                  ),
+                if (title.isNotEmpty && body.isNotEmpty)
+                  const SizedBox(height: 3),
+                if (body.isNotEmpty)
+                  Text(
+                    body,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Dismiss',
+            visualDensity: VisualDensity.compact,
+            onPressed: () {
+              setState(() {
+                _announcementDismissedThisSession = true;
+              });
+            },
+            icon: Icon(
+              Icons.close_rounded,
+              color: colorScheme.onSurfaceVariant,
+              size: 18,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
