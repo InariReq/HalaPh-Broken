@@ -37,7 +37,7 @@ class AdminRoutes {
       id: AdminRouteId.locations,
       title: 'Locations',
       icon: Icons.place_rounded,
-      minimumRole: AdminUserRole.headAdmin,
+      minimumRole: AdminUserRole.admin,
     ),
     AdminRouteConfig(
       id: AdminRouteId.advertisements,

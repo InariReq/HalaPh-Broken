@@ -206,7 +206,8 @@ class _AdminShellState extends State<AdminShell> {
   Widget _buildPage() {
     return switch (_selectedRoute) {
       AdminRouteId.dashboard => const AdminDashboardScreen(),
-      AdminRouteId.locations => const AdminLocationsScreen(),
+      AdminRouteId.locations =>
+        AdminLocationsScreen(currentAdmin: widget.adminUser),
       AdminRouteId.advertisements => const AdminAdsScreen(),
       AdminRouteId.featuredPlaces =>
         AdminFeaturedPlacesScreen(currentAdmin: widget.adminUser),

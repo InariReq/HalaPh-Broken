@@ -61,6 +61,11 @@ class AdminDashboardService {
         successSubtitle: 'Generated friend invite codes.',
       ),
       _countCollection(
+        key: 'locations',
+        collectionPath: 'admin_locations',
+        successSubtitle: 'Admin-managed location records.',
+      ),
+      _countCollection(
         key: 'featuredPlaces',
         collectionPath: 'admin_featured_places',
         successSubtitle: 'Admin-managed featured destination records.',
