@@ -5,7 +5,6 @@ import 'package:halaph/services/app_tutorial_service.dart';
 import 'package:halaph/services/plan_notification_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/services/theme_mode_service.dart';
-import 'package:halaph/screens/app_tutorial_screen.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -74,32 +73,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _replayingGuideMode = true;
     });
-    try {
-      await Navigator.of(context).push(
-        PageRouteBuilder<void>(
-          opaque: false,
-          barrierColor: Colors.transparent,
-          pageBuilder: (routeContext, animation, secondaryAnimation) {
-            void closeReplay() {
-              if (Navigator.of(routeContext).canPop()) {
-                Navigator.of(routeContext).pop();
-              }
-            }
 
-            return FadeTransition(
-              opacity: animation,
-              child: AppTutorialScreen(
-                launchedFromSettings: true,
-                onFinish: closeReplay,
-                onSkip: closeReplay,
-              ),
-            );
-          },
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return child;
-          },
-        ),
-      );
+    try {
+      AppTutorialService.requestGuideModeReplayFromSettings();
+
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      await Future<void>.delayed(const Duration(milliseconds: 350));
     } finally {
       if (mounted) {
         setState(() {

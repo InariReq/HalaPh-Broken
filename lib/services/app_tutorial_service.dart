@@ -1,6 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppTutorialService {
+  static final ValueNotifier<int> guideReplayRequests = ValueNotifier<int>(0);
+
+  static void requestGuideModeReplayFromSettings() {
+    debugPrint('Guide Mode replay: requested through global app shell');
+    guideReplayRequests.value += 1;
+  }
+
   static const String _enabledKey = 'app_tutorial_enabled_on_start';
   static const String _completedKey = 'app_tutorial_completed';
 

@@ -98,6 +98,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void initState() {
     super.initState();
+    AppTutorialService.guideReplayRequests
+        .addListener(_handleGuideReplayRequest);
     _startAuthListener();
     _checkLogin();
   }
@@ -269,6 +271,28 @@ class _AuthWrapperState extends State<AuthWrapper> {
     });
   }
 
+  void _handleGuideReplayRequest() {
+    if (!mounted) return;
+    debugPrint('Guide Mode replay: received by app shell');
+
+    if (_showGuideMode) {
+      debugPrint('Guide Mode replay: ignored because guide is already showing');
+      return;
+    }
+
+    if (!_isLoggedIn) {
+      debugPrint('Guide Mode replay: ignored because user is logged out');
+      return;
+    }
+
+    setState(() {
+      _showGuideMode = true;
+      _guideModeShownThisSession = true;
+      _guideModeStartupEvaluated = true;
+      _guideModeStartupInFlight = false;
+    });
+  }
+
   void _logGuideModeDecisionSkip(String reason) {
     debugPrint(
       'Guide Mode decision: loggedIn=$_isLoggedIn, loading=$_loading, '
@@ -281,6 +305,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void dispose() {
     _authSubscription?.cancel();
+    AppTutorialService.guideReplayRequests
+        .removeListener(_handleGuideReplayRequest);
     super.dispose();
   }
 
