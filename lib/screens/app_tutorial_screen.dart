@@ -77,8 +77,6 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
 
   bool get _isFirst => _index == 0;
   bool get _isLast => _index == _steps.length - 1;
-  bool get _isStandaloneReplay =>
-      widget.launchedFromSettings && widget.presenterController == null;
 
   @override
   void initState() {
@@ -118,6 +116,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
           return;
         }
         GuideModeDemoState.selectIntramuros();
+        GuideModeDemoState.openDestinationDetails();
         setState(() {
           _destinationPreviewVisible = true;
         });
@@ -126,15 +125,103 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
           'Objective complete: Intramuros selected.',
         );
         break;
-      case GuidePresenterSignal.openSettings:
+      case GuidePresenterSignal.destinationDetailsOpened:
+        GuideModeDemoState.openDestinationDetails();
+        break;
+      case GuidePresenterSignal.viewRoutesTapped:
+        GuideModeDemoState.viewRoutes();
+        setState(() {
+          _routeOptionsVisible = true;
+        });
         _completeIfExpected(
-          GuideQuestActionId.openSettings,
-          'Objective complete: Settings opened.',
+          GuideQuestActionId.viewRoutes,
+          'Objective complete: route options opened.',
         );
         break;
+      case GuidePresenterSignal.routeSelected:
+        GuideModeDemoState.selectRecommendedRoute();
+        setState(() {
+          _selectedRoute = GuideModeDemoState.selectedRoute;
+          _routeGuideVisible = true;
+        });
+        _completeIfExpected(
+          GuideQuestActionId.pickRecommendedRoute,
+          'Objective complete: recommended route selected.',
+        );
+        break;
+      case GuidePresenterSignal.fareBreakdownOpened:
+        GuideModeDemoState.viewFareBreakdown();
+        setState(() {
+          _fareBreakdownVisible = true;
+        });
+        _completeIfExpected(
+          GuideQuestActionId.continueToFareBreakdown,
+          'Objective complete: fare breakdown opened.',
+        );
+        break;
+      case GuidePresenterSignal.destinationSaved:
+        GuideModeDemoState.saveIntramurosFavorite();
+        setState(() {
+          _destinationSaved = true;
+        });
+        _completeIfExpected(
+          GuideQuestActionId.saveDestinationConcept,
+          'Objective complete: Intramuros saved.',
+        );
+        break;
+      case GuidePresenterSignal.openSettings:
+        break;
       case GuidePresenterSignal.openFavorites:
-      case GuidePresenterSignal.openPlans:
       case GuidePresenterSignal.openFriends:
+        break;
+      case GuidePresenterSignal.addToPlanStarted:
+        GuideModeDemoState.startCreatePlan();
+        _completeIfExpected(
+          GuideQuestActionId.addToSamplePlan,
+          'Objective complete: plan creation opened.',
+        );
+        break;
+      case GuidePresenterSignal.samplePlanCreated:
+        GuideModeDemoState.addSamplePlan();
+        setState(() {
+          _addedToPlan = true;
+        });
+        _completeIfExpected(
+          GuideQuestActionId.createSamplePlan,
+          'Objective complete: sample plan created.',
+        );
+        break;
+      case GuidePresenterSignal.collaboratorsOpened:
+        GuideModeDemoState.openCollaborators();
+        break;
+      case GuidePresenterSignal.collaboratorsConfirmed:
+        _completeIfExpected(
+          GuideQuestActionId.addCollaborators,
+          'Objective complete: collaborators added.',
+        );
+        break;
+      case GuidePresenterSignal.openPlans:
+      case GuidePresenterSignal.samplePlanReviewed:
+        _completeIfExpected(
+          GuideQuestActionId.reviewSamplePlan,
+          'Objective complete: sample plan reviewed.',
+        );
+        break;
+      case GuidePresenterSignal.collaborationPreviewSeen:
+        GuideModeDemoState.showCollaborationPreview();
+        setState(() {
+          _collaborationShown = true;
+        });
+        _completeIfExpected(
+          GuideQuestActionId.showCollaboration,
+          'Objective complete: collaboration preview reviewed.',
+        );
+        break;
+      case GuidePresenterSignal.commuterTypeSelected:
+        _completeIfExpected(
+          GuideQuestActionId.selectCommuterType,
+          'Objective complete: commuter type selected.',
+        );
         break;
     }
     controller?.clearSignal();
@@ -238,30 +325,30 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
 
     GuideModeDemoState.restoreForStep(targetIndex);
 
-    if (targetIndex < 3) {
+    if (targetIndex < 2) {
       _destinationPreviewVisible = false;
     }
-    if (targetIndex < 4) {
+    if (targetIndex < 3) {
       _routeOptionsVisible = false;
       _selectedRoute = null;
       _fallbackReason = null;
     }
-    if (targetIndex < 5) {
+    if (targetIndex < 4) {
       _routeGuideVisible = false;
     }
-    if (targetIndex < 6) {
+    if (targetIndex < 5) {
       _fareBreakdownVisible = false;
     }
-    if (targetIndex < 8) {
+    if (targetIndex < 6) {
       _destinationSaved = false;
     }
-    if (targetIndex < 10) {
+    if (targetIndex < 8) {
       _addedToPlan = false;
     }
-    if (targetIndex < 12) {
+    if (targetIndex < 10) {
       _collaborationShown = false;
     }
-    if (targetIndex < 14) {
+    if (targetIndex < 11) {
       _selectedCommuterType = GuideModeDemoState.commuterType;
     }
   }
@@ -292,10 +379,6 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       _close(skipped: false, reason: 'finish');
       return;
     }
-    if (_isStandaloneReplay && _shouldCompleteFromCardInReplay(step)) {
-      _completeReplayFallbackStep(step);
-      return;
-    }
     if (!step.requiresUserAction) {
       _completeObjective(actionId ?? step.title, step.completionMessage);
       return;
@@ -305,29 +388,6 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       _statusMessage = null;
       _showObjectiveComplete = false;
     });
-  }
-
-  bool _shouldCompleteFromCardInReplay(GuideQuestStep step) {
-    return step.actionId == GuideQuestActionId.openExplore ||
-        step.actionId == GuideQuestActionId.selectIntramuros;
-  }
-
-  void _completeReplayFallbackStep(GuideQuestStep step) {
-    final actionId = step.actionId ?? step.title;
-    switch (step.actionId) {
-      case GuideQuestActionId.openExplore:
-        _completeObjective(actionId, step.completionMessage);
-        break;
-      case GuideQuestActionId.selectIntramuros:
-        GuideModeDemoState.selectIntramuros();
-        setState(() {
-          _destinationPreviewVisible = true;
-        });
-        _completeObjective(actionId, step.completionMessage);
-        break;
-      default:
-        _completeObjective(actionId, step.completionMessage);
-    }
   }
 
   Future<void> _handleGuideAction(String actionId) async {
@@ -383,7 +443,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         });
         _completeObjective(actionId, step.completionMessage);
         break;
-      case GuideQuestActionId.openPlans:
+      case GuideQuestActionId.reviewSamplePlan:
         widget.onStepChanged?.call(10);
         _completeObjective(actionId, step.completionMessage);
         break;
@@ -458,8 +518,34 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
 
   void _completeIfExpected(String actionId, String message) {
     final expected = _steps[_index].actionId;
-    if (expected != actionId || _guideCardExpanded) return;
+    if (expected != actionId) {
+      final actionIndex =
+          _steps.indexWhere((step) => step.actionId == actionId);
+      if (actionIndex > _index) {
+        debugPrint(
+          'Guide Mode: received ahead action $actionId while expecting '
+          '$expected; advancing to keep real app interaction in sync.',
+        );
+        _completeAheadAction(actionIndex, actionId, message);
+      }
+      return;
+    }
     _completeObjective(actionId, message);
+  }
+
+  void _completeAheadAction(int actionIndex, String actionId, String message) {
+    if (!mounted || _completedActions.contains(actionId)) return;
+    final nextIndex = (actionIndex + 1).clamp(0, _steps.length - 1);
+    _transitionToken++;
+    setState(() {
+      _completedActions.add(actionId);
+      _index = nextIndex;
+      _showObjectiveComplete = false;
+      _statusMessage = message;
+      _guideCardExpanded = true;
+      _syncSceneForIndex();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _notifyStepChanged());
   }
 
   void _completeObjective(String actionId, String message) {
@@ -546,7 +632,10 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         child: Stack(
           key: ValueKey(_currentScene),
           children: [
-            if (!_guideCardExpanded && stage != null) stage(context),
+            if (!_guideCardExpanded &&
+                stage != null &&
+                _showGuideOwnedStage(step))
+              stage(context),
             GuideQuestOverlay(
               step: step,
               stepIndex: _index,
@@ -593,6 +682,13 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       GuideQuestActionId.selectCommuterType => _buildCommuterTypeActionStage,
       _ => null,
     };
+  }
+
+  bool _showGuideOwnedStage(GuideQuestStep step) {
+    // Practice Trip uses real app screens for the walkthrough. These legacy
+    // stages stay wired for safe fallback references but are not rendered as
+    // floating fake app panels.
+    return false;
   }
 
   Widget _buildStageShell({

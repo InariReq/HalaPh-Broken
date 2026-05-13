@@ -7,14 +7,17 @@ import 'package:halaph/screens/route_options_screen.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/guide_mode_demo_state.dart';
+import 'package:halaph/services/guide_presenter_controller.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
 
 class FavoritesScreen extends StatefulWidget {
   final bool guideModeDemo;
+  final GuidePresenterController? guidePresenterController;
 
   const FavoritesScreen({
     super.key,
     this.guideModeDemo = false,
+    this.guidePresenterController,
   });
 
   @override
@@ -268,11 +271,123 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                                 );
                               },
                               onRemove: () => _removeFavorite(destination.id),
+                              onGuideAddToPlan: widget.guideModeDemo
+                                  ? () => _showGuideCreatePlanSheet()
+                                  : null,
                             ),
                           );
                         },
                       ),
               ),
+      ),
+    );
+  }
+
+  Future<void> _showGuideCreatePlanSheet() async {
+    GuideModeDemoState.startCreatePlan();
+    widget.guidePresenterController?.signal(
+      GuidePresenterSignal.addToPlanStarted,
+    );
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        final today = DateTime.now();
+        final dateLabel = '${today.month}/${today.day}/${today.year}';
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.add_task_rounded,
+                        color: Color(0xFF1976D2)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Create Practice Trip',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _GuidePlanField(
+                    label: 'Title', value: 'Intramuros Practice Trip'),
+                _GuidePlanField(label: 'Date', value: 'Today, $dateLabel'),
+                const _GuidePlanField(
+                    label: 'Destination', value: 'Intramuros'),
+                const _GuidePlanField(
+                  label: 'Reminder preview',
+                  value: 'Leave for Stop 1 in 1 hour',
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      GuideModeDemoState.addSamplePlan();
+                      widget.guidePresenterController?.signal(
+                        GuidePresenterSignal.samplePlanCreated,
+                      );
+                      Navigator.of(context).pop();
+                    },
+                    icon: const Icon(Icons.check_rounded),
+                    label: const Text('Create Plan'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GuidePlanField extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _GuidePlanField({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -394,6 +509,7 @@ class _FavoriteCard extends StatelessWidget {
   final VoidCallback onOpen;
   final VoidCallback onRoutes;
   final Future<bool> Function() onRemove;
+  final VoidCallback? onGuideAddToPlan;
 
   const _FavoriteCard({
     required this.destination,
@@ -402,6 +518,7 @@ class _FavoriteCard extends StatelessWidget {
     required this.onOpen,
     required this.onRoutes,
     required this.onRemove,
+    this.onGuideAddToPlan,
   });
 
   @override
@@ -475,10 +592,16 @@ class _FavoriteCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: Icon(Icons.directions_rounded),
+                      icon: Icon(
+                        isDemo
+                            ? Icons.playlist_add_rounded
+                            : Icons.directions_rounded,
+                      ),
                       color: _FavoritesScreenState._primaryDark,
-                      tooltip: 'View routes',
-                      onPressed: isBusy || isDemo ? null : onRoutes,
+                      tooltip: isDemo ? 'Add to plan' : 'View routes',
+                      onPressed: isBusy
+                          ? null
+                          : (isDemo ? onGuideAddToPlan : onRoutes),
                     ),
                     IconButton(
                       icon: Icon(Icons.favorite_rounded),

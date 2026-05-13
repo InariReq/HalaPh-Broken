@@ -3,6 +3,8 @@ import 'package:halaph/models/destination.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/models/friend.dart';
 import 'package:halaph/services/friend_service.dart';
+import 'package:halaph/services/guide_mode_demo_state.dart';
+import 'package:halaph/services/guide_presenter_controller.dart';
 import 'package:halaph/utils/navigation_utils.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
 
@@ -10,12 +12,14 @@ class FriendsScreen extends StatefulWidget {
   final bool selectionMode;
   final List<String> initialSelectedCodes;
   final bool guideModeDemo;
+  final GuidePresenterController? guidePresenterController;
 
   const FriendsScreen({
     super.key,
     this.selectionMode = false,
     this.initialSelectedCodes = const [],
     this.guideModeDemo = false,
+    this.guidePresenterController,
   });
 
   @override
@@ -163,6 +167,11 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     padding: const EdgeInsets.all(20),
                     child: _buildProfileCodeSection(),
                   ),
+                  if (widget.guideModeDemo)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                      child: _buildGuideCollaborationPreview(),
+                    ),
                   _buildFriendsTabs(),
                   const SizedBox(height: 16),
                   Expanded(
@@ -196,6 +205,69 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   ),
                 ],
               ),
+      ),
+    );
+  }
+
+  Widget _buildGuideCollaborationPreview() {
+    final collaborators = GuideModeDemoState.selectedCollaborators;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Theme.of(context)
+              .colorScheme
+              .outlineVariant
+              .withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.route_rounded, color: Color(0xFF1976D2)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Intramuros Practice Trip collaboration',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            collaborators.isEmpty
+                ? 'Demo friends can coordinate the same itinerary and choose their own starting points.'
+                : '${collaborators.join(', ')} can coordinate routes and schedules for the same trip.',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () {
+                GuideModeDemoState.showCollaborationPreview();
+                widget.guidePresenterController?.signal(
+                  GuidePresenterSignal.collaborationPreviewSeen,
+                );
+              },
+              icon: const Icon(Icons.check_rounded),
+              label: const Text('Continue'),
+            ),
+          ),
+        ],
       ),
     );
   }

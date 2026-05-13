@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/services/budget_routing_service.dart';
 import 'package:halaph/services/google_maps_service.dart';
+import 'package:halaph/services/guide_mode_demo_state.dart';
+import 'package:halaph/services/guide_presenter_controller.dart';
 import 'package:halaph/models/verified_route.dart';
 import 'package:halaph/services/verified_route_service.dart';
 import 'package:halaph/utils/map_utils.dart';
@@ -18,6 +20,8 @@ class RouteMapScreen extends StatefulWidget {
   final double fare;
   final List<String> fareBreakdown;
   final HistoricalRouteMatch? historicalMatch;
+  final bool guideModeDemo;
+  final GuidePresenterController? guidePresenterController;
 
   const RouteMapScreen({
     super.key,
@@ -31,6 +35,8 @@ class RouteMapScreen extends StatefulWidget {
     required this.fare,
     this.fareBreakdown = const [],
     this.historicalMatch,
+    this.guideModeDemo = false,
+    this.guidePresenterController,
   });
 
   @override
@@ -49,6 +55,7 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   List<LatLng> _walkingRoutePoints = [];
   bool _loadingWalkingRoute = false;
   VerifiedRouteReference? _historicalRouteReference;
+  bool _guideFareVisible = false;
 
   @override
   void initState() {
@@ -56,6 +63,9 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     _polyline = widget.polyline;
     _routePoints =
         _polyline.isNotEmpty ? MapUtils.decodePolyline(_polyline) : [];
+    if (widget.guideModeDemo) {
+      return;
+    }
     _setupMap();
     _loadHistoricalRouteReference();
   }
@@ -616,8 +626,124 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     return _FareBreakdownParts(label.isEmpty ? line : label, amount);
   }
 
+  Widget _buildGuideModeRouteGuide() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final effectiveSteps = _effectiveRouteSteps();
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Practice Trip Route Guide'),
+        backgroundColor: _getModeColor(),
+        foregroundColor: Colors.white,
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: const Text(
+              'Guide Mode Demo',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.32),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Walk -> Jeepney -> Train -> Walk',
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Review where to walk, board, transfer, and alight before checking the fare.',
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          ...effectiveSteps.asMap().entries.map(
+                (entry) => _buildRouteStepCard(
+                  step: entry.value,
+                  stepIndex: entry.key,
+                  totalSteps: effectiveSteps.length,
+                  effectiveSteps: effectiveSteps,
+                ),
+              ),
+          const SizedBox(height: 12),
+          if (_guideFareVisible)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainer,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.32),
+                ),
+              ),
+              child: _buildFareBreakdownSummary(),
+            ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _guideFareVisible
+                ? () {
+                    GuideModeDemoState.saveIntramurosFavorite();
+                    widget.guidePresenterController?.signal(
+                      GuidePresenterSignal.destinationSaved,
+                    );
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }
+                : () {
+                    setState(() => _guideFareVisible = true);
+                    GuideModeDemoState.viewFareBreakdown();
+                    widget.guidePresenterController?.signal(
+                      GuidePresenterSignal.fareBreakdownOpened,
+                    );
+                  },
+            icon: Icon(
+              _guideFareVisible
+                  ? Icons.favorite_rounded
+                  : Icons.payments_rounded,
+            ),
+            label: Text(
+              _guideFareVisible
+                  ? 'Save Destination'
+                  : 'Continue to Fare Breakdown',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.guideModeDemo) {
+      return _buildGuideModeRouteGuide();
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.modeName} Route'),

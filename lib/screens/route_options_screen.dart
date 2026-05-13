@@ -9,6 +9,9 @@ import 'package:halaph/services/fare_service.dart';
 import 'package:halaph/models/verified_route.dart';
 import 'package:halaph/services/verified_route_service.dart';
 import 'package:halaph/services/commuter_type_service.dart';
+import 'package:halaph/services/guide_mode_demo_data.dart';
+import 'package:halaph/services/guide_mode_demo_state.dart';
+import 'package:halaph/services/guide_presenter_controller.dart';
 import 'package:halaph/screens/route_map_screen.dart';
 import 'package:halaph/widgets/transport_mode_widgets.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
@@ -23,6 +26,8 @@ class RouteOptionsScreen extends StatefulWidget {
   final String destinationName;
   final String? source;
   final Destination? destination;
+  final bool guideModeDemo;
+  final GuidePresenterController? guidePresenterController;
 
   const RouteOptionsScreen({
     super.key,
@@ -30,6 +35,8 @@ class RouteOptionsScreen extends StatefulWidget {
     required this.destinationName,
     this.source,
     this.destination,
+    this.guideModeDemo = false,
+    this.guidePresenterController,
   });
 
   @override
@@ -54,12 +61,104 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
 
   Future<void> _loadSavedPassengerTypeAndFares() async {
     final requestId = ++_loadRequestId;
+    if (widget.guideModeDemo) {
+      _loadGuideModeFares(requestId);
+      return;
+    }
     final savedType = await CommuterTypeService().loadCommuterType();
     if (!_isActiveLoad(requestId, '_loadSavedPassengerTypeAndFares')) return;
     setState(() {
       _passengerType = savedType;
     });
     await _loadFares(requestId: requestId);
+  }
+
+  void _loadGuideModeFares(int requestId) {
+    if (!_isActiveLoad(requestId, '_loadGuideModeFares start')) return;
+    debugPrint('RouteOptionsScreen: using Guide Mode local route options');
+    final destination =
+        widget.destination?.coordinates ?? const LatLng(14.5896, 120.9747);
+    final origin = const LatLng(14.5995, 120.9842);
+    final fares = GuideModeDemoData.routeOptions
+        .map(_transportFareFromGuideRoute)
+        .toList(growable: false);
+    setState(() {
+      _origin = origin;
+      _destination = destination;
+      _fares = fares;
+      _directionSteps.clear();
+      _isLoading = false;
+      _errorMessage = null;
+      _passengerType = PassengerType.regular;
+    });
+  }
+
+  _TransportFare _transportFareFromGuideRoute(
+    GuideModeDemoRouteOption route,
+  ) {
+    final fare = _parsePesoAmount(route.fare);
+    final duration = Duration(minutes: _parseMinutes(route.time));
+    final primaryMode = route.modes.contains(TravelMode.train)
+        ? TravelMode.train
+        : route.modes.contains(TravelMode.jeepney)
+            ? TravelMode.jeepney
+            : route.modes.first;
+    return _TransportFare(
+      mode: primaryMode,
+      modeName: route.title,
+      icon: iconForTravelMode(primaryMode),
+      modeSequence: route.modes,
+      fare: fare,
+      baseFare: fare,
+      distance: route.recommended ? 6.2 : 1.4,
+      duration: duration,
+      steps: route.recommended ? _guideRouteStepsAsMaps() : const [],
+      polyline: '',
+      fareBreakdown: GuideModeDemoData.fareBreakdown
+          .map((line) => '${line.label}: ${line.amount}')
+          .toList(growable: false),
+      historicalMatch: null,
+      confidenceLabel: route.recommended ? 'Recommended' : route.source,
+      confidenceDetail: route.reason,
+      isVerifiedTransit: false,
+      routeScore: route.recommended ? -1 : routeOptionsIndex(route),
+      guideRecommended: route.recommended,
+    );
+  }
+
+  double _parsePesoAmount(String value) {
+    final match = RegExp(r'\d+(?:\.\d+)?').firstMatch(value);
+    return match == null ? 0 : double.tryParse(match.group(0)!) ?? 0;
+  }
+
+  int _parseMinutes(String value) {
+    final match = RegExp(r'\d+').firstMatch(value);
+    return match == null ? 0 : int.tryParse(match.group(0)!) ?? 0;
+  }
+
+  double routeOptionsIndex(GuideModeDemoRouteOption route) {
+    return GuideModeDemoData.routeOptions.indexOf(route).toDouble();
+  }
+
+  List<Map<String, dynamic>> _guideRouteStepsAsMaps() {
+    return GuideModeDemoData.routeGuideSteps
+        .map(
+          (step) => <String, dynamic>{
+            'travel_mode': step.mode.name.toUpperCase(),
+            'mode': step.mode.name,
+            'instruction': step.instruction,
+            'html_instructions': step.instruction,
+            'distance': {
+              'text': step.mode == TravelMode.walking ? '250 m' : ''
+            },
+            'duration': {
+              'text': step.mode == TravelMode.walking ? '4 min' : ''
+            },
+            'fare': step.fare,
+            'transfer_hint': step.transferHint,
+          },
+        )
+        .toList(growable: false);
   }
 
   Future<void> _loadFares({int? requestId}) async {
@@ -538,6 +637,31 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     return Column(
       children: [
         _buildAnimatedRouteHeader(),
+        if (widget.guideModeDemo)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1976D2).withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFF1976D2).withValues(alpha: 0.28),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.flag_rounded, color: Color(0xFF1976D2)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Practice Trip: choose the Recommended Jeepney + Train route.',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+          ),
         if (!mapsConfigured)
           Container(
             width: double.infinity,
@@ -599,7 +723,8 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
             itemCount: _fares.length,
             itemBuilder: (context, index) {
               final fare = _fares[index];
-              final isBestOption = index == 0;
+              final isBestOption =
+                  widget.guideModeDemo ? fare.guideRecommended : index == 0;
               return _buildFareCard(fare, isBestOption, index);
             },
           ),
@@ -740,6 +865,21 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
 
     void openRouteMap() {
       if (_origin != null && _destination != null) {
+        if (widget.guideModeDemo && !fare.guideRecommended) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+                  Text('For the Practice Trip, pick the Recommended route.'),
+            ),
+          );
+          return;
+        }
+        if (widget.guideModeDemo) {
+          GuideModeDemoState.selectRecommendedRoute();
+          widget.guidePresenterController?.signal(
+            GuidePresenterSignal.routeSelected,
+          );
+        }
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -754,6 +894,8 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
               fare: fare.fare,
               fareBreakdown: fare.fareBreakdown,
               historicalMatch: fare.historicalMatch,
+              guideModeDemo: widget.guideModeDemo,
+              guidePresenterController: widget.guidePresenterController,
             ),
           ),
         );
@@ -869,7 +1011,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
                                 ),
                               ),
                               child: Text(
-                                'BEST OPTION',
+                                widget.guideModeDemo
+                                    ? 'RECOMMENDED'
+                                    : 'BEST OPTION',
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: Theme.of(context).brightness ==
@@ -2230,6 +2374,7 @@ class _TransportFare {
   final String confidenceDetail;
   final bool isVerifiedTransit;
   final double routeScore;
+  final bool guideRecommended;
 
   _TransportFare({
     required this.mode,
@@ -2248,6 +2393,7 @@ class _TransportFare {
     required this.confidenceDetail,
     required this.isVerifiedTransit,
     required this.routeScore,
+    this.guideRecommended = false,
   });
 
   _TransportFare copy() {
@@ -2268,6 +2414,7 @@ class _TransportFare {
       confidenceDetail: confidenceDetail,
       isVerifiedTransit: isVerifiedTransit,
       routeScore: routeScore,
+      guideRecommended: guideRecommended,
     );
   }
 }

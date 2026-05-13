@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/guide_mode_demo_data.dart';
 import 'package:halaph/services/guide_mode_demo_state.dart';
+import 'package:halaph/services/guide_presenter_controller.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:halaph/models/destination.dart';
@@ -13,10 +14,12 @@ import 'package:halaph/widgets/motion_widgets.dart';
 
 class MyPlansScreen extends StatefulWidget {
   final bool guideModeDemo;
+  final GuidePresenterController? guidePresenterController;
 
   const MyPlansScreen({
     super.key,
     this.guideModeDemo = false,
+    this.guidePresenterController,
   });
 
   @override
@@ -417,7 +420,12 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       ),
       child: InkWell(
         onTap: () {
-          if (widget.guideModeDemo) return;
+          if (widget.guideModeDemo) {
+            widget.guidePresenterController?.signal(
+              GuidePresenterSignal.samplePlanReviewed,
+            );
+            return;
+          }
           final planId = plan.id.trim();
           if (planId.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -520,6 +528,10 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
                     ),
                     if (firstDestination != null)
                       _buildPlanDestinationShortcut(firstDestination),
+                    if (widget.guideModeDemo) ...[
+                      const SizedBox(height: 10),
+                      _buildGuidePlanPreview(),
+                    ],
                   ],
                 ),
               ),
@@ -576,6 +588,148 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildGuidePlanPreview() {
+    final collaborators = GuideModeDemoState.selectedCollaborators;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            _buildPlanMetaChip(
+              icon: Icons.today_rounded,
+              label: 'Today',
+              color: const Color(0xFF1976D2),
+            ),
+            _buildPlanMetaChip(
+              icon: Icons.notifications_active_rounded,
+              label: 'Reminder preview',
+              color: const Color(0xFF7B1FA2),
+            ),
+            _buildPlanMetaChip(
+              icon: Icons.groups_rounded,
+              label: collaborators.isEmpty
+                  ? 'Add collaborators'
+                  : '${collaborators.length} collaborator${collaborators.length == 1 ? '' : 's'}',
+              color: const Color(0xFF00897B),
+            ),
+          ],
+        ),
+        if (collaborators.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: collaborators
+                .map(
+                  (name) => Chip(
+                    visualDensity: VisualDensity.compact,
+                    avatar: CircleAvatar(child: Text(name[0])),
+                    label: Text(name),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ],
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _showGuideCollaboratorSheet,
+            icon: const Icon(Icons.group_add_rounded),
+            label: Text(
+              collaborators.isEmpty
+                  ? 'Add Collaborators'
+                  : 'Edit Collaborators',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showGuideCollaboratorSheet() async {
+    GuideModeDemoState.openCollaborators();
+    widget.guidePresenterController?.signal(
+      GuidePresenterSignal.collaboratorsOpened,
+    );
+    final selected = Set<String>.of(GuideModeDemoState.selectedCollaborators);
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Add Demo Collaborators',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choose friends for the Practice Trip. This does not send requests.',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    for (final name
+                        in GuideModeDemoData.collaboration.participants)
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(name),
+                        value: selected.contains(name),
+                        onChanged: (value) {
+                          setSheetState(() {
+                            if (value == true) {
+                              selected.add(name);
+                            } else {
+                              selected.remove(name);
+                            }
+                          });
+                        },
+                      ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: selected.isEmpty
+                            ? null
+                            : () {
+                                GuideModeDemoState.setSelectedCollaborators(
+                                  selected.toList(growable: false),
+                                );
+                                widget.guidePresenterController?.signal(
+                                  GuidePresenterSignal.collaboratorsConfirmed,
+                                );
+                                Navigator.of(context).pop();
+                              },
+                        icon: const Icon(Icons.check_rounded),
+                        label: const Text('Confirm Collaborators'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

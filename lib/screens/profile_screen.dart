@@ -9,6 +9,8 @@ import 'package:halaph/services/auth_service.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/commuter_type_service.dart';
 import 'package:halaph/services/fare_service.dart';
+import 'package:halaph/services/guide_mode_demo_state.dart';
+import 'package:halaph/services/guide_presenter_controller.dart';
 import 'package:halaph/models/user.dart';
 import 'package:halaph/models/destination.dart';
 
@@ -52,6 +54,8 @@ class ProfileScreen extends StatefulWidget {
   final VoidCallback? onTripHistoryTap;
   final VoidCallback? onViewAllFavoritesTap;
   final VoidCallback? onLogout;
+  final bool guideModeDemo;
+  final GuidePresenterController? guidePresenterController;
 
   const ProfileScreen({
     super.key,
@@ -61,6 +65,8 @@ class ProfileScreen extends StatefulWidget {
     this.onTripHistoryTap,
     this.onViewAllFavoritesTap,
     this.onLogout,
+    this.guideModeDemo = false,
+    this.guidePresenterController,
   });
 
   @override
@@ -80,6 +86,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.guideModeDemo) {
+      _commuterType = PassengerType.regular;
+      _myCode = 'GUIDE-JIA';
+      return;
+    }
     _loadUser();
     _loadCommuterType();
     _authSubscription =
@@ -97,6 +108,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadCommuterType() async {
+    if (widget.guideModeDemo) return;
     final commuterType =
         await _commuterTypeService.loadCommuterType(forceRefresh: true);
     if (!mounted) return;
@@ -107,6 +119,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _updateCommuterType(PassengerType type) async {
     final normalized = CommuterTypeService.normalize(type);
+    if (widget.guideModeDemo) {
+      setState(() => _commuterType = normalized);
+      GuideModeDemoState.selectCommuterType(
+        CommuterTypeService.labelFor(normalized),
+      );
+      widget.guidePresenterController?.signal(
+        GuidePresenterSignal.commuterTypeSelected,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Guide Mode commuter type set to ${CommuterTypeService.labelFor(normalized)}.',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     setState(() {
       _commuterType = normalized;
       _isSavingCommuterType = true;
@@ -131,6 +161,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadUser() async {
+    if (widget.guideModeDemo) return;
     try {
       final results = await Future.wait<dynamic>([
         _auth.getCurrentUser(),
@@ -245,7 +276,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Stack(
             children: [
               GestureDetector(
-                onTap: _pickAndUploadProfilePicture,
+                onTap:
+                    widget.guideModeDemo ? null : _pickAndUploadProfilePicture,
                 child: CircleAvatar(
                   radius: 52,
                   backgroundColor:
@@ -266,7 +298,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 bottom: 0,
                 right: 0,
                 child: GestureDetector(
-                  onTap: _pickAndUploadProfilePicture,
+                  onTap: widget.guideModeDemo
+                      ? null
+                      : _pickAndUploadProfilePicture,
                   child: Container(
                     width: 28,
                     height: 28,
@@ -498,6 +532,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: () async {
+          if (widget.guideModeDemo) return;
           final router = GoRouter.of(context);
           final shouldLogout = await showDialog<bool>(
             context: context,
@@ -552,9 +587,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: () {
-          GoRouter.of(context).push('/accounts');
-        },
+        onPressed: widget.guideModeDemo
+            ? null
+            : () {
+                GoRouter.of(context).push('/accounts');
+              },
         icon: Icon(Icons.account_circle),
         label: Text('Accounts'),
         style: ElevatedButton.styleFrom(
@@ -570,6 +607,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _pickAndUploadProfilePicture() async {
+    if (widget.guideModeDemo) return;
     if (_isUploadingProfilePicture) return;
 
     setState(() => _isUploadingProfilePicture = true);

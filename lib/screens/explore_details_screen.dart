@@ -6,6 +6,8 @@ import 'package:halaph/models/plan.dart';
 import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
+import 'package:halaph/services/guide_mode_demo_state.dart';
+import 'package:halaph/services/guide_presenter_controller.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/screens/route_options_screen.dart';
 import 'package:halaph/utils/navigation_utils.dart';
@@ -16,12 +18,16 @@ class ExploreDetailsScreen extends StatefulWidget {
   final String destinationId;
   final String? source;
   final Destination? destination;
+  final bool guideModeDemo;
+  final GuidePresenterController? guidePresenterController;
 
   const ExploreDetailsScreen({
     super.key,
     required this.destinationId,
     this.source,
     this.destination,
+    this.guideModeDemo = false,
+    this.guidePresenterController,
   });
 
   @override
@@ -32,6 +38,8 @@ class ExploreDetailsScreen extends StatefulWidget {
     required String destinationId,
     String? source,
     Destination? destination,
+    bool guideModeDemo = false,
+    GuidePresenterController? guidePresenterController,
   }) {
     showModalBottomSheet(
       context: context,
@@ -43,6 +51,8 @@ class ExploreDetailsScreen extends StatefulWidget {
           destinationId: destinationId,
           source: source,
           destination: destination,
+          guideModeDemo: guideModeDemo,
+          guidePresenterController: guidePresenterController,
         ),
       ),
     );
@@ -60,12 +70,20 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.guideModeDemo) {
+      GuideModeDemoState.openDestinationDetails();
+      widget.guidePresenterController?.signal(
+        GuidePresenterSignal.destinationDetailsOpened,
+      );
+    }
     _loadDestination();
-    _subscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
-      if (_destination != null) {
-        _checkFavoriteStatus();
-      }
-    });
+    if (!widget.guideModeDemo) {
+      _subscription = FavoritesNotifier().onFavoritesChanged.listen((_) {
+        if (_destination != null) {
+          _checkFavoriteStatus();
+        }
+      });
+    }
   }
 
   @override
@@ -122,8 +140,9 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
 
       // Destination no longer fetched by ID - use existing data
 
-      final isFav =
-          found != null ? await _favoritesService.isFavorite(found.id) : false;
+      final isFav = found != null && !widget.guideModeDemo
+          ? await _favoritesService.isFavorite(found.id)
+          : false;
 
       if (mounted) {
         setState(() {
@@ -144,6 +163,7 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   }
 
   Future<void> _toggleFavorite() async {
+    if (widget.guideModeDemo) return;
     if (_destination == null || _favoriteBusy) return;
     final wasFavorite = _isFavorite;
     setState(() {
@@ -340,6 +360,13 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                       order: 0,
                       child: _buildHeroImageWithOverlay(),
                     ),
+                    if (widget.guideModeDemo) ...[
+                      const SizedBox(height: 12),
+                      _buildDetailsEntrance(
+                        order: 1,
+                        child: _buildGuideModeObjectiveCard(),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     _buildDetailsEntrance(
                       order: 1,
@@ -365,6 +392,35 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildGuideModeObjectiveCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1976D2).withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF1976D2).withValues(alpha: 0.28),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.flag_rounded, color: Color(0xFF1976D2)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Practice Trip: review Intramuros, then tap View Routes.',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -820,6 +876,12 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
         onPressed: _destination == null
             ? null
             : () {
+                if (widget.guideModeDemo) {
+                  GuideModeDemoState.viewRoutes();
+                  widget.guidePresenterController?.signal(
+                    GuidePresenterSignal.viewRoutesTapped,
+                  );
+                }
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -828,6 +890,8 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                       destinationName: _destination?.name ?? 'Destination',
                       destination: _destination,
                       source: widget.source,
+                      guideModeDemo: widget.guideModeDemo,
+                      guidePresenterController: widget.guidePresenterController,
                     ),
                   ),
                 );

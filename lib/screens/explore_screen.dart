@@ -8,6 +8,7 @@ import 'package:halaph/services/destination_service.dart';
 import 'package:halaph/services/favorites_service.dart';
 import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/guide_mode_demo_data.dart';
+import 'package:halaph/services/guide_presenter_controller.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -15,11 +16,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 class ExploreScreen extends StatefulWidget {
   final bool guideModeDemo;
   final ValueChanged<Destination>? onGuideDestinationSelected;
+  final GuidePresenterController? guidePresenterController;
 
   const ExploreScreen({
     super.key,
     this.guideModeDemo = false,
     this.onGuideDestinationSelected,
+    this.guidePresenterController,
   });
 
   @override
@@ -1196,6 +1199,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
                       onTap: () {
                         if (widget.guideModeDemo) {
                           widget.onGuideDestinationSelected?.call(destination);
+                          ExploreDetailsScreen.showAsBottomSheet(
+                            context,
+                            destinationId: destination.id,
+                            source: 'guide_mode',
+                            destination: destination,
+                            guideModeDemo: true,
+                            guidePresenterController:
+                                widget.guidePresenterController,
+                          );
                           return;
                         }
                         ExploreDetailsScreen.showAsBottomSheet(

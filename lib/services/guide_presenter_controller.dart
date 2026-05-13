@@ -24,10 +24,22 @@ enum GuidePresenterScene {
 enum GuidePresenterSignal {
   openExplore,
   selectIntramuros,
+  destinationDetailsOpened,
+  viewRoutesTapped,
+  routeSelected,
+  fareBreakdownOpened,
+  destinationSaved,
   openFavorites,
+  addToPlanStarted,
+  samplePlanCreated,
+  collaboratorsOpened,
+  collaboratorsConfirmed,
+  samplePlanReviewed,
   openPlans,
+  collaborationPreviewSeen,
   openFriends,
   openSettings,
+  commuterTypeSelected,
 }
 
 class GuidePresenterController extends ChangeNotifier {

@@ -578,20 +578,18 @@ class _MainNavigationState extends State<MainNavigation> {
   void _onGuideStepChanged(int stepIndex) {
     final targetIndex = switch (stepIndex) {
       0 => 0,
-      1 => 0,
+      1 => 1,
       2 => 1,
       3 => 1,
       4 => 1,
       5 => 1,
-      6 => 1,
-      7 => 1,
-      8 => 3,
-      9 => 3,
-      10 => 2,
-      11 => 4,
+      6 => 3,
+      7 => 3,
+      8 => 2,
+      9 => 2,
+      10 => 4,
+      11 => 5,
       12 => 5,
-      13 => 5,
-      14 => 5,
       _ => _currentIndex,
     };
     if (targetIndex == _currentIndex) return;
@@ -624,14 +622,32 @@ class _MainNavigationState extends State<MainNavigation> {
               HomeScreen(guideModeDemo: widget.showGuideMode),
               ExploreScreen(
                 guideModeDemo: widget.showGuideMode,
+                guidePresenterController:
+                    widget.showGuideMode ? _guidePresenterController : null,
                 onGuideDestinationSelected: widget.showGuideMode
                     ? _guidePresenterController.selectDestination
                     : null,
               ),
-              MyPlansScreen(guideModeDemo: widget.showGuideMode),
-              FavoritesScreen(guideModeDemo: widget.showGuideMode),
-              FriendsScreen(guideModeDemo: widget.showGuideMode),
-              const ProfileScreen(),
+              MyPlansScreen(
+                guideModeDemo: widget.showGuideMode,
+                guidePresenterController:
+                    widget.showGuideMode ? _guidePresenterController : null,
+              ),
+              FavoritesScreen(
+                guideModeDemo: widget.showGuideMode,
+                guidePresenterController:
+                    widget.showGuideMode ? _guidePresenterController : null,
+              ),
+              FriendsScreen(
+                guideModeDemo: widget.showGuideMode,
+                guidePresenterController:
+                    widget.showGuideMode ? _guidePresenterController : null,
+              ),
+              ProfileScreen(
+                guideModeDemo: widget.showGuideMode,
+                guidePresenterController:
+                    widget.showGuideMode ? _guidePresenterController : null,
+              ),
             ],
           ),
           bottomNavigationBar: Container(
