@@ -9,9 +9,11 @@ import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/friend_service.dart';
 import 'package:halaph/services/guide_mode_demo_data.dart';
 import 'package:halaph/models/app_public_config.dart';
+import 'package:halaph/models/sponsored_ad.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/services/app_public_config_service.dart';
+import 'package:halaph/services/user_ads_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -72,11 +74,13 @@ class _HomeScreenState extends State<HomeScreen> {
   static bool _announcementDismissedThisSession = false;
 
   List<Destination> _trendingDestinations = [];
+  List<SponsoredAd> _homeSponsoredAds = const [];
   bool _isLoading = false;
   bool _isTrendingLoadInProgress = false;
   final Set<String> _favoriteIds = {};
   final Set<String> _favoriteBusyIds = {};
   final AppPublicConfigService _publicConfigService = AppPublicConfigService();
+  final UserAdsService _adsService = UserAdsService();
   final FavoritesService _favoritesService = FavoritesService();
   final FriendService _friendService = FriendService();
   StreamSubscription? _favoritesSubscription;
@@ -93,6 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     unawaited(_loadPublicConfig());
+    unawaited(_loadHomeSponsoredAds());
     _initializeLocationAndTrending();
     _loadFavorites();
     _loadUpcomingPlan();
@@ -135,6 +140,42 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _publicConfig = config;
     });
+  }
+
+  Future<void> _loadHomeSponsoredAds() async {
+    if (widget.guideModeDemo) return;
+
+    try {
+      final config = await _publicConfigService.loadPublicConfig();
+
+      if (!mounted || widget.guideModeDemo) return;
+
+      if (!config.adsEnabled ||
+          !config.sponsoredCardsEnabled ||
+          config.maxAdsPerScreen < 1) {
+        setState(() {
+          _publicConfig = config;
+          _homeSponsoredAds = const [];
+        });
+        return;
+      }
+
+      final ads = await _adsService.loadSponsoredCards();
+
+      if (!mounted || widget.guideModeDemo) return;
+
+      setState(() {
+        _publicConfig = config;
+        _homeSponsoredAds =
+            ads.isEmpty ? const [] : ads.take(1).toList(growable: false);
+      });
+    } catch (error) {
+      debugPrint('Home sponsored ads unavailable: $error');
+      if (!mounted || widget.guideModeDemo) return;
+      setState(() {
+        _homeSponsoredAds = const [];
+      });
+    }
   }
 
   void _applyGuideModeDemo() {
@@ -365,6 +406,13 @@ class _HomeScreenState extends State<HomeScreen> {
             SliverToBoxAdapter(
               child: _buildHomeEntrance(
                 order: 3,
+                child: _buildHomeSponsoredAdSection(context),
+              ),
+            ),
+            SliverToBoxAdapter(child: _buildHomeSponsoredAdSpacing()),
+            SliverToBoxAdapter(
+              child: _buildHomeEntrance(
+                order: 4,
                 child: _buildTrendingSection(context),
               ),
             ),
@@ -479,6 +527,169 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHomeSponsoredAdSpacing() {
+    if (!_shouldShowHomeSponsoredAd) return const SizedBox.shrink();
+    return const SizedBox(height: 6);
+  }
+
+  bool get _shouldShowHomeSponsoredAd {
+    if (widget.guideModeDemo) return false;
+    if (!_publicConfig.adsEnabled || !_publicConfig.sponsoredCardsEnabled) {
+      return false;
+    }
+    if (_publicConfig.maxAdsPerScreen < 1 || _homeSponsoredAds.isEmpty) {
+      return false;
+    }
+    return true;
+  }
+
+  Widget _buildHomeSponsoredAdSection(BuildContext context) {
+    if (!_shouldShowHomeSponsoredAd) return const SizedBox.shrink();
+    return _buildHomeSponsoredCard(context, _homeSponsoredAds.first);
+  }
+
+  Widget _buildHomeSponsoredCard(BuildContext context, SponsoredAd ad) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final hasImage = ad.hasHttpImage;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.34),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasImage)
+              SizedBox(
+                height: 150,
+                width: double.infinity,
+                child: CachedNetworkImage(
+                  imageUrl: ad.imageUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(
+                    color: colorScheme.surfaceContainerHighest,
+                    alignment: Alignment.center,
+                    child: CircularProgressIndicator(
+                      color: Colors.blue[600],
+                    ),
+                  ),
+                  errorWidget: (context, url, error) {
+                    return _buildHomeSponsoredFallback();
+                  },
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          'Sponsored',
+                          style: TextStyle(
+                            color: colorScheme.onSecondaryContainer,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          ad.advertiserName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    ad.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      height: 1.18,
+                    ),
+                  ),
+                  if (ad.description.isNotEmpty) ...[
+                    const SizedBox(height: 7),
+                    Text(
+                      ad.description,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                  if (ad.targetUrl.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Learn more',
+                      style: TextStyle(
+                        color: Colors.blue[700],
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeSponsoredFallback() {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.campaign_rounded,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        size: 36,
       ),
     );
   }
