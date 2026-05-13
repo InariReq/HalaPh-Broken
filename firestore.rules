@@ -123,6 +123,11 @@ service cloud.firestore {
       allow create, update, delete: if isContentAdmin();
     }
 
+    match /admin_app_settings/{settingsId} {
+      allow get, list: if isAdminUid(request.auth.uid);
+      allow create, update, delete: if isOwnerAdmin();
+    }
+
     // User document - profile access
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdminUid(request.auth.uid);

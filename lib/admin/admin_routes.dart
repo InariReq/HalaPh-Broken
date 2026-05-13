@@ -55,7 +55,7 @@ class AdminRoutes {
       id: AdminRouteId.appSettings,
       title: 'App Settings',
       icon: Icons.tune_rounded,
-      minimumRole: AdminUserRole.owner,
+      minimumRole: AdminUserRole.admin,
     ),
     AdminRouteConfig(
       id: AdminRouteId.adminUsers,
