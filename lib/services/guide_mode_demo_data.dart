@@ -262,6 +262,17 @@ class GuideModeDemoData {
     finishedLabel: 'Finished today',
   );
 
+  static List<Destination> destinationsForGuideExplore() {
+    final items = destinationsForApp();
+    items.sort((a, b) {
+      final aIsIntramuros = a.name.toLowerCase().contains('intramuros');
+      final bIsIntramuros = b.name.toLowerCase().contains('intramuros');
+      if (aIsIntramuros == bIsIntramuros) return 0;
+      return aIsIntramuros ? -1 : 1;
+    });
+    return items;
+  }
+
   static List<Destination> destinationsForApp() {
     return destinations
         .map(

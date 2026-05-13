@@ -73,12 +73,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   void _applyGuideModeDemo() {
-    final destinations = GuideModeDemoData.destinationsForApp();
+    final destinations = GuideModeDemoData.destinationsForGuideExplore();
     setState(() {
+      _searchController.text = 'Intramuros';
+      _selectedCategory = null;
       _destinations = _filterDemoDestinations(destinations);
-      _favoriteIds
-        ..clear()
-        ..addAll(destinations.take(2).map((destination) => destination.id));
+      _favoriteIds.clear();
       _favoriteBusyIds.clear();
       _isLoading = false;
       _placesUnavailable = false;
@@ -196,7 +196,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         _isLoading = false;
         _placesUnavailable = false;
         _destinations = _filterDemoDestinations(
-          GuideModeDemoData.destinationsForApp(),
+          GuideModeDemoData.destinationsForGuideExplore(),
         );
       });
       if (generation != _searchGeneration) return;
@@ -364,7 +364,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         _isLoading = false;
         _placesUnavailable = false;
         _destinations = _filterDemoDestinations(
-          GuideModeDemoData.destinationsForApp(),
+          GuideModeDemoData.destinationsForGuideExplore(),
         );
       });
       return;
@@ -671,8 +671,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final summary = isSearching
         ? 'Showing up to 5 search results'
         : _selectedCategory == null
-            ? 'Showing 5 nearby trending places, prioritizing food and malls'
-            : 'Showing up to 5 nearby places within 5 km for this category';
+            ? 'Guide Mode demo destinations. Start with Intramuros.'
+            : 'Guide Mode demo destinations for this category';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
