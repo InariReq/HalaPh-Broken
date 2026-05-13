@@ -218,9 +218,9 @@ class _AdminShellState extends State<AdminShell> {
   bool _canAccess(AdminUserRole minimumRole) {
     return switch (minimumRole) {
       AdminUserRole.owner => widget.adminUser.role == AdminUserRole.owner,
-      AdminUserRole.editor => widget.adminUser.role == AdminUserRole.owner ||
-          widget.adminUser.role == AdminUserRole.editor,
-      AdminUserRole.viewer => true,
+      AdminUserRole.headAdmin => widget.adminUser.role == AdminUserRole.owner ||
+          widget.adminUser.role == AdminUserRole.headAdmin,
+      AdminUserRole.admin => true,
     };
   }
 }

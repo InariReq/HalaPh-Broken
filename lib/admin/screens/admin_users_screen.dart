@@ -75,7 +75,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'Owners can add, edit, enable, and disable admin access.',
+                'Owners can add, edit, enable, and disable admin access. Head Admins can manage content. Admins have basic dashboard access.',
               ),
             ],
           ),
@@ -429,7 +429,7 @@ class _AdminUserFormDialogState extends State<_AdminUserFormDialog> {
     _emailController = TextEditingController(text: user?.email ?? '');
     _displayNameController =
         TextEditingController(text: user?.displayName ?? '');
-    _role = user?.role ?? AdminUserRole.viewer;
+    _role = user?.role ?? AdminUserRole.admin;
     _isActive = user?.isActive ?? true;
   }
 

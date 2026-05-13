@@ -19,9 +19,9 @@ class AdminGuard extends StatelessWidget {
   Widget build(BuildContext context) {
     final allowed = switch (minimumRole) {
       AdminUserRole.owner => adminUser.role == AdminUserRole.owner,
-      AdminUserRole.editor => adminUser.role == AdminUserRole.owner ||
-          adminUser.role == AdminUserRole.editor,
-      AdminUserRole.viewer => true,
+      AdminUserRole.headAdmin => adminUser.role == AdminUserRole.owner ||
+          adminUser.role == AdminUserRole.headAdmin,
+      AdminUserRole.admin => true,
     };
     if (allowed) return child;
     return const _LockedAdminState();

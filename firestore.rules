@@ -84,7 +84,7 @@ service cloud.firestore {
       return signedIn()
         && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
         && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.isActive == true
-        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role in ['owner', 'editor', 'viewer'];
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role in ['owner', 'headAdmin', 'admin', 'editor', 'viewer'];
     }
 
     function isOwnerAdmin() {
