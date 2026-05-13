@@ -514,18 +514,6 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     await _close(skipped: true, reason: 'back');
   }
 
-  GlobalKey? _targetKeyFor(GuideQuestStep step) {
-    return switch (step.targetKeyId) {
-      GuideQuestController.homeTarget => widget.targetKeys.homeNavKey,
-      GuideQuestController.exploreTarget => widget.targetKeys.exploreNavKey,
-      GuideQuestController.plansTarget => widget.targetKeys.plansNavKey,
-      GuideQuestController.favoritesTarget => widget.targetKeys.favoritesNavKey,
-      GuideQuestController.friendsTarget => widget.targetKeys.friendsNavKey,
-      GuideQuestController.profileTarget => widget.targetKeys.profileNavKey,
-      _ => null,
-    };
-  }
-
   WidgetBuilder? _demoBuilderFor(GuideQuestDemoCardType type) {
     return switch (type) {
       GuideQuestDemoCardType.destinationCard => _buildDestinationExample,
@@ -565,7 +553,10 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
               step: step,
               stepIndex: _index,
               totalSteps: _steps.length,
-              targetKey: _targetKeyFor(step),
+              // Target-key highlights are disabled for stability.
+              // The old live GlobalKey target tracking caused framework
+              // descendant assertions when Guide Mode moved between screens.
+              targetKey: null,
               demoBuilder: _demoBuilderFor(step.demoCardType),
               expanded: _guideCardExpanded,
               isFirst: _isFirst,
