@@ -23,9 +23,16 @@ class AppPublicConfigService {
     return _document.snapshots().map((snapshot) {
       final config = AppPublicConfig.fromSnapshot(snapshot);
       _cachedConfig = config;
+      _logLoadedConfig(config);
       return config;
     }).handleError((error) {
-      debugPrint('App public config watch failed: $error');
+      if (error is FirebaseException && error.code == 'permission-denied') {
+        debugPrint(
+          'App public config watch permission-denied; using cached/default config.',
+        );
+      } else {
+        debugPrint('App public config watch failed: $error');
+      }
       return const AppPublicConfig.defaults();
     });
   }
@@ -37,6 +44,7 @@ class AppPublicConfigService {
           .timeout(_readTimeout);
       final config = AppPublicConfig.fromSnapshot(snapshot);
       _cachedConfig = config;
+      _logLoadedConfig(config);
       return config;
     } on TimeoutException catch (error) {
       debugPrint('App public config read timed out: $error');
@@ -52,5 +60,16 @@ class AppPublicConfigService {
       debugPrint('App public config read failed: $error');
       return const AppPublicConfig.defaults();
     }
+  }
+
+  void _logLoadedConfig(AppPublicConfig config) {
+    debugPrint(
+      'App public config loaded: '
+      'maintenanceMode=${config.maintenanceMode}, '
+      'adsEnabled=${config.adsEnabled}, '
+      'sponsoredCardsEnabled=${config.sponsoredCardsEnabled}, '
+      'fullscreenAdsEnabled=${config.fullscreenAdsEnabled}, '
+      'featuredPlacesEnabled=${config.featuredPlacesEnabled}',
+    );
   }
 }

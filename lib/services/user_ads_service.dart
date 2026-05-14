@@ -16,13 +16,15 @@ class UserAdsService {
       _firestore.collection(SponsoredAd.collectionPath);
 
   Stream<List<SponsoredAd>> watchSponsoredCards() {
-    return _collection
-        .where('isActive', isEqualTo: true)
-        .snapshots()
-        .map((snapshot) {
+    debugPrint('Sponsored ads query started');
+    return _collection.snapshots().map((snapshot) {
       return _filterAndSortSponsoredAds(snapshot.docs);
     }).handleError((error) {
-      debugPrint('Sponsored ads watch failed: $error');
+      if (error is FirebaseException && error.code == 'permission-denied') {
+        debugPrint('Sponsored ads permission-denied: ${error.message}');
+      } else {
+        debugPrint('Sponsored ads watch failed: $error');
+      }
       return const <SponsoredAd>[];
     });
   }
@@ -49,11 +51,14 @@ class UserAdsService {
     for (final doc in docs) {
       try {
         final ad = SponsoredAd.fromSnapshot(doc);
-        if (ad.isActiveForPlacement(placement, now)) {
+        final skipReason = _skipReason(ad, placement, now);
+        if (skipReason == null) {
           ads.add(ad);
+        } else {
+          debugPrint('Skipping admin ad ${doc.id}: $skipReason');
         }
       } catch (error) {
-        debugPrint('Skipping invalid admin ad ${doc.id}: $error');
+        debugPrint('Skipping admin ad ${doc.id}: invalid data: $error');
       }
     }
 
@@ -63,13 +68,32 @@ class UserAdsService {
       return a.title.toLowerCase().compareTo(b.title.toLowerCase());
     });
 
+    debugPrint('Sponsored ads loaded: ${ads.length}');
     return ads;
+  }
+
+  String? _skipReason(SponsoredAd ad, String placement, DateTime now) {
+    if (!ad.isActive) {
+      return 'inactive or status is not active';
+    }
+    if (!ad.matchesPlacement(placement)) {
+      return 'placement "${ad.placement}" does not match $placement';
+    }
+    final starts = ad.startsAt;
+    if (starts != null && starts.isAfter(now)) {
+      return 'startsAt is in the future';
+    }
+    final ends = ad.endsAt;
+    if (ends != null && ends.isBefore(now)) {
+      return 'endsAt is in the past';
+    }
+    return null;
   }
 
   Future<List<SponsoredAd>> loadFullscreenAds() async {
     try {
+      debugPrint('Sponsored ads query started');
       final snapshot = await _collection
-          .where('isActive', isEqualTo: true)
           .get(const GetOptions(source: Source.server))
           .timeout(_readTimeout);
       final ads = _filterAndSortFullscreenAds(snapshot.docs);
@@ -80,7 +104,7 @@ class UserAdsService {
       return const [];
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {
-        debugPrint('Fullscreen ads read denied; hiding ads.');
+        debugPrint('Fullscreen ads permission-denied: ${error.message}');
       } else {
         debugPrint('Fullscreen ads read failed: ${error.code}');
       }
@@ -96,8 +120,8 @@ class UserAdsService {
 
   Future<List<SponsoredAd>> loadSponsoredCards() async {
     try {
+      debugPrint('Sponsored ads query started');
       final snapshot = await _collection
-          .where('isActive', isEqualTo: true)
           .get(const GetOptions(source: Source.server))
           .timeout(_readTimeout);
       return _filterAndSortSponsoredAds(snapshot.docs);
@@ -106,7 +130,7 @@ class UserAdsService {
       return const [];
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {
-        debugPrint('Sponsored ads read denied; hiding ads.');
+        debugPrint('Sponsored ads permission-denied: ${error.message}');
       } else {
         debugPrint('Sponsored ads read failed: ${error.code}');
       }
