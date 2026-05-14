@@ -888,6 +888,17 @@ Destination? _decodeDestinationQuery(String? encoded) {
   return null;
 }
 
+const Color _halaNavy = Color(0xFF123A66);
+const Color _halaNavyAccent = Color(0xFF14518F);
+const Color _halaDeepNavy = Color(0xFF06162F);
+const Color _halaSoftNavy = Color(0xFFE6F0FF);
+const Color _halaBurgundy = Color(0xFF8F123D);
+const Color _halaBurgundyAccent = Color(0xFFA91446);
+const Color _halaDeepBurgundy = Color(0xFF2F0715);
+const Color _halaSoftBurgundy = Color(0xFFFDE8EF);
+const Color _halaCreamBackground = Color(0xFFFFF8F5);
+const Color _halaNeutralBackground = Color(0xFFF8FAFC);
+
 class MainNavigation extends StatefulWidget {
   final bool showGuideMode;
   final VoidCallback? onGuideModeFinished;
@@ -1102,10 +1113,12 @@ class _MainNavigationState extends State<MainNavigation> {
     final isActive = _currentIndex == index;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final activeColor = Colors.blue[isDark ? 300 : 700]!;
-    final inactiveColor = isDark ? Colors.grey[400]! : Colors.grey[500]!;
-    final activeBackground =
-        isDark ? const Color(0xFF1E3A5F) : const Color(0xFFEAF3FF);
+    final colorScheme = theme.colorScheme;
+    final activeColor = colorScheme.primary;
+    final inactiveColor = colorScheme.onSurfaceVariant;
+    final activeBackground = isDark
+        ? colorScheme.primaryContainer.withValues(alpha: 0.34)
+        : colorScheme.primaryContainer.withValues(alpha: 0.70);
 
     return Expanded(
       child: KeyedSubtree(
@@ -1159,19 +1172,62 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-ThemeData _buildHalaTheme(Brightness brightness) {
-  const seedBlue = Color(0xFF1976D2);
+ThemeData _buildHalaTheme(
+  Brightness brightness, {
+  required BrandColorMode brandColorMode,
+}) {
   final isDark = brightness == Brightness.dark;
+  final resolvedBrandMode = brandColorMode == BrandColorMode.burgundy
+      ? BrandColorMode.burgundy
+      : BrandColorMode.navy;
+  final isBurgundyMode = resolvedBrandMode == BrandColorMode.burgundy;
+  final primary = isBurgundyMode ? _halaBurgundy : _halaNavy;
+  final primaryAccent = isBurgundyMode ? _halaBurgundyAccent : _halaNavyAccent;
+  final deepPrimary = isBurgundyMode ? _halaDeepBurgundy : _halaDeepNavy;
+  final primaryTint = isBurgundyMode ? _halaSoftBurgundy : _halaSoftNavy;
+  final supporting = isBurgundyMode ? _halaNavy : _halaBurgundyAccent;
+  final supportingTint = isBurgundyMode ? _halaSoftNavy : _halaSoftBurgundy;
+  final deepSupporting = isBurgundyMode ? _halaDeepNavy : _halaDeepBurgundy;
 
-  final colorScheme = ColorScheme.fromSeed(
-    seedColor: seedBlue,
+  final baseScheme = ColorScheme.fromSeed(
+    seedColor: primary,
     brightness: brightness,
   );
+  final colorScheme = baseScheme.copyWith(
+    primary: isDark ? _lighten(primary, 0.36) : primary,
+    onPrimary: Colors.white,
+    primaryContainer: isDark ? _darken(primary, 0.44) : primaryTint,
+    onPrimaryContainer: isDark ? primaryTint : deepPrimary,
+    secondary: isDark ? _lighten(supporting, 0.32) : supporting,
+    onSecondary: Colors.white,
+    secondaryContainer: isDark ? _darken(supporting, 0.38) : supportingTint,
+    onSecondaryContainer: isDark ? supportingTint : deepSupporting,
+    tertiary: isDark ? _lighten(primaryAccent, 0.28) : primaryAccent,
+    onTertiary: Colors.white,
+    tertiaryContainer:
+        isDark ? _darken(primaryAccent, 0.42) : _lighten(primaryAccent, 0.88),
+    onTertiaryContainer: isDark ? primaryTint : deepPrimary,
+    surface: isDark ? const Color(0xFF101827) : Colors.white,
+    onSurface: isDark ? const Color(0xFFF8FAFC) : const Color(0xFF071426),
+    surfaceContainerLowest: isDark ? const Color(0xFF07101F) : Colors.white,
+    surfaceContainerLow:
+        isDark ? const Color(0xFF0E1726) : const Color(0xFFFFFCFB),
+    surfaceContainer: isDark ? const Color(0xFF111C2D) : Colors.white,
+    surfaceContainerHigh:
+        isDark ? const Color(0xFF172338) : const Color(0xFFF8FAFC),
+    surfaceContainerHighest:
+        isDark ? const Color(0xFF1E2C44) : const Color(0xFFF1F5F9),
+    outline: isDark ? const Color(0xFF64748B) : const Color(0xFFCBD5E1),
+    outlineVariant: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+  );
 
-  final scaffoldBackground =
-      isDark ? const Color(0xFF0B1120) : const Color(0xFFF6F8FC);
-  final surfaceColor = isDark ? const Color(0xFF111827) : Colors.white;
-  final textColor = isDark ? Colors.white : Colors.black87;
+  final scaffoldBackground = isDark
+      ? const Color(0xFF0B1120)
+      : (isBurgundyMode ? _halaCreamBackground : _halaNeutralBackground);
+  final surfaceColor = colorScheme.surface;
+  final textColor = colorScheme.onSurface;
+  final mutedTextColor =
+      isDark ? const Color(0xFFCBD5E1) : const Color(0xFF52657F);
 
   return ThemeData(
     useMaterial3: true,
@@ -1206,7 +1262,7 @@ ThemeData _buildHalaTheme(Brightness brightness) {
         letterSpacing: -0.1,
       ),
       bodyMedium: TextStyle(
-        color: isDark ? const Color(0xFFE5E7EB) : const Color(0xFF111827),
+        color: isDark ? const Color(0xFFE5E7EB) : const Color(0xFF071426),
         height: 1.35,
         letterSpacing: -0.05,
       ),
@@ -1238,13 +1294,18 @@ ThemeData _buildHalaTheme(Brightness brightness) {
       ),
     ),
     dividerTheme: DividerThemeData(
-      color: isDark ? const Color(0xFF263244) : const Color(0xFFE5EAF3),
+      color: colorScheme.outlineVariant,
+    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(
+      color: colorScheme.primary,
+      circularTrackColor: colorScheme.primaryContainer.withValues(alpha: 0.52),
+      linearTrackColor: colorScheme.primaryContainer.withValues(alpha: 0.52),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         elevation: 0,
-        backgroundColor: seedBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
         textStyle: const TextStyle(
           fontWeight: FontWeight.w800,
           letterSpacing: -0.1,
@@ -1254,7 +1315,48 @@ ThemeData _buildHalaTheme(Brightness brightness) {
         ),
       ),
     ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        textStyle: const TextStyle(
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.1,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: colorScheme.primary,
+        side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.45)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: colorScheme.primary,
+        textStyle: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: colorScheme.primary,
+      foregroundColor: colorScheme.onPrimary,
+    ),
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: surfaceColor,
+      selectedItemColor: colorScheme.primary,
+      unselectedItemColor: colorScheme.onSurfaceVariant,
+    ),
     chipTheme: ChipThemeData(
+      backgroundColor: colorScheme.secondaryContainer.withValues(alpha: 0.42),
+      selectedColor: colorScheme.primaryContainer,
+      secondarySelectedColor: colorScheme.secondaryContainer,
+      side: BorderSide(color: colorScheme.outlineVariant),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(999),
       ),
@@ -1263,8 +1365,42 @@ ThemeData _buildHalaTheme(Brightness brightness) {
         fontWeight: FontWeight.w700,
         letterSpacing: -0.1,
       ),
+      secondaryLabelStyle: TextStyle(
+        color: colorScheme.primary,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.1,
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
+      ),
+      iconColor: colorScheme.primary,
+      prefixIconColor: colorScheme.primary,
+      suffixIconColor: mutedTextColor,
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return colorScheme.primary;
+        return null;
+      }),
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return colorScheme.primaryContainer;
+        }
+        return null;
+      }),
     ),
   );
+}
+
+Color _lighten(Color color, double amount) {
+  return Color.lerp(color, Colors.white, amount)!;
+}
+
+Color _darken(Color color, double amount) {
+  return Color.lerp(color, Colors.black, amount)!;
 }
 
 class HalaPhApp extends StatefulWidget {
@@ -1311,35 +1447,46 @@ class _HalaPhAppState extends State<HalaPhApp> {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: ThemeModeService.themeMode,
       builder: (context, themeMode, _) {
-        final lightTheme = _buildHalaTheme(Brightness.light);
-        final darkTheme = _buildHalaTheme(Brightness.dark);
+        return ValueListenableBuilder<BrandColorMode>(
+          valueListenable: ThemeModeService.brandColorMode,
+          builder: (context, brandColorMode, _) {
+            final lightTheme = _buildHalaTheme(
+              Brightness.light,
+              brandColorMode: brandColorMode,
+            );
+            final darkTheme = _buildHalaTheme(
+              Brightness.dark,
+              brandColorMode: brandColorMode,
+            );
 
-        if (_showAndroidLaunchScreen) {
-          debugPrint('AppStartup: Android hard launch gate active');
-          debugPrint('AppStartup: Android launch screen v3 rendered');
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            title: 'HalaPH - Discover Philippines',
-            theme: lightTheme,
-            darkTheme: darkTheme,
-            themeMode: themeMode,
-            home: HalaPhLaunchPreflight(
-              visualOnly: true,
-              debugLabel: 'Android launch screen v3',
-              onStart: _onAndroidVisualLaunchStart,
-            ),
-          );
-        }
+            if (_showAndroidLaunchScreen) {
+              debugPrint('AppStartup: Android hard launch gate active');
+              debugPrint('AppStartup: Android launch screen v3 rendered');
+              return MaterialApp(
+                debugShowCheckedModeBanner: false,
+                title: 'HalaPH - Discover Philippines',
+                theme: lightTheme,
+                darkTheme: darkTheme,
+                themeMode: themeMode,
+                home: HalaPhLaunchPreflight(
+                  visualOnly: true,
+                  debugLabel: 'Android launch screen v3',
+                  onStart: _onAndroidVisualLaunchStart,
+                ),
+              );
+            }
 
-        return MaterialApp.router(
-          debugShowCheckedModeBanner: false,
-          title: 'HalaPH - Discover Philippines',
-          theme: lightTheme,
-          darkTheme: darkTheme,
-          themeMode: themeMode,
-          routerDelegate: _router.routerDelegate,
-          routeInformationParser: _router.routeInformationParser,
-          routeInformationProvider: _router.routeInformationProvider,
+            return MaterialApp.router(
+              debugShowCheckedModeBanner: false,
+              title: 'HalaPH - Discover Philippines',
+              theme: lightTheme,
+              darkTheme: darkTheme,
+              themeMode: themeMode,
+              routerDelegate: _router.routerDelegate,
+              routeInformationParser: _router.routeInformationParser,
+              routeInformationProvider: _router.routeInformationProvider,
+            );
+          },
         );
       },
     );

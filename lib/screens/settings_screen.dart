@@ -21,6 +21,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _deletingAccount = false;
   bool _replayingGuideMode = false;
   ThemeMode _themeMode = ThemeMode.system;
+  BrandColorMode _brandColorMode = BrandColorMode.navy;
 
   @override
   void initState() {
@@ -28,6 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadPlanReminderSetting();
     _loadTutorialSetting();
     _loadThemeModeSetting();
+    _loadBrandColorSetting();
   }
 
   Future<void> _loadPlanReminderSetting() async {
@@ -41,6 +43,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadThemeModeSetting() async {
     setState(() {
       _themeMode = ThemeModeService.themeMode.value;
+    });
+  }
+
+  Future<void> _loadBrandColorSetting() async {
+    setState(() {
+      _brandColorMode = ThemeModeService.brandColorMode.value;
     });
   }
 
@@ -99,6 +107,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${ThemeModeService.labelFor(mode)} selected')),
+    );
+  }
+
+  Future<void> _setBrandColorMode(BrandColorMode mode) async {
+    await ThemeModeService.setBrandColorMode(mode);
+    if (!mounted) return;
+    setState(() {
+      _brandColorMode = mode;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${ThemeModeService.labelForBrand(mode)} brand selected'),
+      ),
     );
   }
 
@@ -342,25 +363,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
 
-  Color get _cardColor => _isDark ? const Color(0xFF111827) : Colors.white;
+  Color get _cardColor => Theme.of(context).colorScheme.surface;
 
   Color get _softCardColor =>
-      _isDark ? const Color(0xFF172033) : const Color(0xFFF3F8FF);
+      Theme.of(context).colorScheme.surfaceContainerHigh;
 
-  Color get _borderColor =>
-      _isDark ? const Color(0xFF263244) : const Color(0xFFE5EAF3);
+  Color get _borderColor => Theme.of(context).colorScheme.outlineVariant;
 
-  Color get _softBorderColor =>
-      _isDark ? const Color(0xFF2B3A55) : const Color(0xFFD9E8FF);
+  Color get _softBorderColor => Theme.of(context).colorScheme.outlineVariant;
 
-  Color get _titleColor => _isDark ? Colors.white : const Color(0xFF111827);
+  Color get _titleColor => Theme.of(context).colorScheme.onSurface;
 
-  Color get _subtitleColor =>
-      _isDark ? const Color(0xFFCBD5E1) : const Color(0xFF6B7280);
+  Color get _subtitleColor => Theme.of(context).colorScheme.onSurfaceVariant;
 
   @override
   Widget build(BuildContext context) {
     final scaffoldColor = Theme.of(context).scaffoldBackgroundColor;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: scaffoldColor,
@@ -389,13 +408,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: _section(
                 title: 'Appearance',
                 icon: Icons.dark_mode_outlined,
-                iconColor: const Color(0xFF1976D2),
+                iconColor: colorScheme.primary,
                 children: [
+                  _settingsSubheading('Display mode'),
                   _themeOption(ThemeMode.system, Icons.phone_iphone_rounded),
                   const SizedBox(height: 10),
                   _themeOption(ThemeMode.light, Icons.light_mode_rounded),
                   const SizedBox(height: 10),
                   _themeOption(ThemeMode.dark, Icons.dark_mode_rounded),
+                  const SizedBox(height: 16),
+                  Divider(height: 1, color: _borderColor),
+                  const SizedBox(height: 16),
+                  _settingsSubheading('Brand color'),
+                  _brandColorOption(
+                    BrandColorMode.navy,
+                    Icons.directions_bus_filled_outlined,
+                  ),
+                  const SizedBox(height: 10),
+                  _brandColorOption(
+                    BrandColorMode.burgundy,
+                    Icons.palette_rounded,
+                  ),
+                  const SizedBox(height: 10),
+                  _brandColorOption(
+                    BrandColorMode.system,
+                    Icons.auto_awesome_rounded,
+                  ),
                 ],
               ),
             ),
@@ -405,7 +443,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: _section(
                 title: 'Permissions',
                 icon: Icons.privacy_tip_outlined,
-                iconColor: const Color(0xFF1976D2),
+                iconColor: colorScheme.secondary,
                 children: [
                   _infoRow(
                     icon: Icons.location_on_outlined,
@@ -431,7 +469,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: _section(
                 title: 'Plan Reminder',
                 icon: Icons.alarm_rounded,
-                iconColor: const Color(0xFF1976D2),
+                iconColor: colorScheme.primary,
                 children: [
                   _reminderToggle(),
                 ],
@@ -443,7 +481,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: _section(
                 title: 'Guide Mode',
                 icon: Icons.school_outlined,
-                iconColor: const Color(0xFF1976D2),
+                iconColor: colorScheme.primary,
                 children: [
                   _tutorialToggle(),
                   const SizedBox(height: 12),
@@ -474,7 +512,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: _section(
                 title: 'App',
                 icon: Icons.info_outline_rounded,
-                iconColor: const Color(0xFF1976D2),
+                iconColor: colorScheme.secondary,
                 children: [
                   _infoRow(
                     icon: Icons.directions_bus_filled_outlined,
@@ -492,13 +530,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildHeroCard() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [
-            Color(0xFF1976D2),
-            Color(0xFF03A9F4),
+            colorScheme.primary,
+            colorScheme.secondary,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -506,7 +546,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withValues(alpha: _isDark ? 0.12 : 0.20),
+            color: colorScheme.primary.withValues(alpha: _isDark ? 0.12 : 0.20),
             blurRadius: 28,
             offset: const Offset(0, 14),
           ),
@@ -633,6 +673,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _themeOption(ThemeMode mode, IconData icon) {
     final selected = _themeMode == mode;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return PressableCard(
       borderRadius: BorderRadius.circular(18),
@@ -640,11 +681,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Container(
         padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
-          color:
-              selected ? Colors.blue.withValues(alpha: 0.12) : _softCardColor,
+          color: selected ? colorScheme.primaryContainer : _softCardColor,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: selected ? const Color(0xFF1976D2) : _softBorderColor,
+            color: selected ? colorScheme.primary : _softBorderColor,
             width: selected ? 1.4 : 1,
           ),
         ),
@@ -652,7 +692,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Icon(
               icon,
-              color: selected ? Colors.blue[700] : _subtitleColor,
+              color: selected ? colorScheme.primary : _subtitleColor,
               size: 22,
             ),
             const SizedBox(width: 12),
@@ -686,9 +726,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               height: 24,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: selected ? Colors.blue[700] : Colors.transparent,
+                color: selected ? colorScheme.primary : Colors.transparent,
                 border: Border.all(
-                  color: selected ? Colors.blue[700]! : _softBorderColor,
+                  color: selected ? colorScheme.primary : _softBorderColor,
                   width: 2,
                 ),
               ),
@@ -706,11 +746,119 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _brandColorOption(BrandColorMode mode, IconData icon) {
+    final selected = _brandColorMode == mode;
+    final colorScheme = Theme.of(context).colorScheme;
+    final swatch = _brandSwatch(mode);
+
+    return PressableCard(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => _setBrandColorMode(mode),
+      child: Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: selected ? colorScheme.primaryContainer : _softCardColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? colorScheme.primary : _softBorderColor,
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: swatch.withValues(alpha: _isDark ? 0.22 : 0.13),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: Icon(icon, color: swatch, size: 19),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ThemeModeService.labelForBrand(mode),
+                    style: TextStyle(
+                      color: _titleColor,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    ThemeModeService.descriptionForBrand(mode),
+                    style: TextStyle(
+                      color: _subtitleColor,
+                      fontSize: 12,
+                      height: 1.25,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? colorScheme.primary : Colors.transparent,
+                border: Border.all(
+                  color: selected ? colorScheme.primary : _softBorderColor,
+                  width: 2,
+                ),
+              ),
+              child: selected
+                  ? const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    )
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _brandSwatch(BrandColorMode mode) {
+    switch (mode) {
+      case BrandColorMode.burgundy:
+        return const Color(0xFF8F123D);
+      case BrandColorMode.navy:
+      case BrandColorMode.system:
+        return const Color(0xFF123A66);
+    }
+  }
+
+  Widget _settingsSubheading(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: _subtitleColor,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+
   Widget _infoRow({
     required IconData icon,
     required String title,
     required String subtitle,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -718,10 +866,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           height: 36,
           width: 36,
           decoration: BoxDecoration(
-            color: Colors.blue.withValues(alpha: _isDark ? 0.14 : 0.08),
+            color: colorScheme.secondary.withValues(
+              alpha: _isDark ? 0.14 : 0.08,
+            ),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: Colors.blue[700], size: 19),
+          child: Icon(icon, color: colorScheme.secondary, size: 19),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -752,6 +902,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _reminderToggle() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -765,12 +917,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             height: 42,
             width: 42,
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: _isDark ? 0.14 : 0.08),
+              color: colorScheme.primary.withValues(
+                alpha: _isDark ? 0.14 : 0.08,
+              ),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               Icons.notifications_active_outlined,
-              color: Colors.blue[700],
+              color: colorScheme.primary,
               size: 22,
             ),
           ),
@@ -803,7 +957,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Switch(
             value: _notificationsEnabled,
             onChanged: _toggleNotifications,
-            activeThumbColor: Colors.blue,
+            activeThumbColor: colorScheme.primary,
           ),
         ],
       ),
@@ -811,6 +965,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _tutorialToggle() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -824,12 +980,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             height: 42,
             width: 42,
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: _isDark ? 0.14 : 0.08),
+              color: colorScheme.primary.withValues(
+                alpha: _isDark ? 0.14 : 0.08,
+              ),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               Icons.route_rounded,
-              color: Colors.blue[700],
+              color: colorScheme.primary,
               size: 22,
             ),
           ),
@@ -862,7 +1020,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Switch(
             value: _tutorialEnabledOnStart,
             onChanged: _toggleTutorialOnStart,
-            activeThumbColor: Colors.blue,
+            activeThumbColor: colorScheme.primary,
           ),
         ],
       ),
@@ -870,6 +1028,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _replayTutorialButton() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
@@ -880,9 +1040,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.blue[700],
-          side: BorderSide(color: Colors.blue.withValues(alpha: 0.45)),
-          backgroundColor: Colors.blue.withValues(alpha: _isDark ? 0.10 : 0.04),
+          foregroundColor: colorScheme.primary,
+          side: BorderSide(
+            color: colorScheme.primary.withValues(alpha: 0.45),
+          ),
+          backgroundColor: colorScheme.primary.withValues(
+            alpha: _isDark ? 0.10 : 0.04,
+          ),
           padding: const EdgeInsets.symmetric(vertical: 15),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
