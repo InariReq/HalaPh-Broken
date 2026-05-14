@@ -34,7 +34,8 @@ class ExploreScreen extends StatefulWidget {
   State<ExploreScreen> createState() => _ExploreScreenState();
 }
 
-class _ExploreScreenState extends State<ExploreScreen> {
+class _ExploreScreenState extends State<ExploreScreen>
+    with WidgetsBindingObserver {
   List<Destination> _destinations = [];
   bool _isLoading = false;
   bool _placesUnavailable = false;
@@ -44,6 +45,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final FavoritesService _favoritesService = FavoritesService();
   final UserAdsService _adsService = UserAdsService();
   StreamSubscription? _subscription;
+  StreamSubscription<AppPublicConfig>? _publicConfigSubscription;
+  StreamSubscription<List<SponsoredAd>>? _adsSubscription;
   Timer? _searchDebounce;
   int _searchGeneration = 0;
   final TextEditingController _searchController = TextEditingController();
@@ -56,10 +59,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.guideModeDemo) {
       _applyGuideModeDemo();
       return;
     }
+    _startPublicConfigWatch();
+    _startSponsoredAdsWatch();
     unawaited(_loadAdConfigAndSponsoredCards());
     _loadDestinations();
     _loadFavorites();
@@ -75,11 +81,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
     if (widget.guideModeDemo) {
       _subscription?.cancel();
+      _publicConfigSubscription?.cancel();
+      _adsSubscription?.cancel();
       _searchDebounce?.cancel();
       _applyGuideModeDemo();
       return;
     }
 
+    _startPublicConfigWatch();
+    _startSponsoredAdsWatch();
     _loadDestinations();
     unawaited(_loadAdConfigAndSponsoredCards());
     _loadFavorites();
@@ -144,6 +154,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state != AppLifecycleState.resumed || widget.guideModeDemo) return;
+
+    unawaited(_loadAdConfigAndSponsoredCards());
+    unawaited(_runDestinationSearch());
+  }
+
+  @override
   void dispose() {
     _searchDebounce?.cancel();
     _subscription?.cancel();
@@ -164,6 +183,38 @@ class _ExploreScreenState extends State<ExploreScreen> {
     } catch (_) {}
   }
 
+  void _startPublicConfigWatch() {
+    if (widget.guideModeDemo) return;
+
+    _publicConfigSubscription?.cancel();
+    _publicConfigSubscription =
+        _publicConfigService.watchPublicConfig().listen((config) {
+      if (!mounted || widget.guideModeDemo) return;
+      setState(() {
+        _publicConfig = config;
+        if (!config.adsEnabled || !config.sponsoredCardsEnabled) {
+          _sponsoredAds = const [];
+        }
+      });
+      unawaited(_runDestinationSearch());
+    });
+  }
+
+  void _startSponsoredAdsWatch() {
+    if (widget.guideModeDemo) return;
+
+    _adsSubscription?.cancel();
+    _adsSubscription = _adsService.watchSponsoredCards().listen((ads) {
+      if (!mounted || widget.guideModeDemo) return;
+      setState(() {
+        _sponsoredAds =
+            _publicConfig.adsEnabled && _publicConfig.sponsoredCardsEnabled
+                ? ads
+                : const [];
+      });
+    });
+  }
+
   Future<void> _loadAdConfigAndSponsoredCards() async {
     if (widget.guideModeDemo) return;
     final results = await Future.wait<Object>([
@@ -176,7 +227,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     final ads = results[1] as List<SponsoredAd>;
     setState(() {
       _publicConfig = config;
-      _sponsoredAds = ads;
+      _sponsoredAds =
+          config.adsEnabled && config.sponsoredCardsEnabled ? ads : const [];
     });
   }
 
@@ -818,58 +870,47 @@ class _ExploreScreenState extends State<ExploreScreen> {
         : _selectedCategory == null
             ? 'Featured and nearby destinations are shown here.'
             : 'Featured and nearby destinations for this category.';
-    final sponsoredAd = _sponsoredAdForResults();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (sponsoredAd != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _buildSponsoredCard(sponsoredAd),
-          ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Theme.of(context)
-                    .colorScheme
-                    .outlineVariant
-                    .withValues(alpha: 0.28),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  isSearching
-                      ? Icons.search_rounded
-                      : _selectedCategory == null
-                          ? Icons.trending_up_rounded
-                          : Icons.near_me_rounded,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    summary,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Theme.of(context)
+                .colorScheme
+                .outlineVariant
+                .withValues(alpha: 0.28),
           ),
         ),
-      ],
+        child: Row(
+          children: [
+            Icon(
+              isSearching
+                  ? Icons.search_rounded
+                  : _selectedCategory == null
+                      ? Icons.trending_up_rounded
+                      : Icons.near_me_rounded,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                summary,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -904,15 +945,22 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
 
     final hasFewResults = _destinations.length < 5;
+    final sponsoredAd = _sponsoredAdForResults();
+    final hasSponsoredAd = sponsoredAd != null;
+    final itemCount = _destinations.length + (hasSponsoredAd ? 1 : 0);
+
     return Column(
       children: [
         if (hasFewResults) _buildFewResultsPrompt(),
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: _destinations.length,
+            itemCount: itemCount,
             itemBuilder: (context, index) {
-              final destination = _destinations[index];
+              final isSponsoredCard = hasSponsoredAd && index == 0;
+              final destination = isSponsoredCard
+                  ? null
+                  : _destinations[index - (hasSponsoredAd ? 1 : 0)];
               return TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: 1),
                 duration:
@@ -927,7 +975,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     ),
                   );
                 },
-                child: _buildDestinationCard(destination),
+                child: isSponsoredCard
+                    ? _buildSponsoredCard(sponsoredAd)
+                    : _buildDestinationCard(destination!),
               );
             },
           ),

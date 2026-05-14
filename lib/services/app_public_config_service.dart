@@ -19,9 +19,22 @@ class AppPublicConfigService {
       .collection(AppPublicConfig.collectionPath)
       .doc(AppPublicConfig.documentId);
 
+  Stream<AppPublicConfig> watchPublicConfig() {
+    return _document.snapshots().map((snapshot) {
+      final config = AppPublicConfig.fromSnapshot(snapshot);
+      _cachedConfig = config;
+      return config;
+    }).handleError((error) {
+      debugPrint('App public config watch failed: $error');
+      return const AppPublicConfig.defaults();
+    });
+  }
+
   Future<AppPublicConfig> loadPublicConfig() async {
     try {
-      final snapshot = await _document.get().timeout(_readTimeout);
+      final snapshot = await _document
+          .get(const GetOptions(source: Source.server))
+          .timeout(_readTimeout);
       final config = AppPublicConfig.fromSnapshot(snapshot);
       _cachedConfig = config;
       return config;

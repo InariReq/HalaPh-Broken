@@ -70,7 +70,7 @@ class _PracticeTripChip extends StatelessWidget {
   }
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static bool _announcementDismissedThisSession = false;
 
   List<Destination> _trendingDestinations = [];
@@ -85,6 +85,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final FriendService _friendService = FriendService();
   StreamSubscription? _favoritesSubscription;
   StreamSubscription? _plansSubscription;
+  StreamSubscription<AppPublicConfig>? _publicConfigSubscription;
+  StreamSubscription<List<SponsoredAd>>? _homeAdsSubscription;
   AppPublicConfig _publicConfig = AppPublicConfigService.cachedConfig;
   TravelPlan? _nextPlan;
   bool _plansLoading = true;
@@ -92,10 +94,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.guideModeDemo) {
       _applyGuideModeDemo();
       return;
     }
+    _startPublicConfigWatch();
+    _startHomeAdsWatch();
     unawaited(_loadPublicConfig());
     unawaited(_loadHomeSponsoredAds());
     _initializeLocationAndTrending();
@@ -117,10 +122,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (widget.guideModeDemo) {
       _favoritesSubscription?.cancel();
       _plansSubscription?.cancel();
+      _publicConfigSubscription?.cancel();
+      _homeAdsSubscription?.cancel();
       _applyGuideModeDemo();
       return;
     }
 
+    _startPublicConfigWatch();
+    _startHomeAdsWatch();
     _initializeLocationAndTrending();
     unawaited(_loadPublicConfig());
     _loadFavorites();
@@ -130,6 +139,37 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     _plansSubscription = SimplePlanService.changes.listen((_) {
       _loadUpcomingPlan();
+    });
+  }
+
+  void _startPublicConfigWatch() {
+    if (widget.guideModeDemo) return;
+
+    _publicConfigSubscription?.cancel();
+    _publicConfigSubscription =
+        _publicConfigService.watchPublicConfig().listen((config) {
+      if (!mounted || widget.guideModeDemo) return;
+      setState(() {
+        _publicConfig = config;
+        if (!config.adsEnabled || !config.sponsoredCardsEnabled) {
+          _homeSponsoredAds = const [];
+        }
+      });
+    });
+  }
+
+  void _startHomeAdsWatch() {
+    if (widget.guideModeDemo) return;
+
+    _homeAdsSubscription?.cancel();
+    _homeAdsSubscription = _adsService.watchSponsoredCards().listen((ads) {
+      if (!mounted || widget.guideModeDemo) return;
+      setState(() {
+        _homeSponsoredAds =
+            _publicConfig.adsEnabled && _publicConfig.sponsoredCardsEnabled
+                ? ads.take(1).toList(growable: false)
+                : const [];
+      });
     });
   }
 
@@ -167,7 +207,9 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _publicConfig = config;
         _homeSponsoredAds =
-            ads.isEmpty ? const [] : ads.take(1).toList(growable: false);
+            config.adsEnabled && config.sponsoredCardsEnabled && ads.isNotEmpty
+                ? ads.take(1).toList(growable: false)
+                : const [];
       });
     } catch (error) {
       debugPrint('Home sponsored ads unavailable: $error');
@@ -266,9 +308,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state != AppLifecycleState.resumed || widget.guideModeDemo) return;
+
+    unawaited(_loadPublicConfig());
+    unawaited(_loadHomeSponsoredAds());
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _favoritesSubscription?.cancel();
     _plansSubscription?.cancel();
+    _publicConfigSubscription?.cancel();
+    _homeAdsSubscription?.cancel();
     super.dispose();
   }
 
