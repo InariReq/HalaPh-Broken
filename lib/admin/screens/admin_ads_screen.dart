@@ -443,7 +443,9 @@ class _AdFormDialogState extends State<_AdFormDialog> {
     _endsAtController = TextEditingController(
       text: ad?.endsAt == null ? '' : _formatDateInput(ad!.endsAt!),
     );
-    _placement = ad?.placement ?? AdminAdPlacement.sponsoredCard;
+    _placement = ad?.placement == AdminAdPlacement.banner
+        ? AdminAdPlacement.sponsoredCard
+        : ad?.placement ?? AdminAdPlacement.sponsoredCard;
     _isActive = ad?.isActive ?? true;
   }
 
