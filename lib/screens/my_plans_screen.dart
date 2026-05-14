@@ -14,6 +14,7 @@ import 'package:halaph/widgets/motion_widgets.dart';
 import 'package:halaph/models/sponsored_ad.dart';
 import 'package:halaph/services/app_public_config_service.dart';
 import 'package:halaph/services/user_ads_service.dart';
+import '../utils/sponsored_ad_link_launcher.dart';
 
 class MyPlansScreen extends StatefulWidget {
   final bool guideModeDemo;
@@ -1183,12 +1184,23 @@ class _FullscreenSponsoredAdDialog extends StatelessWidget {
                     ],
                     if (ad.targetUrl.isNotEmpty) ...[
                       const SizedBox(height: 20),
-                      Text(
-                        'Learn more',
-                        style: TextStyle(
-                          color: Colors.blue[700],
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
+                      TextButton.icon(
+                        onPressed: () async {
+                          await openSponsoredAdTargetUrl(ad);
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: colorScheme.primary,
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        icon: const Icon(Icons.open_in_new_rounded, size: 15),
+                        label: const Text(
+                          'Learn more',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
                     ],

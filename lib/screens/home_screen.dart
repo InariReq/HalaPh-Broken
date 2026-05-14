@@ -17,6 +17,7 @@ import 'package:halaph/services/user_ads_service.dart';
 import 'package:halaph/services/simple_plan_service.dart';
 import 'package:halaph/models/plan.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../utils/sponsored_ad_link_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   final bool guideModeDemo;
@@ -718,12 +719,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ],
                   if (ad.targetUrl.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    Text(
-                      'Learn more',
-                      style: TextStyle(
-                        color: Colors.blue[700],
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
+                    TextButton.icon(
+                      onPressed: () async {
+                        await openSponsoredAdTargetUrl(ad);
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor: colorScheme.primary,
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      icon: const Icon(Icons.open_in_new_rounded, size: 15),
+                      label: const Text(
+                        'Learn more',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ],

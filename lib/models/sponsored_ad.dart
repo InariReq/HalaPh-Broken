@@ -100,7 +100,13 @@ class SponsoredAd {
       advertiserName: advertiserName,
       placement: placement,
       imageUrl: _optionalString(data['imageUrl']),
-      targetUrl: _optionalString(data['targetUrl']),
+      targetUrl: _optionalString(
+        data['targetUrl'] ??
+            data['targetURL'] ??
+            data['url'] ??
+            data['link'] ??
+            data['websiteUrl'],
+      ),
       description: _optionalString(data['description']),
       priority: _priorityValue(data['priority']),
       isActive: isActive,
