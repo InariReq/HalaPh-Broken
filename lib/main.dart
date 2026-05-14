@@ -888,6 +888,15 @@ Destination? _decodeDestinationQuery(String? encoded) {
   return null;
 }
 
+const Color _halaBurgundy = Color(0xFFA91446);
+const Color _halaDeepBurgundy = Color(0xFF2F0715);
+const Color _halaNavy = Color(0xFF14518F);
+const Color _halaDeepNavy = Color(0xFF06162F);
+const Color _halaSoftNavy = Color(0xFFE6F0FF);
+const Color _halaCreamBackground = Color(0xFFFFF7FA);
+const Color _halaSoftBurgundy = Color(0xFFFDE8EF);
+const Color _halaBurgundyAccent = Color(0xFFD83D70);
+
 class MainNavigation extends StatefulWidget {
   final bool showGuideMode;
   final VoidCallback? onGuideModeFinished;
@@ -1102,10 +1111,12 @@ class _MainNavigationState extends State<MainNavigation> {
     final isActive = _currentIndex == index;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final activeColor = Colors.blue[isDark ? 300 : 700]!;
-    final inactiveColor = isDark ? Colors.grey[400]! : Colors.grey[500]!;
-    final activeBackground =
-        isDark ? const Color(0xFF1E3A5F) : const Color(0xFFEAF3FF);
+    final colorScheme = theme.colorScheme;
+    final activeColor = colorScheme.primary;
+    final inactiveColor = colorScheme.onSurfaceVariant;
+    final activeBackground = isDark
+        ? colorScheme.primaryContainer.withValues(alpha: 0.30)
+        : colorScheme.primaryContainer.withValues(alpha: 0.78);
 
     return Expanded(
       child: KeyedSubtree(
@@ -1160,18 +1171,46 @@ class _MainNavigationState extends State<MainNavigation> {
 }
 
 ThemeData _buildHalaTheme(Brightness brightness) {
-  const seedBlue = Color(0xFF1976D2);
   final isDark = brightness == Brightness.dark;
 
-  final colorScheme = ColorScheme.fromSeed(
-    seedColor: seedBlue,
+  final baseScheme = ColorScheme.fromSeed(
+    seedColor: _halaBurgundy,
     brightness: brightness,
+  );
+  final colorScheme = baseScheme.copyWith(
+    primary: isDark ? const Color(0xFFF7B5C9) : _halaBurgundy,
+    onPrimary: isDark ? _halaDeepBurgundy : Colors.white,
+    primaryContainer: isDark ? const Color(0xFF4A0D21) : _halaSoftBurgundy,
+    onPrimaryContainer: isDark ? _halaSoftBurgundy : _halaDeepBurgundy,
+    secondary: isDark ? const Color(0xFFB8D8FF) : _halaNavy,
+    onSecondary: isDark ? _halaDeepNavy : Colors.white,
+    secondaryContainer: isDark ? const Color(0xFF12356A) : _halaSoftNavy,
+    onSecondaryContainer: isDark ? _halaSoftNavy : _halaDeepNavy,
+    tertiary: isDark ? const Color(0xFFE58AA9) : _halaBurgundyAccent,
+    onTertiary: isDark ? _halaDeepBurgundy : Colors.white,
+    tertiaryContainer:
+        isDark ? const Color(0xFF721331) : const Color(0xFFFFF0F5),
+    onTertiaryContainer: isDark ? _halaSoftBurgundy : _halaDeepBurgundy,
+    surface: isDark ? const Color(0xFF101C2E) : Colors.white,
+    onSurface: isDark ? const Color(0xFFF4F8FF) : const Color(0xFF071426),
+    surfaceContainerLowest: isDark ? const Color(0xFF081120) : Colors.white,
+    surfaceContainerLow:
+        isDark ? const Color(0xFF0D1A2C) : const Color(0xFFFFFAFB),
+    surfaceContainer: isDark ? const Color(0xFF101C2E) : Colors.white,
+    surfaceContainerHigh:
+        isDark ? const Color(0xFF15263D) : const Color(0xFFFDF5F8),
+    surfaceContainerHighest:
+        isDark ? const Color(0xFF1B2D47) : const Color(0xFFF6EAF0),
+    outline: isDark ? const Color(0xFF5F748F) : const Color(0xFFD7B8C4),
+    outlineVariant: isDark ? const Color(0xFF30445F) : const Color(0xFFE9D3DC),
   );
 
   final scaffoldBackground =
-      isDark ? const Color(0xFF0B1120) : const Color(0xFFF6F8FC);
-  final surfaceColor = isDark ? const Color(0xFF111827) : Colors.white;
-  final textColor = isDark ? Colors.white : Colors.black87;
+      isDark ? const Color(0xFF061223) : _halaCreamBackground;
+  final surfaceColor = colorScheme.surface;
+  final textColor = colorScheme.onSurface;
+  final mutedTextColor =
+      isDark ? const Color(0xFFB8C7DC) : const Color(0xFF40536E);
 
   return ThemeData(
     useMaterial3: true,
@@ -1206,7 +1245,7 @@ ThemeData _buildHalaTheme(Brightness brightness) {
         letterSpacing: -0.1,
       ),
       bodyMedium: TextStyle(
-        color: isDark ? const Color(0xFFE5E7EB) : const Color(0xFF111827),
+        color: isDark ? const Color(0xFFE5E7EB) : const Color(0xFF241019),
         height: 1.35,
         letterSpacing: -0.05,
       ),
@@ -1238,13 +1277,18 @@ ThemeData _buildHalaTheme(Brightness brightness) {
       ),
     ),
     dividerTheme: DividerThemeData(
-      color: isDark ? const Color(0xFF263244) : const Color(0xFFE5EAF3),
+      color: colorScheme.outlineVariant.withValues(alpha: isDark ? 0.72 : 1),
+    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(
+      color: colorScheme.primary,
+      circularTrackColor: colorScheme.primaryContainer.withValues(alpha: 0.55),
+      linearTrackColor: colorScheme.primaryContainer.withValues(alpha: 0.55),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         elevation: 0,
-        backgroundColor: seedBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
         textStyle: const TextStyle(
           fontWeight: FontWeight.w800,
           letterSpacing: -0.1,
@@ -1254,7 +1298,48 @@ ThemeData _buildHalaTheme(Brightness brightness) {
         ),
       ),
     ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        textStyle: const TextStyle(
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.1,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: colorScheme.primary,
+        side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.45)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: colorScheme.primary,
+        textStyle: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: colorScheme.primary,
+      foregroundColor: colorScheme.onPrimary,
+    ),
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: surfaceColor,
+      selectedItemColor: colorScheme.primary,
+      unselectedItemColor: colorScheme.onSurfaceVariant,
+    ),
     chipTheme: ChipThemeData(
+      backgroundColor: colorScheme.secondaryContainer.withValues(alpha: 0.45),
+      selectedColor: colorScheme.primaryContainer,
+      secondarySelectedColor: colorScheme.secondaryContainer,
+      side: BorderSide(color: colorScheme.outlineVariant),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(999),
       ),
@@ -1263,6 +1348,32 @@ ThemeData _buildHalaTheme(Brightness brightness) {
         fontWeight: FontWeight.w700,
         letterSpacing: -0.1,
       ),
+      secondaryLabelStyle: TextStyle(
+        color: colorScheme.primary,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.1,
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
+      ),
+      iconColor: colorScheme.primary,
+      prefixIconColor: colorScheme.primary,
+      suffixIconColor: mutedTextColor,
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return colorScheme.primary;
+        return null;
+      }),
+      trackColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return colorScheme.primaryContainer;
+        }
+        return null;
+      }),
     ),
   );
 }
