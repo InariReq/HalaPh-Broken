@@ -534,7 +534,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         debugPrint('AppStartup: Android launch screen rendered');
         return HalaPhLaunchPreflight(
           visualOnly: true,
-          debugLabel: 'Android launch screen',
+          debugLabel: 'Android launch screen v3',
           onStart: _onAndroidLaunchStart,
         );
       }
@@ -1300,6 +1300,7 @@ class _HalaPhAppState extends State<HalaPhApp> {
     }
 
     setState(() {});
+    debugPrint('AppStartup: Android router enabled after Start');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _router.go('/');
     });
@@ -1310,29 +1311,35 @@ class _HalaPhAppState extends State<HalaPhApp> {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: ThemeModeService.themeMode,
       builder: (context, themeMode, _) {
+        final lightTheme = _buildHalaTheme(Brightness.light);
+        final darkTheme = _buildHalaTheme(Brightness.dark);
+
+        if (_showAndroidLaunchScreen) {
+          debugPrint('AppStartup: Android hard launch gate active');
+          debugPrint('AppStartup: Android launch screen v3 rendered');
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'HalaPH - Discover Philippines',
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: themeMode,
+            home: HalaPhLaunchPreflight(
+              visualOnly: true,
+              debugLabel: 'Android launch screen v3',
+              onStart: _onAndroidVisualLaunchStart,
+            ),
+          );
+        }
+
         return MaterialApp.router(
           debugShowCheckedModeBanner: false,
           title: 'HalaPH - Discover Philippines',
-          theme: _buildHalaTheme(Brightness.light),
-          darkTheme: _buildHalaTheme(Brightness.dark),
+          theme: lightTheme,
+          darkTheme: darkTheme,
           themeMode: themeMode,
           routerDelegate: _router.routerDelegate,
           routeInformationParser: _router.routeInformationParser,
           routeInformationProvider: _router.routeInformationProvider,
-          builder: (context, child) {
-            if (_showAndroidLaunchScreen) {
-              debugPrint(
-                'AppStartup: AuthWrapper build Android launchAccepted=false',
-              );
-              debugPrint('AppStartup: Android launch screen rendered');
-              return HalaPhLaunchPreflight(
-                visualOnly: true,
-                debugLabel: 'Android launch screen',
-                onStart: _onAndroidVisualLaunchStart,
-              );
-            }
-            return child ?? const SizedBox.shrink();
-          },
         );
       },
     );
