@@ -342,7 +342,7 @@ class _SettingsFormDialogState extends State<_SettingsFormDialog> {
                 _SettingsSwitch(
                   title: 'Maintenance mode',
                   subtitle:
-                      'Marks the public app as under maintenance when connected in a later phase.',
+                      'Shows a maintenance screen in the user app and pauses normal app access.',
                   value: _maintenanceMode,
                   onChanged: (value) => setState(() {
                     _maintenanceMode = value;

@@ -42,6 +42,8 @@ import 'screens/friends_screen.dart';
 import 'screens/app_tutorial_screen.dart';
 import 'widgets/halaph_launch_preflight.dart';
 import 'widgets/halaph_logo_loading.dart';
+import 'package:halaph/models/app_public_config.dart';
+import 'package:halaph/services/app_public_config_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -107,7 +109,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoggedIn = false;
   bool _loading = true;
   String? _sessionUid;
+  AppPublicConfigService? _publicConfigService;
+  AppPublicConfig _publicConfig = const AppPublicConfig.defaults();
   StreamSubscription<firebase_auth.User?>? _authSubscription;
+  StreamSubscription<AppPublicConfig>? _publicConfigSubscription;
+  bool _publicConfigWatchStarted = false;
 
   @override
   void initState() {
@@ -132,6 +138,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       return;
     }
     if (!mounted) return;
+    _startPublicConfigWatch();
 
     _authSubscription =
         firebase_auth.FirebaseAuth.instance.userChanges().listen((user) {
@@ -184,6 +191,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
       },
     ));
 
+    _startPublicConfigWatch();
+
     if (mounted) {
       debugPrint('AppStartup: authenticated, showing home');
       setState(() {
@@ -216,6 +225,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   void _onLoginSuccess() {
     unawaited(SimplePlanService.initialize());
+    _startPublicConfigWatch();
     setState(() {
       _isLoggedIn = true;
       _sessionUid = _safeCurrentFirebaseUid();
@@ -230,6 +240,49 @@ class _AuthWrapperState extends State<AuthWrapper> {
     setState(() {
       _launchAccepted = true;
     });
+  }
+
+  void _startPublicConfigWatch() {
+    if (_publicConfigWatchStarted || !FirebaseAppService.isInitialized) return;
+
+    final publicConfigService =
+        _publicConfigService ??= AppPublicConfigService();
+
+    _publicConfigWatchStarted = true;
+    _publicConfigSubscription?.cancel();
+    _publicConfigSubscription =
+        publicConfigService.watchPublicConfig().listen((config) {
+      if (!mounted) return;
+
+      setState(() {
+        _publicConfig = config;
+        if (config.maintenanceMode) {
+          _showGuideMode = false;
+          _checkingGuideMode = false;
+          _guideModeStartupScheduled = false;
+          _guideModeStartupInFlight = false;
+          _guideModeStartupEvaluated = true;
+        }
+      });
+    });
+
+    unawaited(publicConfigService.loadPublicConfig().then((config) {
+      if (!mounted) return;
+      setState(() {
+        _publicConfig = config;
+      });
+    }).catchError((error) {
+      debugPrint('Maintenance config preload failed: $error');
+    }));
+  }
+
+  Future<void> _signOutFromMaintenance() async {
+    try {
+      await firebase_auth.FirebaseAuth.instance.signOut();
+    } catch (error) {
+      debugPrint('Maintenance sign out failed: $error');
+    }
+    _showLoggedOutAccounts('signed out from maintenance');
   }
 
   String? _safeCurrentFirebaseUid() {
@@ -397,6 +450,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void dispose() {
     _authSubscription?.cancel();
+    _publicConfigSubscription?.cancel();
     AppTutorialService.guideReplayRequests
         .removeListener(_handleGuideReplayRequest);
     super.dispose();
@@ -437,6 +491,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (!_isLoggedIn) {
       return AccountsScreen(onLoginSuccess: _onLoginSuccess);
     }
+
+    if (_publicConfig.maintenanceMode) {
+      return _MaintenanceModeScreen(
+        config: _publicConfig,
+        onSignOut: _signOutFromMaintenance,
+      );
+    }
+
     _scheduleGuideModeStartupEvaluation();
     return MainNavigation(
       key: ValueKey(_sessionUid ?? 'signed-in'),
@@ -444,6 +506,135 @@ class _AuthWrapperState extends State<AuthWrapper> {
       onGuideModeFinished: () => _continueAfterTutorial('finish'),
       onGuideModeSkipped: () => _continueAfterTutorial('skip'),
     );
+  }
+}
+
+class _MaintenanceModeScreen extends StatelessWidget {
+  final AppPublicConfig config;
+  final Future<void> Function() onSignOut;
+
+  const _MaintenanceModeScreen({
+    required this.config,
+    required this.onSignOut,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final hasAnnouncement = config.hasAnnouncement;
+
+    return Scaffold(
+      backgroundColor: colorScheme.surface,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.construction_rounded,
+                      color: colorScheme.onPrimaryContainer,
+                      size: 44,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'HalaPH is under maintenance',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: colorScheme.onSurface,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    hasAnnouncement
+                        ? _maintenanceMessage()
+                        : 'We are updating the app right now. Please check again later.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.45,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color:
+                            colorScheme.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.info_rounded,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Route search, plans, Guide Mode, and ads are paused while maintenance mode is active.',
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton.icon(
+                    onPressed: onSignOut,
+                    icon: const Icon(Icons.logout_rounded),
+                    label: const Text('Sign out'),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'This screen updates automatically when maintenance mode is turned off.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _maintenanceMessage() {
+    final title = config.announcementTitle.trim();
+    final body = config.announcementBody.trim();
+
+    if (title.isNotEmpty && body.isNotEmpty) {
+      return '$title\n\n$body';
+    }
+    if (body.isNotEmpty) return body;
+    return title;
   }
 }
 
