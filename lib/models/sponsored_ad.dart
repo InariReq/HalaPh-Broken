@@ -47,12 +47,12 @@ class SponsoredAd {
     final starts = startsAt;
     final ends = endsAt;
     return isActive &&
-        _placementMatches(expectedPlacement) &&
+        matchesPlacement(expectedPlacement) &&
         (starts == null || !starts.isAfter(now)) &&
         (ends == null || !ends.isBefore(now));
   }
 
-  bool _placementMatches(String expectedPlacement) {
+  bool matchesPlacement(String expectedPlacement) {
     final normalized = placement.trim().toLowerCase();
     final expected = expectedPlacement.trim().toLowerCase();
 
@@ -88,12 +88,11 @@ class SponsoredAd {
     final title = _requiredString(data['title'], 'title');
     final advertiserName =
         _requiredString(data['advertiserName'], 'advertiserName');
-    final placement = _requiredString(data['placement'], 'placement');
-    final isActive = data['isActive'];
-
-    if (isActive is! bool) {
-      throw const FormatException('Sponsored ad is missing isActive.');
-    }
+    final placement = _requiredString(
+      data['placement'] ?? data['adPlacement'] ?? data['type'],
+      'placement',
+    );
+    final isActive = _activeValue(data);
 
     return SponsoredAd(
       id: snapshot.id,
@@ -126,6 +125,33 @@ class SponsoredAd {
     return value.trim();
   }
 
+  static bool _activeValue(Map<String, dynamic> data) {
+    final isActive = data['isActive'];
+    if (isActive is bool) return isActive;
+
+    final active = data['active'];
+    if (active is bool) return active;
+
+    final status = data['status'];
+    if (status is String) {
+      final normalized = status.trim().toLowerCase();
+      if (normalized == 'active' ||
+          normalized == 'enabled' ||
+          normalized == 'live' ||
+          normalized == 'published') {
+        return true;
+      }
+      if (normalized == 'inactive' ||
+          normalized == 'disabled' ||
+          normalized == 'expired' ||
+          normalized == 'draft') {
+        return false;
+      }
+    }
+
+    throw const FormatException('Sponsored ad is missing active status.');
+  }
+
   static int _priorityValue(Object? value) {
     if (value is int) return value;
     if (value is num) return value.round();
@@ -135,6 +161,7 @@ class SponsoredAd {
   static DateTime? _timestampToDate(Object? value) {
     if (value == null) return null;
     if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
     throw const FormatException('Sponsored ad schedule must be a timestamp.');
   }
 }

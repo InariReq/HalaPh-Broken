@@ -68,7 +68,8 @@ class AppPublicConfig {
       appName: _stringValue(data['appName'], fallback: 'HalaPH'),
       announcementTitle: _stringValue(data['announcementTitle']),
       announcementBody: _stringValue(data['announcementBody']),
-      maintenanceMode: data['maintenanceMode'] == true,
+      maintenanceMode:
+          data['maintenanceMode'] == true || data['maintenanceEnabled'] == true,
       guideModeDefaultEnabled: data['guideModeDefaultEnabled'] == true,
       featuredPlacesEnabled: data['featuredPlacesEnabled'] != false,
       adsEnabled: data['adsEnabled'] != false,
