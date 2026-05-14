@@ -1141,80 +1141,96 @@ class _FullscreenSponsoredAdDialog extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: ad.hasHttpImage
-                          ? Image.network(
-                              ad.imageUrl,
-                              height: 260,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return _fullscreenAdFallback(context);
-                              },
-                            )
-                          : _fullscreenAdFallback(context),
-                    ),
-                    const SizedBox(height: 22),
-                    Text(
-                      ad.title,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colorScheme.onSurface,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                        height: 1.08,
-                      ),
-                    ),
-                    if (ad.description.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text(
-                        ad.description,
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                    if (ad.targetUrl.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      TextButton.icon(
-                        onPressed: () async {
-                          await openSponsoredAdTargetUrl(ad);
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: colorScheme.primary,
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        icon: const Icon(Icons.open_in_new_rounded, size: 15),
-                        label: const Text(
-                          'Learn more',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final imageHeight = (constraints.maxHeight * 0.62).clamp(
+                      360.0,
+                      560.0,
+                    );
+
+                    return ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(28),
+                          child: Container(
+                            height: imageHeight,
+                            width: double.infinity,
+                            color: colorScheme.surfaceContainerHighest,
+                            alignment: Alignment.center,
+                            child: ad.hasHttpImage
+                                ? Image.network(
+                                    ad.imageUrl,
+                                    height: imageHeight,
+                                    width: double.infinity,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return _fullscreenAdFallback(context);
+                                    },
+                                  )
+                                : _fullscreenAdFallback(context),
                           ),
                         ),
-                      ),
-                    ],
-                    const SizedBox(height: 24),
-                    Text(
-                      'Tap the X button to close this sponsored message.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+                        const SizedBox(height: 18),
+                        Text(
+                          ad.title,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            height: 1.08,
+                          ),
+                        ),
+                        if (ad.description.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            ad.description,
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                        if (ad.targetUrl.isNotEmpty) ...[
+                          const SizedBox(height: 20),
+                          TextButton.icon(
+                            onPressed: () async {
+                              await openSponsoredAdTargetUrl(ad);
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: colorScheme.primary,
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            icon:
+                                const Icon(Icons.open_in_new_rounded, size: 15),
+                            label: const Text(
+                              'Learn more',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        Text(
+                          'Tap the X button to close this sponsored message.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
