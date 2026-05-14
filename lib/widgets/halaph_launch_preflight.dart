@@ -9,10 +9,12 @@ import '../services/plan_notification_service.dart';
 
 class HalaPhLaunchPreflight extends StatefulWidget {
   final VoidCallback onStart;
+  final bool visualOnly;
 
   const HalaPhLaunchPreflight({
     super.key,
     required this.onStart,
+    this.visualOnly = false,
   });
 
   @override
@@ -95,7 +97,21 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
     });
 
     unawaited(_introController.forward());
-    unawaited(_runChecks());
+    if (widget.visualOnly) {
+      debugPrint('Preflight: visual-only checks skipped');
+      setState(() {
+        _checksComplete = true;
+        _checksFinalized = true;
+        _accountChecked = true;
+        _notificationsReady = true;
+        _locationReady = true;
+        _notificationMessage = 'Notifications available after Start';
+        _locationMessage = 'Location available when needed';
+        _accountMessage = 'Account routing starts after Start';
+      });
+    } else {
+      unawaited(_runChecks());
+    }
   }
 
   Future<void> _runChecks() async {
@@ -217,7 +233,11 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
   void _logReadyForContinueIfReady() {
     if (!_canStart || _readyLogged || _startTriggered) return;
     _readyLogged = true;
-    debugPrint('Preflight: ready for continue');
+    if (widget.visualOnly) {
+      debugPrint('AppStartup: Android start button ready');
+    } else {
+      debugPrint('Preflight: ready for continue');
+    }
   }
 
   void _completeStart() {

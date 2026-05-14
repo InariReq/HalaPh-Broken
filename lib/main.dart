@@ -115,11 +115,19 @@ class _AuthWrapperState extends State<AuthWrapper> {
   StreamSubscription<AppPublicConfig>? _publicConfigSubscription;
   bool _publicConfigWatchStarted = false;
 
+  bool get _isAndroidStartup =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
   @override
   void initState() {
     super.initState();
     AppTutorialService.guideReplayRequests
         .addListener(_handleGuideReplayRequest);
+    if (_isAndroidStartup) {
+      debugPrint('AppStartup: Android launch screen shown');
+      debugPrint('AppStartup: Android startup checks skipped');
+      return;
+    }
     _startAuthListener();
     _checkLogin();
   }
@@ -240,6 +248,57 @@ class _AuthWrapperState extends State<AuthWrapper> {
     setState(() {
       _launchAccepted = true;
     });
+  }
+
+  void _onAndroidLaunchStart() {
+    debugPrint('AppStartup: Android start tapped');
+
+    firebase_auth.User? currentUser;
+    try {
+      if (FirebaseAppService.isInitialized) {
+        currentUser = firebase_auth.FirebaseAuth.instance.currentUser;
+      }
+    } catch (error) {
+      debugPrint('AppStartup: Android auth session unavailable: $error');
+    }
+
+    if (currentUser == null) {
+      debugPrint('AppStartup: Android routing to login');
+      setState(() {
+        _launchAccepted = true;
+        _isLoggedIn = false;
+        _sessionUid = null;
+        _loading = false;
+        _checkingGuideMode = false;
+        _showGuideMode = false;
+        _guideModeStartupInFlight = false;
+        _guideModeStartupEvaluated = false;
+        _guideModeStartupScheduled = false;
+        _guideModeShownThisSession = false;
+      });
+      unawaited(_startAuthListener());
+      return;
+    }
+
+    debugPrint('AppStartup: Android routing to app shell');
+    setState(() {
+      _launchAccepted = true;
+      _isLoggedIn = true;
+      _sessionUid = currentUser?.uid;
+      _loading = false;
+      _checkingGuideMode = false;
+      _guideModeStartupEvaluated = false;
+      _guideModeStartupInFlight = false;
+      _guideModeStartupScheduled = false;
+    });
+    unawaited(SimplePlanService.initialize().timeout(
+      const Duration(seconds: 3),
+      onTimeout: () {
+        debugPrint('AuthWrapper: plan initialization timed out; continuing.');
+      },
+    ));
+    _startPublicConfigWatch();
+    unawaited(_startAuthListener());
   }
 
   void _startPublicConfigWatch() {
@@ -459,15 +518,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     if (!_launchAccepted) {
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        debugPrint('AppStartup: Android launch preflight skipped');
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || _launchAccepted) return;
-          _onLaunchStart();
-        });
-        return _loading
-            ? const SizedBox.shrink()
-            : AccountsScreen(onLoginSuccess: _onLoginSuccess);
+      if (_isAndroidStartup) {
+        return HalaPhLaunchPreflight(
+          visualOnly: true,
+          onStart: _onAndroidLaunchStart,
+        );
       }
 
       return HalaPhLaunchPreflight(
