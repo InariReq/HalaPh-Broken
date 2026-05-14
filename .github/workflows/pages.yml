@@ -1,0 +1,46 @@
+name: Deploy HalaPH Showcase Site
+
+on:
+  push:
+    branches:
+      - codex-friend-repair-fix
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify showcase site
+        run: |
+          test -f showcase_site/index.html
+          test -f showcase_site/styles.css
+          test -f showcase_site/app.js
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload showcase artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: showcase_site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
