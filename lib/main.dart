@@ -45,6 +45,8 @@ import 'widgets/halaph_logo_loading.dart';
 import 'package:halaph/models/app_public_config.dart';
 import 'package:halaph/services/app_public_config_service.dart';
 
+bool _androidLaunchScreenAccepted = false;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _loadEnvSafe();
@@ -124,9 +126,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
     AppTutorialService.guideReplayRequests
         .addListener(_handleGuideReplayRequest);
     if (_isAndroidStartup) {
-      debugPrint('AppStartup: Android launch screen shown');
-      debugPrint('AppStartup: Android startup checks skipped');
-      return;
+      if (!_androidLaunchScreenAccepted) {
+        debugPrint('AppStartup: Android launch screen shown');
+        debugPrint('AppStartup: Android startup checks skipped');
+        return;
+      }
+      _launchAccepted = true;
     }
     _startAuthListener();
     _checkLogin();
@@ -252,6 +257,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   void _onAndroidLaunchStart() {
     debugPrint('AppStartup: Android start tapped');
+    _androidLaunchScreenAccepted = true;
 
     firebase_auth.User? currentUser;
     try {
@@ -517,10 +523,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isAndroidStartup) {
+      debugPrint(
+        'AppStartup: AuthWrapper build Android launchAccepted=$_launchAccepted',
+      );
+    }
+
     if (!_launchAccepted) {
       if (_isAndroidStartup) {
+        debugPrint('AppStartup: Android launch screen rendered');
         return HalaPhLaunchPreflight(
           visualOnly: true,
+          debugLabel: 'Android launch screen',
           onStart: _onAndroidLaunchStart,
         );
       }
@@ -1253,8 +1267,43 @@ ThemeData _buildHalaTheme(Brightness brightness) {
   );
 }
 
-class HalaPhApp extends StatelessWidget {
+class HalaPhApp extends StatefulWidget {
   const HalaPhApp({super.key});
+
+  @override
+  State<HalaPhApp> createState() => _HalaPhAppState();
+}
+
+class _HalaPhAppState extends State<HalaPhApp> {
+  bool get _showAndroidLaunchScreen =>
+      !kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.android &&
+      !_androidLaunchScreenAccepted;
+
+  void _onAndroidVisualLaunchStart() {
+    debugPrint('AppStartup: Android start tapped');
+    _androidLaunchScreenAccepted = true;
+
+    firebase_auth.User? currentUser;
+    try {
+      if (FirebaseAppService.isInitialized) {
+        currentUser = firebase_auth.FirebaseAuth.instance.currentUser;
+      }
+    } catch (error) {
+      debugPrint('AppStartup: Android auth session unavailable: $error');
+    }
+
+    if (currentUser == null) {
+      debugPrint('AppStartup: Android routing to login');
+    } else {
+      debugPrint('AppStartup: Android routing to app shell');
+    }
+
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _router.go('/');
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1270,6 +1319,20 @@ class HalaPhApp extends StatelessWidget {
           routerDelegate: _router.routerDelegate,
           routeInformationParser: _router.routeInformationParser,
           routeInformationProvider: _router.routeInformationProvider,
+          builder: (context, child) {
+            if (_showAndroidLaunchScreen) {
+              debugPrint(
+                'AppStartup: AuthWrapper build Android launchAccepted=false',
+              );
+              debugPrint('AppStartup: Android launch screen rendered');
+              return HalaPhLaunchPreflight(
+                visualOnly: true,
+                debugLabel: 'Android launch screen',
+                onStart: _onAndroidVisualLaunchStart,
+              );
+            }
+            return child ?? const SizedBox.shrink();
+          },
         );
       },
     );

@@ -10,11 +10,13 @@ import '../services/plan_notification_service.dart';
 class HalaPhLaunchPreflight extends StatefulWidget {
   final VoidCallback onStart;
   final bool visualOnly;
+  final String? debugLabel;
 
   const HalaPhLaunchPreflight({
     super.key,
     required this.onStart,
     this.visualOnly = false,
+    this.debugLabel,
   });
 
   @override
@@ -234,7 +236,7 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
     if (!_canStart || _readyLogged || _startTriggered) return;
     _readyLogged = true;
     if (widget.visualOnly) {
-      debugPrint('AppStartup: Android start button ready');
+      debugPrint('AppStartup: Android visual-only start button ready');
     } else {
       debugPrint('Preflight: ready for continue');
     }
@@ -314,6 +316,14 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
+                              if (widget.visualOnly &&
+                                  widget.debugLabel != null) ...[
+                                const SizedBox(height: 12),
+                                _DebugLabel(
+                                  label: widget.debugLabel!,
+                                  colorScheme: colorScheme,
+                                ),
+                              ],
                               const SizedBox(height: 24),
                               _StatusPanel(
                                 colorScheme: colorScheme,
@@ -1080,6 +1090,38 @@ class _StatusPanel extends StatelessWidget {
             if (i != children.length - 1) const SizedBox(height: 10),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _DebugLabel extends StatelessWidget {
+  final String label;
+  final ColorScheme colorScheme;
+
+  const _DebugLabel({
+    required this.label,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.w900,
+            ),
       ),
     );
   }
