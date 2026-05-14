@@ -35,7 +35,7 @@ Where Every Trip Meets It's Line
 
 1. Host the website first or decide the final public URL.
 2. Generate a QR code from the hosted website URL.
-3. Regenerate `assets/site_qr.png` and `assets/apk_qr.png` when the hosted links change.
+3. Regenerate `assets/site_qr.png` and `assets/apk_qr.png` when hosted links change.
 4. If adding an image file later, place it inside `showcase_site/assets/` and update the QR card markup.
 
 ## Logo Asset

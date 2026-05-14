@@ -99,9 +99,6 @@
       const href = link.getAttribute("href") || "";
       const isPlaceholder =
         href.includes("_HERE") ||
-        href === "REMOVED_ANDROID_APK_URL_HERE" ||
-        href === "REMOVED_DEMO_VIDEO_URL_HERE" ||
-        href === "REMOVED_WEBSITE_URL_HERE" ||
         href === "mailto:CONTACT_EMAIL_HERE";
       if (!isPlaceholder) return;
       event.preventDefault();
