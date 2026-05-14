@@ -11,6 +11,9 @@ import 'package:halaph/models/plan.dart';
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/screens/explore_details_screen.dart';
 import 'package:halaph/widgets/motion_widgets.dart';
+import 'package:halaph/models/sponsored_ad.dart';
+import 'package:halaph/services/app_public_config_service.dart';
+import 'package:halaph/services/user_ads_service.dart';
 
 class MyPlansScreen extends StatefulWidget {
   final bool guideModeDemo;
@@ -27,7 +30,11 @@ class MyPlansScreen extends StatefulWidget {
 }
 
 class _MyPlansScreenState extends State<MyPlansScreen> {
+  static bool _fullscreenAdShownThisSession = false;
+
   final FriendService _friendService = FriendService();
+  final AppPublicConfigService _publicConfigService = AppPublicConfigService();
+  final UserAdsService _adsService = UserAdsService();
   String _myCode = 'current_user';
   bool _isLoading = true;
   StreamSubscription? _plansSubscription;
@@ -769,6 +776,53 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
     );
   }
 
+  Future<void> _maybeShowFullscreenAdAfterFinishedTrip(
+    BuildContext context,
+  ) async {
+    if (widget.guideModeDemo) return;
+    if (_fullscreenAdShownThisSession || !mounted || !context.mounted) return;
+
+    try {
+      debugPrint('Fullscreen ad check: started after finished trip.');
+
+      final config = await _publicConfigService.loadPublicConfig();
+      if (!mounted || !context.mounted) return;
+
+      debugPrint(
+        'Fullscreen ad config: adsEnabled=${config.adsEnabled} '
+        'fullscreenAdsEnabled=${config.fullscreenAdsEnabled} '
+        'maxAdsPerScreen=${config.maxAdsPerScreen}',
+      );
+
+      if (!config.adsEnabled ||
+          !config.fullscreenAdsEnabled ||
+          config.maxAdsPerScreen < 1) {
+        debugPrint('Fullscreen ad skipped: disabled by app settings.');
+        return;
+      }
+
+      final ads = await _adsService.loadFullscreenAds();
+      if (!mounted || !context.mounted) return;
+
+      if (ads.isEmpty) {
+        debugPrint('Fullscreen ad skipped: no active fullscreen ads.');
+        return;
+      }
+
+      _fullscreenAdShownThisSession = true;
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return _FullscreenSponsoredAdDialog(ad: ads.first);
+        },
+      );
+    } catch (error) {
+      debugPrint('Fullscreen ad unavailable: $error');
+    }
+  }
+
   Future<void> _showMarkFinishedConfirmation(
     BuildContext context,
     TravelPlan plan,
@@ -811,6 +865,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
 
     if (success) {
       setState(() {});
+      await _maybeShowFullscreenAdAfterFinishedTrip(context);
     }
   }
 
@@ -1021,6 +1076,151 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _FullscreenSponsoredAdDialog extends StatelessWidget {
+  final SponsoredAd ad;
+
+  const _FullscreenSponsoredAdDialog({required this.ad});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Dialog.fullscreen(
+      child: SafeArea(
+        child: Material(
+          color: colorScheme.surface,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        'Sponsored',
+                        style: TextStyle(
+                          color: colorScheme.onSecondaryContainer,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        ad.advertiserName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: ad.hasHttpImage
+                          ? Image.network(
+                              ad.imageUrl,
+                              height: 260,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return _fullscreenAdFallback(context);
+                              },
+                            )
+                          : _fullscreenAdFallback(context),
+                    ),
+                    const SizedBox(height: 22),
+                    Text(
+                      ad.title,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        height: 1.08,
+                      ),
+                    ),
+                    if (ad.description.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        ad.description,
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                    if (ad.targetUrl.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      Text(
+                        'Learn more',
+                        style: TextStyle(
+                          color: Colors.blue[700],
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    Text(
+                      'Tap the X button to close this sponsored message.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _fullscreenAdFallback(BuildContext context) {
+    return Container(
+      height: 260,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.campaign_rounded,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        size: 52,
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class SponsoredAd {
   static const collectionPath = 'admin_ads';
   static const sponsoredCardPlacement = 'sponsoredCard';
+  static const fullscreenPlacement = 'fullscreen';
 
   final String id;
   final String title;
@@ -39,12 +40,39 @@ class SponsoredAd {
   });
 
   bool isActiveFor(DateTime now) {
+    return isActiveForPlacement(sponsoredCardPlacement, now);
+  }
+
+  bool isActiveForPlacement(String expectedPlacement, DateTime now) {
     final starts = startsAt;
     final ends = endsAt;
     return isActive &&
-        placement == sponsoredCardPlacement &&
+        _placementMatches(expectedPlacement) &&
         (starts == null || !starts.isAfter(now)) &&
         (ends == null || !ends.isBefore(now));
+  }
+
+  bool _placementMatches(String expectedPlacement) {
+    final normalized = placement.trim().toLowerCase();
+    final expected = expectedPlacement.trim().toLowerCase();
+
+    if (normalized == expected) return true;
+
+    if (expected == fullscreenPlacement) {
+      return normalized == 'fullscreen' ||
+          normalized == 'full screen' ||
+          normalized == 'full_screen' ||
+          normalized == 'fullscreenad' ||
+          normalized == 'fullscreen_ad';
+    }
+
+    if (expected == sponsoredCardPlacement) {
+      return normalized == 'sponsoredcard' ||
+          normalized == 'sponsored card' ||
+          normalized == 'sponsored_card';
+    }
+
+    return false;
   }
 
   bool get hasHttpImage => imageUrl.startsWith('http');

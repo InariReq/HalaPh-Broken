@@ -214,6 +214,12 @@ class _SettingsCard extends StatelessWidget {
                   icon: Icons.campaign_rounded,
                   label: settings.adsEnabled ? 'Ads on' : 'Ads off',
                 ),
+                _SettingChip(
+                  icon: Icons.fullscreen_rounded,
+                  label: settings.fullscreenAdsEnabled
+                      ? 'Fullscreen ads on'
+                      : 'Fullscreen ads off',
+                ),
               ],
             ),
             const SizedBox(height: 18),
@@ -270,6 +276,7 @@ class _SettingsFormDialogState extends State<_SettingsFormDialog> {
   late bool _guideModeDefaultEnabled;
   late bool _featuredPlacesEnabled;
   late bool _adsEnabled;
+  late bool _fullscreenAdsEnabled;
 
   @override
   void initState() {
@@ -284,6 +291,7 @@ class _SettingsFormDialogState extends State<_SettingsFormDialog> {
     _guideModeDefaultEnabled = settings.guideModeDefaultEnabled;
     _featuredPlacesEnabled = settings.featuredPlacesEnabled;
     _adsEnabled = settings.adsEnabled;
+    _fullscreenAdsEnabled = settings.fullscreenAdsEnabled;
   }
 
   @override
@@ -361,10 +369,25 @@ class _SettingsFormDialogState extends State<_SettingsFormDialog> {
                 _SettingsSwitch(
                   title: 'Ads enabled',
                   subtitle:
-                      'Allows admin-managed ad placements when user app integration is added.',
+                      'Allows admin-managed ad placements in the user app.',
                   value: _adsEnabled,
                   onChanged: (value) => setState(() {
                     _adsEnabled = value;
+                    if (!value) {
+                      _fullscreenAdsEnabled = false;
+                    }
+                  }),
+                ),
+                _SettingsSwitch(
+                  title: 'Fullscreen ads enabled',
+                  subtitle:
+                      'Allows one fullscreen sponsored ad after a completed action.',
+                  value: _fullscreenAdsEnabled,
+                  onChanged: (value) => setState(() {
+                    _fullscreenAdsEnabled = value;
+                    if (value) {
+                      _adsEnabled = true;
+                    }
                   }),
                 ),
               ],
@@ -398,6 +421,7 @@ class _SettingsFormDialogState extends State<_SettingsFormDialog> {
         guideModeDefaultEnabled: _guideModeDefaultEnabled,
         featuredPlacesEnabled: _featuredPlacesEnabled,
         adsEnabled: _adsEnabled,
+        fullscreenAdsEnabled: _fullscreenAdsEnabled,
       ),
     );
   }

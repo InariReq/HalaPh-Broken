@@ -30,16 +30,68 @@ class UserAdsService {
   List<SponsoredAd> _filterAndSortSponsoredAds(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
   ) {
+    return _filterAndSortAds(docs, SponsoredAd.sponsoredCardPlacement);
+  }
+
+  List<SponsoredAd> _filterAndSortFullscreenAds(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    return _filterAndSortAds(docs, SponsoredAd.fullscreenPlacement);
+  }
+
+  List<SponsoredAd> _filterAndSortAds(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+    String placement,
+  ) {
     final now = DateTime.now();
-    final ads = docs.map(SponsoredAd.fromSnapshot).where((ad) {
-      return ad.isActiveFor(now);
-    }).toList()
-      ..sort((a, b) {
-        final priorityCompare = a.priority.compareTo(b.priority);
-        if (priorityCompare != 0) return priorityCompare;
-        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
-      });
+    final ads = <SponsoredAd>[];
+
+    for (final doc in docs) {
+      try {
+        final ad = SponsoredAd.fromSnapshot(doc);
+        if (ad.isActiveForPlacement(placement, now)) {
+          ads.add(ad);
+        }
+      } catch (error) {
+        debugPrint('Skipping invalid admin ad ${doc.id}: $error');
+      }
+    }
+
+    ads.sort((a, b) {
+      final priorityCompare = a.priority.compareTo(b.priority);
+      if (priorityCompare != 0) return priorityCompare;
+      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    });
+
     return ads;
+  }
+
+  Future<List<SponsoredAd>> loadFullscreenAds() async {
+    try {
+      final snapshot = await _collection
+          .where('isActive', isEqualTo: true)
+          .get(const GetOptions(source: Source.server))
+          .timeout(_readTimeout);
+      final ads = _filterAndSortFullscreenAds(snapshot.docs);
+      debugPrint('Fullscreen ads loaded: ${ads.length}');
+      return ads;
+    } on TimeoutException catch (error) {
+      debugPrint('Fullscreen ads read timed out: $error');
+      return const [];
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        debugPrint('Fullscreen ads read denied; hiding ads.');
+      } else {
+        debugPrint('Fullscreen ads read failed: ${error.code}');
+      }
+      return const [];
+    } on FormatException catch (error) {
+      debugPrint('Fullscreen ads data invalid; hiding ads: $error');
+      return const [];
+    } catch (error) {
+      debugPrint('Fullscreen ads read failed: $error');
+      return const [];
+    }
   }
 
   Future<List<SponsoredAd>> loadSponsoredCards() async {

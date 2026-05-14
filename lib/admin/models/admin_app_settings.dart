@@ -11,6 +11,7 @@ class AdminAppSettings {
   final bool guideModeDefaultEnabled;
   final bool featuredPlacesEnabled;
   final bool adsEnabled;
+  final bool fullscreenAdsEnabled;
   final DateTime? updatedAt;
   final String updatedBy;
 
@@ -23,6 +24,7 @@ class AdminAppSettings {
     required this.guideModeDefaultEnabled,
     required this.featuredPlacesEnabled,
     required this.adsEnabled,
+    required this.fullscreenAdsEnabled,
     this.updatedAt,
     this.updatedBy = '',
   });
@@ -35,6 +37,7 @@ class AdminAppSettings {
       guideModeDefaultEnabled: true,
       featuredPlacesEnabled: true,
       adsEnabled: false,
+      fullscreenAdsEnabled: false,
     );
   }
 
@@ -51,6 +54,7 @@ class AdminAppSettings {
       guideModeDefaultEnabled: data['guideModeDefaultEnabled'] != false,
       featuredPlacesEnabled: data['featuredPlacesEnabled'] != false,
       adsEnabled: data['adsEnabled'] == true,
+      fullscreenAdsEnabled: data['fullscreenAdsEnabled'] == true,
       updatedAt: _timestampToDate(data['updatedAt']),
       updatedBy: (data['updatedBy'] as String?)?.trim() ?? '',
     );
@@ -65,6 +69,7 @@ class AdminAppSettings {
       'guideModeDefaultEnabled': guideModeDefaultEnabled,
       'featuredPlacesEnabled': featuredPlacesEnabled,
       'adsEnabled': adsEnabled,
+      'fullscreenAdsEnabled': fullscreenAdsEnabled,
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': actorUid,
     };
