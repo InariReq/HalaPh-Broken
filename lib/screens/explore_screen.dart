@@ -319,8 +319,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
     try {
       if (query.isEmpty) {
         final location = await DestinationService.getCurrentLocation();
-        final featuredPlaces =
-            await UserFeaturedPlacesService.getActiveFeaturedPlaces();
+        final featuredPlaces = _publicConfig.featuredPlacesEnabled
+            ? await UserFeaturedPlacesService.getActiveFeaturedPlaces()
+            : const <Destination>[];
         final destinations = await DestinationService.getTrendingDestinations();
         final deduped =
             DestinationService.deduplicateDestinationsById(destinations);
@@ -344,10 +345,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
           _placesUnavailable = false;
         });
       } else {
-        final featuredPlaces =
-            await UserFeaturedPlacesService.getActiveFeaturedPlaces(
-          query: query,
-        );
+        final featuredPlaces = _publicConfig.featuredPlacesEnabled
+            ? await UserFeaturedPlacesService.getActiveFeaturedPlaces(
+                query: query,
+              )
+            : const <Destination>[];
         final destinations = await DestinationService.searchDestinations(query);
         final deduped =
             DestinationService.deduplicateDestinationsById(destinations);
@@ -509,8 +511,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final location = await DestinationService.getCurrentLocation();
 
       if (category == null) {
-        final featuredPlaces =
-            await UserFeaturedPlacesService.getActiveFeaturedPlaces();
+        final featuredPlaces = _publicConfig.featuredPlacesEnabled
+            ? await UserFeaturedPlacesService.getActiveFeaturedPlaces()
+            : const <Destination>[];
         final destinations = await DestinationService.getTrendingDestinations();
         final deduped =
             DestinationService.deduplicateDestinationsById(destinations);
@@ -535,10 +538,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
         return;
       }
 
-      final featuredPlaces =
-          await UserFeaturedPlacesService.getActiveFeaturedPlaces(
-        category: category,
-      );
+      final featuredPlaces = _publicConfig.featuredPlacesEnabled
+          ? await UserFeaturedPlacesService.getActiveFeaturedPlaces(
+              category: category,
+            )
+          : const <Destination>[];
       final destinations = await DestinationService.searchRealPlaces(
         query: '',
         location: location,
