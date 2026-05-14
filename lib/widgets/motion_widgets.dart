@@ -109,7 +109,7 @@ class _PressableCardState extends State<PressableCard> {
           onTap: widget.onTap,
           borderRadius: widget.borderRadius,
           splashColor:
-              widget.splashColor ?? colorScheme.primary.withValues(alpha: 0.10),
+              widget.splashColor ?? Colors.blue.withValues(alpha: 0.10),
           highlightColor: widget.highlightColor ??
               colorScheme.primary.withValues(alpha: 0.06),
           onHighlightChanged: widget.onTap == null ? null : _setPressed,

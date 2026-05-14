@@ -267,7 +267,8 @@ class _HalaPhLaunchPreflightState extends State<HalaPhLaunchPreflight>
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: colorScheme.surfaceContainerLow,
+      backgroundColor:
+          isDark ? const Color(0xFF08111F) : const Color(0xFFF7FBFF),
       body: SafeArea(
         child: AnimatedBuilder(
           animation: Listenable.merge([_introController, _routeController]),
@@ -576,8 +577,11 @@ class _LaunchRouteBoard extends StatelessWidget {
                           pulseProgress: safeRouteProgress,
                           primary: colorScheme.primary,
                           secondary: colorScheme.secondary,
-                          surface: colorScheme.surface,
-                          lineBase: colorScheme.secondaryContainer,
+                          surface:
+                              isDark ? const Color(0xFF101B2B) : Colors.white,
+                          lineBase: isDark
+                              ? const Color(0xFF2B3A55)
+                              : const Color(0xFFD6E8FF),
                         ),
                       ),
                     ),
