@@ -473,7 +473,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         final confidenceLabel = hasLiveTransitStep
             ? 'Live transit estimate'
             : hasHistoricalMatch
-                ? 'Verified route'
+                ? 'Historical reference'
                 : 'Estimate only';
 
         final displayHistoricalMatch =
@@ -488,7 +488,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         final confidenceDetail = hasLiveTransitStep
             ? 'Based on returned public transport step data with route or stop details.'
             : hasHistoricalMatch
-                ? 'Matched against HalaPH historical route data. Driving steps are hidden because they are not commute instructions.'
+                ? 'Matched to historical GTFS stop coordinates. Walking and transfer steps use the matched boarding and alighting points. Confirm route status and signboard before boarding.'
                 : 'Estimated from available route data. Public transport details may vary.';
 
         builtDirectionSteps[modeData.mode.toString()] = steps;
@@ -507,9 +507,9 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
           fareBreakdown: fareBreakdown,
           confidenceLabel: confidenceLabel,
           confidenceDetail: isNearbyDropOff
-              ? '$confidenceDetail Nearby route: get off at the listed verified stop, then walk to the destination.'
+              ? '$confidenceDetail Nearby route: get off at the listed matched stop, then walk to the destination.'
               : confidenceDetail,
-          isVerifiedTransit: hasLiveTransitStep || hasHistoricalMatch,
+          isVerifiedTransit: hasLiveTransitStep,
           historicalMatch: displayHistoricalMatch,
           routeScore: _routeScore(
             mode: modeData.mode,
@@ -1211,7 +1211,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           row(Icons.directions_bus_filled_rounded, 'Signboard', signboard),
-          row(Icons.location_on_rounded, 'Board at', boardStop),
+          row(Icons.location_on_rounded, 'Board near', boardStop),
           row(
             Icons.flag_rounded,
             isNearbyDropOff ? 'Get off near' : 'Get off at',
@@ -1417,7 +1417,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
 
   IconData _sourceIconFor(_TransportFare fare) {
     if (fare.mode == TravelMode.walking) return Icons.directions_walk_rounded;
-    if (fare.confidenceLabel == 'Verified route') {
+    if (fare.confidenceLabel == 'Historical reference') {
       return Icons.verified_rounded;
     }
     if (fare.confidenceLabel == 'Live transit estimate') {
@@ -1431,7 +1431,7 @@ class _RouteOptionsScreenState extends State<RouteOptionsScreen> {
     if (fare.mode == TravelMode.walking) {
       return isDark ? Colors.green[300]! : Colors.green[700]!;
     }
-    if (fare.confidenceLabel == 'Verified route') {
+    if (fare.confidenceLabel == 'Historical reference') {
       return isDark ? Colors.green[300]! : Colors.green[700]!;
     }
     if (fare.confidenceLabel == 'Live transit estimate') {
@@ -1690,11 +1690,11 @@ _TransportFare _walkingFareOption(
     ],
     polyline: '',
     fareBreakdown: const ['Walking fare: ₱0'],
-    confidenceLabel: 'Walking route',
+    confidenceLabel: 'Estimated walking route',
     confidenceDetail:
         'Estimated locally from straight-line distance. No route lookup needed.',
     historicalMatch: null,
-    isVerifiedTransit: true,
+    isVerifiedTransit: false,
     routeScore: distanceKm <= _recommendedWalkingThresholdKm
         ? -1000 + distanceKm
         : 45 + distanceKm,
@@ -1737,12 +1737,12 @@ TravelMode _effectiveRideModeForLeg(
   if (leg.mode == TravelMode.train) return TravelMode.train;
   if (leg.mode == TravelMode.walking) return TravelMode.walking;
 
-  final inferredMode = _inferRoadModeFromLegText(leg);
-  if (inferredMode != null) return inferredMode;
-
   if (_isRoadTransitMode(selectedMode) && _isRoadTransitMode(leg.mode)) {
     return selectedMode;
   }
+
+  final inferredMode = _inferRoadModeFromLegText(leg);
+  if (inferredMode != null) return inferredMode;
 
   return leg.mode;
 }

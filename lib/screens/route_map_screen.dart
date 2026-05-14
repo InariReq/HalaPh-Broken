@@ -300,12 +300,14 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
   }
 
   List<Map<String, dynamic>> _effectiveRouteSteps() {
+    final match = widget.historicalMatch;
+    if (match != null) {
+      return _historicalRouteSteps(match);
+    }
+
     if (widget.steps.isNotEmpty) return widget.steps;
 
-    final match = widget.historicalMatch;
-    if (match == null) return const [];
-
-    return _historicalRouteSteps(match);
+    return const [];
   }
 
   bool _isRoadTransitMode(TravelMode mode) {
@@ -341,14 +343,50 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     if (leg.mode == TravelMode.train) return TravelMode.train;
     if (leg.mode == TravelMode.walking) return TravelMode.walking;
 
-    final inferredMode = _inferRoadModeFromLegText(leg);
-    if (inferredMode != null) return inferredMode;
-
     if (_isRoadTransitMode(widget.mode) && _isRoadTransitMode(leg.mode)) {
       return widget.mode;
     }
 
+    final inferredMode = _inferRoadModeFromLegText(leg);
+    if (inferredMode != null) return inferredMode;
+
     return leg.mode;
+  }
+
+  String _boardingAreaLabel(TravelMode mode) {
+    switch (mode) {
+      case TravelMode.jeepney:
+        return 'jeepney boarding area';
+      case TravelMode.bus:
+        return 'bus stop or bus boarding area';
+      case TravelMode.fx:
+        return 'FX/UV boarding area';
+      case TravelMode.train:
+        return 'rail station entrance';
+      case TravelMode.walking:
+        return 'boarding area';
+    }
+  }
+
+  TravelMode _accessModeForLeg(HistoricalRouteLeg leg) {
+    final accessKm = leg.walkToBoardMeters / 1000.0;
+    if (leg.mode == TravelMode.train &&
+        accessKm > _stationAccessRideThresholdKm) {
+      return TravelMode.jeepney;
+    }
+    return TravelMode.walking;
+  }
+
+  TravelMode _finalAccessModeForLeg(
+    HistoricalRouteMatch match,
+    HistoricalRouteLeg leg,
+  ) {
+    final accessKm = match.walkFromAlightMeters / 1000.0;
+    if (leg.mode == TravelMode.train &&
+        accessKm > _stationAccessRideThresholdKm) {
+      return TravelMode.jeepney;
+    }
+    return TravelMode.walking;
   }
 
   List<Map<String, dynamic>> _historicalRouteSteps(HistoricalRouteMatch match) {
@@ -367,6 +405,11 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
           'lat': lat,
           'lng': lng,
         },
+        if (walkingEnd != null)
+          'end_location': {
+            'lat': walkingEnd.latitude,
+            'lng': walkingEnd.longitude,
+          },
         if (walkingStart != null && walkingEnd != null) ...{
           'walking_start_lat': walkingStart.latitude,
           'walking_start_lng': walkingStart.longitude,
@@ -414,8 +457,8 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                         _stationAccessRideThresholdKm
                     ? 'Take a local ride to rail station: ${leg.boardStopName}. This access ride is included in the fare estimate.'
                     : 'Walk to rail station: ${leg.boardStopName}.')
-                : 'Walk to boarding point: ${leg.boardStopName}.',
-            mode: TravelMode.walking,
+                : 'Walk to the matched ${_boardingAreaLabel(effectiveMode)} near: ${leg.boardStopName}. Confirm the stop and signboard before boarding.',
+            mode: _accessModeForLeg(leg),
             lat: widget.origin.latitude,
             lng: widget.origin.longitude,
             walkingStart: widget.origin,
@@ -456,8 +499,8 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
                     nextLeg.walkToBoardMeters / 1000.0 >
                         _stationAccessRideThresholdKm
                 ? 'Transfer: take a local ride from ${leg.alightStopName} to ${nextLeg.boardStopName}. This access ride is included in the fare estimate.'
-                : 'Transfer: walk from ${leg.alightStopName} to ${nextLeg.boardStopName}.',
-            mode: TravelMode.walking,
+                : 'Transfer: walk from ${leg.alightStopName} to the matched ${_boardingAreaLabel(_effectiveRideModeForLeg(nextLeg))} near ${nextLeg.boardStopName}.',
+            mode: _accessModeForLeg(nextLeg),
             lat: leg.alightStopLat,
             lng: leg.alightStopLon,
             walkingStart: transferStart,
@@ -473,12 +516,12 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
     );
     steps.add(
       step(
-        instruction: match.route.mode == TravelMode.train &&
+        instruction: legs.last.mode == TravelMode.train &&
                 match.walkFromAlightMeters / 1000.0 >
                     _stationAccessRideThresholdKm
             ? 'Take a local ride from ${legs.last.alightStopName} station to your destination. This ride is included in the fare estimate.'
             : 'Walk from ${legs.last.alightStopName} to your destination.',
-        mode: TravelMode.walking,
+        mode: _finalAccessModeForLeg(match, legs.last),
         lat: legs.last.alightStopLat,
         lng: legs.last.alightStopLon,
         walkingStart: finalWalkStart,
@@ -1115,15 +1158,14 @@ class _RouteMapScreenState extends State<RouteMapScreen> {
             return;
           }
 
-          setState(() {
-            _walkingRoutePoints = [];
-            _polylines = _withoutWalkingRoutePolyline(_polylines);
-          });
-
-          final latLng = _extractStepLocation(step);
-          if (latLng != null) {
-            _mapController?.animateCamera(CameraUpdate.newLatLng(latLng));
-          }
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Instruction only. Use the walking steps to show a map path.',
+              ),
+            ),
+          );
         },
         child: Container(
           decoration: BoxDecoration(
