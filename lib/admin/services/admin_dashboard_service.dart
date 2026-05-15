@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class AdminDashboardMetric {
   final String value;
@@ -89,9 +91,54 @@ class AdminDashboardService {
       ),
     ]);
 
+    final metrics = Map<String, AdminDashboardMetric>.fromEntries(results);
+    metrics['userbase'] = _buildUserbaseMetric(
+      users: metrics['users'],
+      publicProfiles: metrics['publicProfiles'],
+    );
+
     return AdminDashboardStats(
       loadedAt: DateTime.now(),
-      metrics: Map.fromEntries(results),
+      metrics: metrics,
+    );
+  }
+
+  AdminDashboardMetric _buildUserbaseMetric({
+    required AdminDashboardMetric? users,
+    required AdminDashboardMetric? publicProfiles,
+  }) {
+    final userCount = int.tryParse(users?.value ?? '');
+    final publicProfileCount = int.tryParse(publicProfiles?.value ?? '');
+
+    if (userCount == null && publicProfileCount == null) {
+      final restricted =
+          users?.restricted == true || publicProfiles?.restricted == true;
+
+      debugPrint(
+        'Admin dashboard userbase failed: users=${users?.value} '
+        'publicProfiles=${publicProfiles?.value}',
+      );
+
+      return AdminDashboardMetric(
+        value: restricted ? 'Restricted' : '—',
+        subtitle: restricted
+            ? 'Firestore rules blocked userbase reads.'
+            : 'Could not calculate userbase.',
+        restricted: restricted,
+      );
+    }
+
+    final count = math.max(userCount ?? 0, publicProfileCount ?? 0);
+
+    debugPrint(
+      'Admin dashboard userbase count: $count '
+      '(users=${userCount ?? 0}, publicProfiles=${publicProfileCount ?? 0})',
+    );
+
+    return AdminDashboardMetric(
+      value: count.toString(),
+      subtitle:
+          'Estimated app userbase from users and public profiles. Admin accounts are not counted.',
     );
   }
 
@@ -117,6 +164,9 @@ class AdminDashboardService {
             const Duration(seconds: 5),
           );
       final count = snapshot.count;
+
+      debugPrint('Admin dashboard $key count: ${count ?? 'unknown'}');
+
       return MapEntry(
         key,
         AdminDashboardMetric(
@@ -125,6 +175,10 @@ class AdminDashboardService {
         ),
       );
     } on FirebaseException catch (error) {
+      debugPrint(
+        'Admin dashboard stats failed: $key ${error.code} ${error.message}',
+      );
+
       if (error.code == 'permission-denied') {
         return MapEntry(
           key,
@@ -144,6 +198,8 @@ class AdminDashboardService {
         ),
       );
     } on TimeoutException {
+      debugPrint('Admin dashboard stats failed: $key timed out');
+
       return MapEntry(
         key,
         const AdminDashboardMetric(
@@ -151,7 +207,9 @@ class AdminDashboardService {
           subtitle: 'Firestore did not respond quickly enough.',
         ),
       );
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Admin dashboard stats failed: $key $error');
+
       return MapEntry(
         key,
         const AdminDashboardMetric(

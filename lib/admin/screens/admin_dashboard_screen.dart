@@ -95,9 +95,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   children: [
                     _statCard(
                       stats: stats,
-                      keyName: 'users',
+                      keyName: 'userbase',
                       icon: Icons.people_alt_rounded,
-                      title: 'App Users',
+                      title: 'Userbase',
                     ),
                     _statCard(
                       stats: stats,
