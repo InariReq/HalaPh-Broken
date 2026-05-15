@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
@@ -93,10 +91,6 @@ class AdminDashboardService {
     ]);
 
     final metrics = Map<String, AdminDashboardMetric>.fromEntries(results);
-    metrics['userbase'] = _buildUserbaseMetric(
-      users: metrics['users'],
-      publicProfiles: metrics['publicProfiles'],
-    );
 
     return AdminDashboardStats(
       loadedAt: DateTime.now(),
@@ -104,58 +98,66 @@ class AdminDashboardService {
     );
   }
 
-  AdminDashboardMetric _buildUserbaseMetric({
-    required AdminDashboardMetric? users,
-    required AdminDashboardMetric? publicProfiles,
-  }) {
-    final userCount = int.tryParse(users?.value ?? '');
-    final publicProfileCount = int.tryParse(publicProfiles?.value ?? '');
+  Future<MapEntry<String, AdminDashboardMetric>> _countUserbase() async {
+    String clean(String value) => value.trim();
+    String cleanEmail(String value) => value.trim().toLowerCase();
 
-    if (userCount == null && publicProfileCount == null) {
-      final restricted =
-          users?.restricted == true || publicProfiles?.restricted == true;
+    final appUids = <String>{};
+    final appEmails = <String>{};
 
-      debugPrint(
-        'Admin dashboard userbase failed: users=${users?.value} '
-        'publicProfiles=${publicProfiles?.value}',
-      );
+    void addUidField(Map<String, dynamic> data) {
+      for (final key in ['uid', 'userId', 'ownerUid']) {
+        final value = data[key];
+        if (value is String && clean(value).isNotEmpty) {
+          appUids.add(clean(value));
+        }
+      }
 
-      return AdminDashboardMetric(
-        value: restricted ? 'Restricted' : '—',
-        subtitle: restricted
-            ? 'Firestore rules blocked userbase reads.'
-            : 'Could not calculate userbase.',
-        restricted: restricted,
-      );
+      final email = data['email'];
+      if (email is String && cleanEmail(email).isNotEmpty) {
+        appEmails.add(cleanEmail(email));
+      }
     }
 
-    final count = math.max(userCount ?? 0, publicProfileCount ?? 0);
-
-    debugPrint(
-      'Admin dashboard userbase count: $count '
-      '(users=${userCount ?? 0}, publicProfiles=${publicProfileCount ?? 0})',
-    );
-
-    return AdminDashboardMetric(
-      value: count.toString(),
-      subtitle:
-          'Estimated app userbase from users and public profiles. Admin accounts are not counted.',
-    );
-  }
-
-  Future<MapEntry<String, AdminDashboardMetric>> _countUserbase() async {
     try {
-      final ids = <String>{};
+      final adminUids = <String>{};
+      final adminEmails = <String>{};
+
+      final adminUsersSnapshot =
+          await _firestore.collection('admin_users').get().timeout(
+                const Duration(seconds: 5),
+              );
+
+      for (final doc in adminUsersSnapshot.docs) {
+        final data = doc.data();
+
+        final docId = clean(doc.id);
+        if (docId.isNotEmpty) {
+          adminUids.add(docId);
+        }
+
+        for (final key in ['uid', 'userId', 'ownerUid']) {
+          final value = data[key];
+          if (value is String && clean(value).isNotEmpty) {
+            adminUids.add(clean(value));
+          }
+        }
+
+        final email = data['email'];
+        if (email is String && cleanEmail(email).isNotEmpty) {
+          adminEmails.add(cleanEmail(email));
+        }
+      }
 
       final usersSnapshot = await _firestore.collection('users').get().timeout(
             const Duration(seconds: 5),
           );
       for (final doc in usersSnapshot.docs) {
-        ids.add(doc.id);
-        final uid = doc.data()['uid'];
-        if (uid is String && uid.trim().isNotEmpty) {
-          ids.add(uid.trim());
+        final docId = clean(doc.id);
+        if (docId.isNotEmpty) {
+          appUids.add(docId);
         }
+        addUidField(doc.data());
       }
 
       final publicProfilesSnapshot =
@@ -163,10 +165,7 @@ class AdminDashboardService {
                 const Duration(seconds: 5),
               );
       for (final doc in publicProfilesSnapshot.docs) {
-        final uid = doc.data()['uid'];
-        if (uid is String && uid.trim().isNotEmpty) {
-          ids.add(uid.trim());
-        }
+        addUidField(doc.data());
       }
 
       final friendCodesSnapshot =
@@ -174,20 +173,31 @@ class AdminDashboardService {
                 const Duration(seconds: 5),
               );
       for (final doc in friendCodesSnapshot.docs) {
-        final uid = doc.data()['uid'];
-        if (uid is String && uid.trim().isNotEmpty) {
-          ids.add(uid.trim());
-        }
+        addUidField(doc.data());
       }
 
-      debugPrint('Admin dashboard userbase unique count: ${ids.length}');
+      final beforeUidCount = appUids.length;
+      final beforeEmailCount = appEmails.length;
+
+      appUids.removeAll(adminUids);
+      appEmails.removeAll(adminEmails);
+
+      final count = appUids.isNotEmpty ? appUids.length : appEmails.length;
+
+      debugPrint(
+        'Admin dashboard userbase count: $count '
+        'from $beforeUidCount uid candidate(s), '
+        '$beforeEmailCount email candidate(s), '
+        'excluding ${adminUids.length} admin uid(s) and '
+        '${adminEmails.length} admin email(s).',
+      );
 
       return MapEntry(
         'userbase',
         AdminDashboardMetric(
-          value: ids.length.toString(),
+          value: count.toString(),
           subtitle:
-              'Unique app users from users, public profiles, and friend codes. Admin accounts are not counted.',
+              'Unique non-admin app users from users, public profiles, and friend codes.',
         ),
       );
     } on FirebaseException catch (error) {
@@ -210,7 +220,7 @@ class AdminDashboardService {
         'userbase',
         AdminDashboardMetric(
           value: '—',
-          subtitle: 'Could not load userbase: ${error.code}.',
+          subtitle: 'Could not load userbase.',
         ),
       );
     } on TimeoutException {
