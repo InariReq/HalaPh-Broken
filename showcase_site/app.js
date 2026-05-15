@@ -120,6 +120,7 @@
 
 const teamMembers = [
   {
+    department: "Leadership",
     name: "Carlos, John Jian S.",
     role: "General Manager",
     category: "Leadership",
@@ -127,7 +128,7 @@ const teamMembers = [
     photo: "assets/team/john-jian-carlos.jpg",
     image: "assets/team/john-jian-carlos.jpg",
     imageUrl: "assets/team/john-jian-carlos.jpg",
-    summary: "Served as General Manager and overall group leader for TripLine PH.",
+    summary: "Served as the overall head of TripLine PH. Guided the project direction, coordinated major decisions, monitored team progress, and helped keep the business proposal, HalaPH app, and presentation outputs aligned with the project objectives.",
     contributions: [
       "Led group coordination, project direction, task assignment, member progress checking, and final preparation support.",
       "Supported business proposal decisions, API-related coordination, major paperwork responsibilities, printing, and physical submission preparation.",
@@ -136,51 +137,15 @@ const teamMembers = [
     ]
   },
   {
-    name: "Cheong, Jerald Jia Le D.",
-    role: "Technical Lead / Senior App Developer",
-    category: "Development",
-    initials: "JC",
-    photo: "assets/team/cheong-jia-le.jpg",
-    image: "assets/team/cheong-jia-le.jpg",
-    imageUrl: "assets/team/cheong-jia-le.jpg",
-    summary: "Served as Technical Lead and Senior App Developer, leading the working HalaPH app, admin system integration, APK release, QR download flow, and showcase website updates.",
-    contributions: [
-      "Led full Flutter app development for HalaPH, including Home, Explore, Favorites, Friends, My Plans, Plan Details, Trip History, Settings, and Guide Mode.",
-      "Built the main commute-planning features, including destination browsing, route planning, fare estimates, search behavior, shared plans, collaboration flows, reminders, and finished-trip history.",
-      "Integrated and debugged Firebase features, including Auth, Cloud Firestore, Firebase Storage, live app data updates, profile handling, friend system fixes, plan banners, and account cleanup improvements.",
-      "Built the admin-to-user system, including App Settings, Featured Places, Admin Locations, Sponsored Cards, Fullscreen Ads, live settings refresh, and role-based admin permissions.",
-      "Handled ad system refinement, including non-intrusive sponsored cards, fullscreen ads after finished trips, X-only fullscreen ad closing, banner ad deprecation, and ad setting controls.",
-      "Updated the showcase release assets, including the Android APK download, APK QR code, site QR code, showcase website copy, download section, FAQ, and release information.",
-      "Ran technical validation, release builds, debugging, Git commits, stable tags, Xcode log checks, Android build checks, Firebase permission checks, and final showcase testing.",
-      "Helped prepare, review, and improve the final paper."
-    ]
-  },
-  {
-    name: "Toh, Ynna Marie S.",
-    role: "Main Designer / UI/UX Designer",
-    category: "Design",
-    initials: "YT",
-    photo: "assets/team/ynna-toh.jpg",
-    image: "assets/team/ynna-toh.jpg",
-    imageUrl: "assets/team/ynna-toh.jpg",
-    summary: "Served as Main Designer and UI/UX Designer for the project. Directed the advertisement video and will lead its editing.",
-    contributions: [
-      "Led main design direction, UI/UX planning, visual layout support, color and presentation design discussions, and user-facing design improvements.",
-      "Made the tarpaulin design for the showcase booth and made the brochure design and layout for the project presentation.",
-      "Supported booth visuals, showcase design planning, Android build checking, and bug finding during app testing.",
-      "Reviewed design-related paper and presentation sections, and helped prepare, review, and improve the final paper.",
-      "Directed the advertisement video and will lead its editing."
-    ]
-  },
-  {
+    department: "Operations",
     name: "Valdueza, Fritzver Ezra D.",
-    role: "Operations Manager / Documentation Lead",
+    role: "Assistant Manager",
     category: "Operations",
     initials: "FV",
     photo: "assets/team/fritzver-valdueza.jpg",
     image: "assets/team/fritzver-valdueza.jpg",
     imageUrl: "assets/team/fritzver-valdueza.jpg",
-    summary: "Served as Operations Manager and Documentation Lead. Also helped with and appeared in the advertisement video.",
+    summary: "Managed day-to-day coordination, documentation flow, task follow-ups, and deadline tracking. Helped organize team responsibilities, supported communication between members, and contributed to advertisement video production and presentation preparation.",
     contributions: [
       "Led documentation work, organized written outputs, managed project files, and supported operations planning for the business proposal.",
       "Checked paper structure, formatting, completeness, consistency, and written materials for submission and presentation.",
@@ -190,89 +155,45 @@ const teamMembers = [
     ]
   },
   {
-    name: "Amad, Ervin Francis S.",
-    role: "Finance Manager",
-    category: "Finance",
-    initials: "EA",
-    photo: "assets/team/ervin-amad.jpg",
-    image: "assets/team/ervin-amad.jpg",
-    imageUrl: "assets/team/ervin-amad.jpg",
-    summary: "Served as Finance Manager for TripLine PH. Also helped with and appeared in the advertisement video.",
+    department: "Development",
+    name: "Cheong, Jerald Jia Le D.",
+    role: "Technical Lead / Senior App Developer",
+    category: "Development",
+    initials: "JC",
+    photo: "assets/team/cheong-jia-le.jpg",
+    image: "assets/team/cheong-jia-le.jpg",
+    imageUrl: "assets/team/cheong-jia-le.jpg",
+    summary: "Led the technical side of HalaPH and handled the app development work using Flutter and Dart. Built and refined the mobile app, Firebase and Firestore integration, routing features, featured places system, advertisement tools, admin dashboard support, APK release flow, website deployment support, testing, debugging, and production-ready fixes.",
     contributions: [
-      "Led finance planning, cost-related information preparation, budget planning, and business feasibility review.",
-      "Supported pricing, funding, and ad-supported business model discussions for the proposal.",
-      "Worked with the assistant finance role and reviewed finance-related paper sections.",
-      "Helped prepare, review, and improve the final paper.",
-      "Helped with and appeared in the advertisement video."
+      "Technical Development: Handled the development of the HalaPH mobile application using Flutter and Dart.",
+      "App Features: Built and refined route guidance, trip planning, collaboration flows, favorites, profiles, guide mode, account tools, and polished user interfaces.",
+      "Firebase and Backend Work: Worked on Firebase Authentication, Firestore data flows, Firestore rules, Firebase Storage, profile image syncing, friend systems, shared plans, account cleanup, and real-time data behavior.",
+      "Routes and Places: Improved route-related features, fare support, Google Maps integration, cached destinations, featured places, admin-managed locations, and Explore screen behavior.",
+      "Admin and Monetization Tools: Built and improved the admin dashboard, featured places management, advertisement controls, sponsored card behavior, delete controls, and dashboard statistics.",
+      "Release and Deployment: Handled APK builds, public APK updates, QR/download support, showcase website updates, GitHub Pages deployment, and Firebase admin web deployment.",
+      "Testing and Stability: Ran Dart analyze, Flutter analyze, Flutter tests, release builds, Xcode/iOS checks, Android checks, debugging, and production-ready fixes."
     ]
   },
   {
-    name: "Encarnacion, Brianna Angela D.",
-    role: "Finance Analyst / Assistant Finance Manager",
-    category: "Finance",
-    initials: "BE",
-    photo: "assets/team/angela-encarnacion.jpg",
-    image: "assets/team/angela-encarnacion.jpg",
-    imageUrl: "assets/team/angela-encarnacion.jpg",
-    summary: "Served as Finance Analyst and Assistant Finance Manager.",
+    department: "Design",
+    name: "Toh, Ynna Marie S.",
+    role: "Main Designer / UI/UX Designer",
+    category: "Design",
+    initials: "YT",
+    photo: "assets/team/ynna-toh.jpg",
+    image: "assets/team/ynna-toh.jpg",
+    imageUrl: "assets/team/ynna-toh.jpg",
+    summary: "Led the visual direction of HalaPH. Designed the app's look and feel, interface flow, branding direction, layout decisions, and user experience improvements. Directed the advertisement video and will lead its editing to keep the promotional output consistent with the HalaPH brand.",
     contributions: [
-      "Assisted the Finance Manager with finance work, cost review, budget details, and business feasibility analysis.",
-      "Helped organize financial information and check finance-related written content for clarity.",
-      "Supported the business model section through finance-related input and review.",
-      "Helped prepare, review, and improve the final paper."
+      "Led main design direction, UI/UX planning, visual layout support, color and presentation design discussions, and user-facing design improvements.",
+      "Made the tarpaulin design for the showcase booth and made the brochure design and layout for the project presentation.",
+      "Supported booth visuals, showcase design planning, Android build checking, and bug finding during app testing.",
+      "Reviewed design-related paper and presentation sections, and helped prepare, review, and improve the final paper.",
+      "Directed the advertisement video and will lead its editing."
     ]
   },
   {
-    name: "Salivio, Mariah Dacara D.",
-    role: "Marketing Manager / Booth Design Lead",
-    category: "Marketing",
-    initials: "MS",
-    photo: "assets/team/maraiah-salivio.jpg",
-    image: "assets/team/maraiah-salivio.jpg",
-    imageUrl: "assets/team/maraiah-salivio.jpg",
-    summary: "Served as Marketing Manager and Booth Design Lead.",
-    contributions: [
-      "Led marketing planning, audience positioning, promotional ideas, and how HalaPH should be presented to students and commuters.",
-      "Led booth design planning and helped align booth visuals with the HalaPH brand and app purpose.",
-      "Supported brochure planning, presentation materials, and marketing-related paper review.",
-      "Helped prepare, review, and improve the final paper."
-    ]
-  },
-  {
-    name: "Catubig, Dhustine G.",
-    role: "Advertisement Manager",
-    category: "Advertising",
-    initials: "DC",
-    photo: "assets/team/dhustine-catubig.jpg",
-    image: "assets/team/dhustine-catubig.jpg",
-    imageUrl: "assets/team/dhustine-catubig.jpg",
-    summary: "Served as Advertisement Manager. Also helped with and appeared in the advertisement video.",
-    contributions: [
-      "Led advertisement planning, advertising direction, promotional content ideas, and ad-related showcase preparation.",
-      "Coordinated advertisement-related tasks with advertisement officers and supported promotional material planning.",
-      "Contributed to the ad-supported business concept and reviewed advertising-related paper and presentation details.",
-      "Helped prepare, review, and improve the final paper.",
-      "Helped with and appeared in the advertisement video."
-    ]
-  },
-  {
-    name: "Dela Cruz, Jian B.",
-    role: "Data Analyst",
-    category: "Research",
-    initials: "JD",
-    photo: "assets/team/jian-dela-cruz.png",
-    image: "assets/team/jian-dela-cruz.png",
-    imageUrl: "assets/team/jian-dela-cruz.png",
-    summary: "Served as Data Analyst. Also helped with and appeared in the advertisement video.",
-    contributions: [
-      "Supported data analysis, route-related information review, commuter use case review, and app concept data support.",
-      "Organized data used for proposal support and checked consistency of project information.",
-      "Supported research and documentation with data-related input and proposal review.",
-      "Helped prepare, review, and improve the final paper.",
-      "Helped with and appeared in the advertisement video."
-    ]
-  },
-  {
+    department: "Research",
     name: "Barroga, Ej M.",
     role: "Research Analyst",
     category: "Research",
@@ -280,7 +201,7 @@ const teamMembers = [
     photo: "assets/team/ej-barroga.jpg",
     image: "assets/team/ej-barroga.jpg",
     imageUrl: "assets/team/ej-barroga.jpg",
-    summary: "Served as Research Analyst. Also helped with and appeared in the advertisement video.",
+    summary: "Conducts market research, competitor analysis, and user requirement gathering to support project planning and feature development. Also helped with and appeared in the advertisement video.",
     contributions: [
       "Supported project research, information gathering, commuter and public transport review, and business proposal research sections.",
       "Reviewed research-based content and checked if written content matched project goals.",
@@ -290,23 +211,95 @@ const teamMembers = [
     ]
   },
   {
-    name: "Abilo, Mark Jansen A.",
-    role: "Customer Support Representative",
-    category: "Support",
-    initials: "MA",
-    photo: "assets/team/mark-jansen-abilo.jpg",
-    image: "assets/team/mark-jansen-abilo.jpg",
-    imageUrl: "assets/team/mark-jansen-abilo.jpg",
-    summary: "Served as Customer Support Representative. Also helped with and appeared in the advertisement video.",
+    department: "Data",
+    name: "Dela Cruz, Jian B.",
+    role: "Data Analyst",
+    category: "Research",
+    initials: "JD",
+    photo: "assets/team/jian-dela-cruz.png",
+    image: "assets/team/jian-dela-cruz.png",
+    imageUrl: "assets/team/jian-dela-cruz.png",
+    summary: "Collects, manages, and analyzes transport data such as routes, fare estimates, and destination information to support application accuracy. Also helped with and appeared in the advertisement video.",
     contributions: [
-      "Supported customer support planning, user concern handling, and customer-facing service responsibilities.",
-      "Helped review how users could ask for help, report concerns, and receive service support.",
-      "Assisted with presentation support and customer support-related paper content.",
+      "Supported data analysis, route-related information review, commuter use case review, and app concept data support.",
+      "Organized data used for proposal support and checked consistency of project information.",
+      "Supported research and documentation with data-related input and proposal review.",
       "Helped prepare, review, and improve the final paper.",
       "Helped with and appeared in the advertisement video."
     ]
   },
   {
+    department: "Finance",
+    name: "Amad, Ervin Francis S.",
+    role: "Finance Manager",
+    category: "Finance",
+    initials: "EA",
+    photo: "assets/team/ervin-amad.jpg",
+    image: "assets/team/ervin-amad.jpg",
+    imageUrl: "assets/team/ervin-amad.jpg",
+    summary: "Handles budgeting, capital management, financial projections, expense monitoring, and revenue planning from in-app advertisements. Also helped with and appeared in the advertisement video.",
+    contributions: [
+      "Led finance planning, cost-related information preparation, budget planning, and business feasibility review.",
+      "Supported pricing, funding, and ad-supported business model discussions for the proposal.",
+      "Worked with the assistant finance role and reviewed finance-related paper sections.",
+      "Helped prepare, review, and improve the final paper.",
+      "Helped with and appeared in the advertisement video."
+    ]
+  },
+  {
+    department: "Finance",
+    name: "Encarnacion, Brianna Angela D.",
+    role: "Finance Analyst",
+    category: "Finance",
+    initials: "BE",
+    photo: "assets/team/angela-encarnacion.jpg",
+    image: "assets/team/angela-encarnacion.jpg",
+    imageUrl: "assets/team/angela-encarnacion.jpg",
+    summary: "Tracks expenses, monitors development costs, prepares financial reports, and helps develop budget-friendly features for HalaPH.",
+    contributions: [
+      "Assisted the Finance Manager with finance work, cost review, budget details, and business feasibility analysis.",
+      "Helped organize financial information and check finance-related written content for clarity.",
+      "Supported the business model section through finance-related input and review.",
+      "Helped prepare, review, and improve the final paper."
+    ]
+  },
+  {
+    department: "Marketing",
+    name: "Salivio, Mariah Dacara D.",
+    role: "Marketing Manager",
+    category: "Marketing",
+    initials: "MS",
+    photo: "assets/team/maraiah-salivio.jpg",
+    image: "assets/team/maraiah-salivio.jpg",
+    imageUrl: "assets/team/maraiah-salivio.jpg",
+    summary: "Creates marketing strategies and handles promotional activities for the project.",
+    contributions: [
+      "Led marketing planning, audience positioning, promotional ideas, and how HalaPH should be presented to students and commuters.",
+      "Led booth design planning and helped align booth visuals with the HalaPH brand and app purpose.",
+      "Supported brochure planning, presentation materials, and marketing-related paper review.",
+      "Helped prepare, review, and improve the final paper."
+    ]
+  },
+  {
+    department: "Advertising",
+    name: "Catubig, Dhustine G.",
+    role: "Advertisement Manager",
+    category: "Advertising",
+    initials: "DC",
+    photo: "assets/team/dhustine-catubig.jpg",
+    image: "assets/team/dhustine-catubig.jpg",
+    imageUrl: "assets/team/dhustine-catubig.jpg",
+    summary: "Plans and supervises advertising and promotional campaigns, including in-app advertisements, to reach target users. Also helped with and appeared in the advertisement video.",
+    contributions: [
+      "Led advertisement planning, advertising direction, promotional content ideas, and ad-related showcase preparation.",
+      "Coordinated advertisement-related tasks with advertisement officers and supported promotional material planning.",
+      "Contributed to the ad-supported business concept and reviewed advertising-related paper and presentation details.",
+      "Helped prepare, review, and improve the final paper.",
+      "Helped with and appeared in the advertisement video."
+    ]
+  },
+  {
+    department: "Advertising",
     name: "Alimen, Mark Ian B.",
     role: "Advertisement Officer",
     category: "Advertising",
@@ -314,7 +307,7 @@ const teamMembers = [
     photo: "assets/team/mark-ian-alimen.jpg",
     image: "assets/team/mark-ian-alimen.jpg",
     imageUrl: "assets/team/mark-ian-alimen.jpg",
-    summary: "Served as an Advertisement Officer.",
+    summary: "Creates promotional content, social media materials, advertising designs, and advertisement video support materials to increase awareness of HalaPH.",
     contributions: [
       "Assisted the Advertisement Manager with advertisement tasks, promotional ideas, and showcase advertising preparation.",
       "Supported advertisement video or promotional material planning and ad-related presentation details.",
@@ -323,6 +316,7 @@ const teamMembers = [
     ]
   },
   {
+    department: "Advertising",
     name: "Ewag, Allen P.",
     role: "Advertisement Officer",
     category: "Advertising",
@@ -330,7 +324,7 @@ const teamMembers = [
     photo: "assets/team/allen-ewag.jpg",
     image: "assets/team/allen-ewag.jpg",
     imageUrl: "assets/team/allen-ewag.jpg",
-    summary: "Served as an Advertisement Officer. Also helped with and appeared in the advertisement video.",
+    summary: "Creates promotional content, social media materials, advertising designs, and advertisement video support materials to increase awareness of HalaPH. Also helped with and appeared in the advertisement video.",
     contributions: [
       "Assisted the Advertisement Manager with advertisement tasks, promotional ideas, and showcase advertising preparation.",
       "Supported advertisement video or promotional material planning and ad-related presentation details.",
@@ -338,8 +332,28 @@ const teamMembers = [
       "Helped prepare, review, and improve the final paper.",
       "Helped with and appeared in the advertisement video."
     ]
+  },
+  {
+    department: "Customer Support",
+    name: "Abilo, Mark Jansen A.",
+    role: "Customer Support Representative",
+    category: "Support",
+    initials: "MA",
+    photo: "assets/team/mark-jansen-abilo.jpg",
+    image: "assets/team/mark-jansen-abilo.jpg",
+    imageUrl: "assets/team/mark-jansen-abilo.jpg",
+    summary: "Handles user feedback, concerns about routes, fares, and usability, and collects suggestions to improve the application. Also helped with and appeared in the advertisement video.",
+    contributions: [
+      "Supported customer support planning, user concern handling, and customer-facing service responsibilities.",
+      "Helped review how users could ask for help, report concerns, and receive service support.",
+      "Assisted with presentation support and customer support-related paper content.",
+      "Helped prepare, review, and improve the final paper.",
+      "Helped with and appeared in the advertisement video."
+    ]
   }
-];
+]
+
+const organizationFlow = "General Manager → Assistant Manager → Technical / Design → Research / Data → Finance → Marketing / Ads → Customer Support";;
 
 function initTeamCarousel() {
   const name = document.getElementById("team-member-name");
@@ -512,3 +526,225 @@ function initThemeDropdown() {
 }
 
 document.addEventListener("DOMContentLoaded", initThemeDropdown);
+
+// HalaPH replayable scroll and slide animations 20260515 START
+(() => {
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  const revealSelectors = [
+    ".hero-copy",
+    ".hero-content",
+    ".hero-text",
+    ".hero-visual",
+    ".phone-mockup",
+    ".phone",
+    ".section-header",
+    ".section-heading",
+    ".feature-card",
+    ".card",
+    ".step-card",
+    ".workflow-card",
+    ".route-step",
+    ".mission-card",
+    ".vision-card",
+    ".team-card",
+    ".member-card",
+    ".contribution-card",
+    ".download-card",
+    ".apk-qr",
+    ".faq-card",
+    ".footer-inner"
+  ];
+
+  const slideScopes = [
+    ".team-carousel",
+    ".members-carousel",
+    ".carousel",
+    ".team-section",
+    ".team",
+    "[data-carousel]"
+  ];
+
+  let revealObserver = null;
+
+  function isInsideNav(element) {
+    return Boolean(element.closest(".nav-links, [data-nav], header, .site-header, .navbar"));
+  }
+
+  function markRevealElements() {
+    const elements = Array.from(document.querySelectorAll(revealSelectors.join(",")))
+      .filter((element) => !isInsideNav(element))
+      .filter((element) => !element.classList.contains("hala-reveal-opt-out"));
+
+    elements.forEach((element, index) => {
+      element.classList.add("hala-reveal");
+
+      if (
+        element.matches(".hero-visual, .phone-mockup, .phone") ||
+        element.closest(".hero-visual")
+      ) {
+        element.classList.add("reveal-right");
+      } else if (
+        element.matches(".hero-copy, .hero-content, .hero-text")
+      ) {
+        element.classList.add("reveal-left");
+      }
+
+      const delay = Math.min((index % 5) * 55, 220);
+      element.style.setProperty("--reveal-delay", `${delay}ms`);
+    });
+
+    return elements;
+  }
+
+  function elementIsInViewport(element) {
+    const rect = element.getBoundingClientRect();
+    const height = window.innerHeight || document.documentElement.clientHeight;
+
+    return rect.top < height * 0.86 && rect.bottom > height * 0.12;
+  }
+
+  function initRevealAnimations() {
+    const elements = markRevealElements();
+
+    if (reducedMotion.matches) {
+      elements.forEach((element) => element.classList.add("is-visible"));
+      return;
+    }
+
+    if (revealObserver) {
+      revealObserver.disconnect();
+    }
+
+    revealObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.08) {
+            entry.target.classList.add("is-visible");
+          } else if (!entry.isIntersecting) {
+            entry.target.classList.remove("is-visible");
+          }
+        });
+      },
+      {
+        threshold: [0, 0.08, 0.18, 0.32],
+        rootMargin: "-6% 0px -8% 0px"
+      }
+    );
+
+    elements.forEach((element) => {
+      revealObserver.observe(element);
+
+      if (elementIsInViewport(element)) {
+        element.classList.add("is-visible");
+      }
+    });
+  }
+
+  function closestSlideScope(element) {
+    return element.closest(slideScopes.join(","));
+  }
+
+  function inferDirection(trigger) {
+    const aria = trigger.getAttribute("aria-label") || "";
+    const title = trigger.getAttribute("title") || "";
+    const text = trigger.textContent || "";
+    const className =
+      typeof trigger.className === "string" ? trigger.className : "";
+
+    const label = `${aria} ${title} ${text} ${className}`.toLowerCase();
+
+    if (
+      label.includes("prev") ||
+      label.includes("previous") ||
+      label.includes("back") ||
+      label.includes("left") ||
+      label.includes("‹") ||
+      label.includes("←")
+    ) {
+      return "prev";
+    }
+
+    return "next";
+  }
+
+  function replaySlideAnimation(scope, direction = "next") {
+    if (!scope || reducedMotion.matches) return;
+
+    scope.classList.add("hala-slide-scope");
+    scope.classList.remove(
+      "hala-slide-animating",
+      "hala-slide-next",
+      "hala-slide-prev"
+    );
+
+    void scope.offsetWidth;
+
+    scope.classList.add(
+      "hala-slide-animating",
+      direction === "prev" ? "hala-slide-prev" : "hala-slide-next"
+    );
+
+    window.clearTimeout(scope.__halaSlideTimer);
+    scope.__halaSlideTimer = window.setTimeout(() => {
+      scope.classList.remove(
+        "hala-slide-animating",
+        "hala-slide-next",
+        "hala-slide-prev"
+      );
+    }, 620);
+  }
+
+  function initSlideAnimations() {
+    document.addEventListener(
+      "click",
+      (event) => {
+        const trigger = event.target.closest(
+          "button, [role='button'], .carousel-arrow, .carousel-dot, .team-arrow"
+        );
+
+        if (!trigger) return;
+
+        const scope = closestSlideScope(trigger);
+        if (!scope) return;
+
+        replaySlideAnimation(scope, inferDirection(trigger));
+      },
+      true
+    );
+
+    const scopes = Array.from(document.querySelectorAll(slideScopes.join(",")));
+
+    scopes.forEach((scope) => {
+      scope.classList.add("hala-slide-scope");
+
+      const observer = new MutationObserver(() => {
+        replaySlideAnimation(scope, "next");
+      });
+
+      observer.observe(scope, {
+        childList: true,
+        characterData: true,
+        subtree: true
+      });
+    });
+  }
+
+  function initHalaMotion() {
+    initRevealAnimations();
+    initSlideAnimations();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initHalaMotion);
+  } else {
+    initHalaMotion();
+  }
+
+  window.addEventListener("load", () => {
+    window.setTimeout(initRevealAnimations, 150);
+  });
+
+  reducedMotion.addEventListener?.("change", initRevealAnimations);
+})();
+// HalaPH replayable scroll and slide animations 20260515 END
