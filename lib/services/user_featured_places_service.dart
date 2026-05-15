@@ -1,9 +1,26 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/destination.dart';
+import 'package:halaph/services/google_maps_service.dart';
+import 'package:halaph/utils/place_display_name_utils.dart';
 
 class UserFeaturedPlacesService {
   static const Duration _timeout = Duration(seconds: 4);
+  static const _featuredCollection = 'admin_featured_places';
+  static const _adminLocationsCollection = 'admin_locations';
+  static const _destinationCollections = <String>[
+    'destinations',
+    'places',
+    'locations',
+    'cached_destinations',
+  ];
+  static const _referenceFields = <String>[
+    'destinationId',
+    'placeId',
+    'locationId',
+    'targetId',
+  ];
 
   static Future<List<Destination>> getActiveFeaturedPlaces({
     DestinationCategory? category,
@@ -11,69 +28,45 @@ class UserFeaturedPlacesService {
   }) async {
     try {
       debugPrint('Featured places query started');
-      final snapshot = await FirebaseFirestore.instance
-          .collection('admin_featured_places')
-          .get(const GetOptions(source: Source.server))
-          .timeout(_timeout);
-
-      final docs = [...snapshot.docs]..sort((a, b) {
-          final priorityCompare = _readPriority(a.data()['priority']).compareTo(
-            _readPriority(b.data()['priority']),
-          );
-          if (priorityCompare != 0) return priorityCompare;
-
-          final aName = ((a.data()['name'] as String?) ?? '').toLowerCase();
-          final bName = ((b.data()['name'] as String?) ?? '').toLowerCase();
-          return aName.compareTo(bName);
-        });
-
-      final queryLower = query.trim().toLowerCase();
       final now = DateTime.now();
-      final places = <Destination>[];
+      final candidates = <_FeaturedDestination>[];
 
-      for (final doc in docs) {
-        final skipReason = _skipReason(doc, now);
-        if (skipReason != null) {
-          debugPrint('Skipping featured place ${doc.id}: $skipReason');
-          continue;
+      final featuredDocs = await _readCollection(_featuredCollection);
+      debugPrint('Featured places collection loaded: ${featuredDocs.length}');
+      for (final doc in featuredDocs) {
+        final candidate = await _featuredCollectionCandidate(doc, now);
+        if (candidate != null) {
+          candidates.add(candidate);
         }
-
-        final destination = _toDestination(doc);
-        if (destination == null) {
-          debugPrint(
-            'Skipping featured place ${doc.id}: missing name, city/location, or category',
-          );
-          continue;
-        }
-
-        if (category != null && destination.category != category) {
-          debugPrint(
-            'Skipping featured place ${doc.id}: category does not match selected filter',
-          );
-          continue;
-        }
-
-        if (queryLower.isNotEmpty) {
-          final searchable = [
-            destination.name,
-            destination.location,
-            destination.description,
-            destination.tags.join(' '),
-          ].join(' ').toLowerCase();
-
-          if (!searchable.contains(queryLower)) {
-            debugPrint(
-              'Skipping featured place ${doc.id}: query "$query" did not match',
-            );
-            continue;
-          }
-        }
-
-        places.add(destination);
       }
 
-      debugPrint('Featured places loaded: ${places.length}');
-      return places.toList(growable: false);
+      final existingDestinationCandidates =
+          await _loadExistingFeaturedDestinations(now);
+      debugPrint(
+        'Existing featured destinations loaded: '
+        '${existingDestinationCandidates.length}',
+      );
+      candidates.addAll(existingDestinationCandidates);
+
+      final adminLocationCandidates =
+          await _loadExistingFeaturedAdminLocations(now);
+      debugPrint(
+        'Existing featured admin locations loaded: '
+        '${adminLocationCandidates.length}',
+      );
+      candidates.addAll(adminLocationCandidates);
+
+      final filtered = _filterCandidates(
+        candidates,
+        category: category,
+        query: query,
+      );
+      final merged = _mergeAndSort(filtered);
+      debugPrint('Featured place merged: ${merged.length}');
+      debugPrint('Featured places loaded: ${merged.length}');
+      return merged.map((candidate) => candidate.destination).toList(
+            growable: false,
+          );
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {
         debugPrint('Featured places permission-denied: ${error.message}');
@@ -87,64 +80,587 @@ class UserFeaturedPlacesService {
     }
   }
 
-  static Destination? _toDestination(
+  static Future<_FeaturedDestination?> _featuredCollectionCandidate(
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
+    DateTime now,
+  ) async {
     final data = doc.data();
+    final skipReason = _skipReason(data, now, requiresFeatureFlag: false);
+    if (skipReason != null) {
+      debugPrint('Skipping featured place ${doc.id}: $skipReason');
+      return null;
+    }
 
-    final name = (data['name'] as String?)?.trim() ?? '';
-    final city = _stringValue(
-      data['city'] ?? data['location'] ?? data['address'],
+    final priority = _readPriority(data);
+    final sourceCollection = _stringValue(data['sourceCollection']);
+    final sourceId = _stringValue(data['sourceId'] ?? data['targetId']);
+    if (sourceCollection.isNotEmpty && sourceId.isNotEmpty) {
+      final resolved = await _resolveReferencedDestinationFromCollection(
+        sourceCollection,
+        sourceId,
+        now,
+        featuredData: data,
+      );
+      if (resolved != null) {
+        debugPrint(
+          'Featured place resolved reference: $sourceCollection/$sourceId',
+        );
+        return _FeaturedDestination(
+          destination: _markFeatured(
+            _applyFeaturedDisplayName(resolved.destination, data),
+            priority,
+          ),
+          priority: priority,
+          sourceId: '$sourceCollection/$sourceId',
+        );
+      }
+      debugPrint(
+        'Featured place skipped invalid: reference not found $sourceCollection/$sourceId',
+      );
+    }
+
+    final referenceId = _readReferenceId(data);
+    if (referenceId != null) {
+      final resolved = await _resolveReferencedDestination(referenceId, now);
+      if (resolved != null) {
+        debugPrint('Featured place resolved reference: $referenceId');
+        return _FeaturedDestination(
+          destination: _markFeatured(resolved.destination, priority),
+          priority: priority,
+          sourceId: doc.id,
+        );
+      }
+      debugPrint(
+        'Featured place skipped invalid: reference not found $referenceId',
+      );
+    }
+
+    final destination = _toDestination(
+      id: 'admin-featured-${doc.id}',
+      data: data,
+      sourceLabel: 'Admin Featured',
     );
+    if (destination == null) {
+      debugPrint(
+        'Featured place skipped invalid: ${doc.id} missing name, location, or category',
+      );
+      return null;
+    }
+
+    return _FeaturedDestination(
+      destination: _markFeatured(destination, priority),
+      priority: priority,
+      sourceId: doc.id,
+    );
+  }
+
+  static Future<List<_FeaturedDestination>> _loadExistingFeaturedDestinations(
+      DateTime now) async {
+    final candidates = <_FeaturedDestination>[];
+
+    for (final collectionPath in _destinationCollections) {
+      final docs = await _readFeaturedDocs(collectionPath);
+      for (final doc in docs) {
+        final data = doc.data();
+        final skipReason = _skipReason(
+          data,
+          now,
+          allowMissingActive: true,
+        );
+        if (skipReason != null) {
+          debugPrint(
+            'Featured place skipped invalid: ${doc.id} $skipReason',
+          );
+          continue;
+        }
+
+        final priority = _readPriority(data);
+        final destination = _toDestination(
+          id: doc.id,
+          data: data,
+          sourceLabel: 'Featured Destination',
+        );
+        if (destination == null) {
+          debugPrint(
+            'Featured place skipped invalid: ${doc.id} missing name, location, or category',
+          );
+          continue;
+        }
+
+        candidates.add(
+          _FeaturedDestination(
+            destination: _markFeatured(destination, priority),
+            priority: priority,
+            sourceId: doc.id,
+          ),
+        );
+      }
+    }
+
+    return candidates;
+  }
+
+  static Future<List<_FeaturedDestination>> _loadExistingFeaturedAdminLocations(
+      DateTime now) async {
+    final docs = await _readFeaturedDocs(_adminLocationsCollection);
+    final candidates = <_FeaturedDestination>[];
+
+    for (final doc in docs) {
+      final data = doc.data();
+      final skipReason = _skipReason(data, now);
+      if (skipReason != null) {
+        debugPrint('Featured place skipped invalid: ${doc.id} $skipReason');
+        continue;
+      }
+
+      final priority = _readPriority(data);
+      final destination = _toDestination(
+        id: 'admin-location-${doc.id}',
+        data: data,
+        sourceLabel: 'Admin Featured',
+      );
+      if (destination == null) {
+        debugPrint(
+          'Featured place skipped invalid: ${doc.id} missing name, location, or category',
+        );
+        continue;
+      }
+
+      candidates.add(
+        _FeaturedDestination(
+          destination: _markFeatured(destination, priority),
+          priority: priority,
+          sourceId: doc.id,
+        ),
+      );
+    }
+
+    return candidates;
+  }
+
+  static Future<_FeaturedDestination?> _resolveReferencedDestination(
+    String referenceId,
+    DateTime now,
+  ) async {
+    for (final collectionPath in <String>[
+      _adminLocationsCollection,
+      ..._destinationCollections,
+    ]) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection(collectionPath)
+            .doc(referenceId)
+            .get(const GetOptions(source: Source.server))
+            .timeout(_timeout);
+        if (!doc.exists) continue;
+
+        final data = doc.data() ?? const <String, dynamic>{};
+        final skipReason = _skipReason(
+          data,
+          now,
+          requiresFeatureFlag: false,
+          allowMissingActive: true,
+        );
+        if (skipReason != null) {
+          debugPrint(
+            'Featured place skipped invalid: $referenceId $skipReason',
+          );
+          return null;
+        }
+
+        final isAdminLocation = collectionPath == _adminLocationsCollection;
+        final priority = _readPriority(data);
+        final destination = _toDestination(
+          id: isAdminLocation ? 'admin-location-${doc.id}' : doc.id,
+          data: data,
+          sourceLabel:
+              isAdminLocation ? 'Admin Featured' : 'Featured Destination',
+        );
+        if (destination == null) return null;
+
+        return _FeaturedDestination(
+          destination: destination,
+          priority: priority,
+          sourceId: referenceId,
+        );
+      } on FirebaseException catch (error) {
+        if (error.code == 'permission-denied') {
+          debugPrint(
+            'Featured places permission-denied resolving $collectionPath/$referenceId: ${error.message}',
+          );
+        } else {
+          debugPrint(
+            'Featured place reference read failed $collectionPath/$referenceId: ${error.code}',
+          );
+        }
+      } catch (error) {
+        debugPrint(
+          'Featured place reference read failed $collectionPath/$referenceId: $error',
+        );
+      }
+    }
+
+    return null;
+  }
+
+  static Future<_FeaturedDestination?>
+      _resolveReferencedDestinationFromCollection(
+          String collectionPath, String referenceId, DateTime now,
+          {Map<String, dynamic> featuredData =
+              const <String, dynamic>{}}) async {
+    if (collectionPath != _adminLocationsCollection &&
+        !_destinationCollections.contains(collectionPath)) {
+      debugPrint(
+        'Featured place skipped invalid: unsupported source collection $collectionPath',
+      );
+      return null;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection(collectionPath)
+          .doc(referenceId)
+          .get(const GetOptions(source: Source.server))
+          .timeout(_timeout);
+      if (!doc.exists) return null;
+
+      final data = doc.data() ?? const <String, dynamic>{};
+      final skipReason = _skipReason(
+        data,
+        now,
+        requiresFeatureFlag: false,
+        allowMissingActive: true,
+      );
+      if (skipReason != null) {
+        debugPrint('Featured place skipped invalid: $referenceId $skipReason');
+        return null;
+      }
+
+      final isAdminLocation = collectionPath == _adminLocationsCollection;
+      final priority = _readPriority(data);
+      final destination = _toDestination(
+        id: isAdminLocation ? 'admin-location-${doc.id}' : doc.id,
+        data: {
+          ...data,
+          ..._displayNameFields(featuredData),
+          'sourceCollection': collectionPath,
+          'sourceId': doc.id,
+        },
+        sourceLabel:
+            isAdminLocation ? 'Admin Featured' : 'Featured Destination',
+      );
+      if (destination == null) return null;
+
+      return _FeaturedDestination(
+        destination: destination,
+        priority: priority,
+        sourceId: '$collectionPath/$referenceId',
+      );
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        debugPrint(
+          'Featured places permission-denied resolving $collectionPath/$referenceId: ${error.message}',
+        );
+      } else {
+        debugPrint(
+          'Featured place reference read failed $collectionPath/$referenceId: ${error.code}',
+        );
+      }
+    } catch (error) {
+      debugPrint(
+        'Featured place reference read failed $collectionPath/$referenceId: $error',
+      );
+    }
+
+    return null;
+  }
+
+  static Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+      _readFeaturedDocs(String collectionPath) async {
+    final byId = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
+
+    for (final field in const ['isFeatured', 'featured']) {
+      try {
+        final snapshot = await FirebaseFirestore.instance
+            .collection(collectionPath)
+            .where(field, isEqualTo: true)
+            .get(const GetOptions(source: Source.server))
+            .timeout(_timeout);
+        for (final doc in snapshot.docs) {
+          byId[doc.id] = doc;
+        }
+      } on FirebaseException catch (error) {
+        if (error.code == 'permission-denied') {
+          debugPrint(
+            'Featured places permission-denied reading $collectionPath.$field: ${error.message}',
+          );
+        } else {
+          debugPrint(
+            'Featured places query failed $collectionPath.$field: ${error.code}',
+          );
+        }
+      } catch (error) {
+        debugPrint(
+            'Featured places query failed $collectionPath.$field: $error');
+      }
+    }
+
+    return byId.values.toList(growable: false);
+  }
+
+  static Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+      _readCollection(String collectionPath) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection(collectionPath)
+          .get(const GetOptions(source: Source.server))
+          .timeout(_timeout);
+      return snapshot.docs;
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        debugPrint(
+          'Featured places permission-denied reading $collectionPath: ${error.message}',
+        );
+      } else {
+        debugPrint(
+            'Featured places query failed $collectionPath: ${error.code}');
+      }
+      return const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    } catch (error) {
+      debugPrint('Featured places query failed $collectionPath: $error');
+      return const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    }
+  }
+
+  static List<_FeaturedDestination> _filterCandidates(
+    List<_FeaturedDestination> candidates, {
+    required DestinationCategory? category,
+    required String query,
+  }) {
+    final queryLower = query.trim().toLowerCase();
+    return candidates.where((candidate) {
+      final destination = candidate.destination;
+      if (category != null && destination.category != category) {
+        debugPrint(
+          'Featured place skipped invalid: ${candidate.sourceId} category does not match selected filter',
+        );
+        return false;
+      }
+
+      if (queryLower.isEmpty) return true;
+
+      final searchable = [
+        destination.name,
+        destination.location,
+        destination.description,
+        destination.tags.join(' '),
+      ].join(' ').toLowerCase();
+
+      if (!searchable.contains(queryLower)) {
+        debugPrint(
+          'Featured place skipped invalid: ${candidate.sourceId} query "$query" did not match',
+        );
+        return false;
+      }
+
+      return true;
+    }).toList(growable: false);
+  }
+
+  static List<_FeaturedDestination> _mergeAndSort(
+    List<_FeaturedDestination> candidates,
+  ) {
+    final sorted = [...candidates]..sort((a, b) {
+        final priorityCompare = a.priority.compareTo(b.priority);
+        if (priorityCompare != 0) return priorityCompare;
+        return a.destination.name
+            .toLowerCase()
+            .compareTo(b.destination.name.toLowerCase());
+      });
+    final merged = <_FeaturedDestination>[];
+    final seen = <String>{};
+
+    for (final candidate in sorted) {
+      final keys = _dedupeKeys(candidate.destination);
+      final duplicate = keys.any(seen.contains);
+      if (duplicate) {
+        debugPrint(
+          'Featured place skipped duplicate: '
+          '${candidate.sourceId.isNotEmpty ? candidate.sourceId : candidate.destination.name}',
+        );
+        continue;
+      }
+
+      seen.addAll(keys);
+      merged.add(candidate);
+    }
+
+    return merged;
+  }
+
+  static Destination? _toDestination({
+    required String id,
+    required Map<String, dynamic> data,
+    required String sourceLabel,
+  }) {
+    final sourceCollection = _stringValue(data['sourceCollection']);
+    final source = _stringValue(data['source']).toLowerCase();
+    final cleanRawName =
+        sourceCollection == 'cached_destinations' || source == 'google';
+    final name = PlaceDisplayNameUtils.resolveDisplayName(
+      data,
+      cleanRawName: cleanRawName,
+    );
+    final city = _stringValue(
+      data['city'] ??
+          data['location'] ??
+          data['address'] ??
+          data['formattedAddress'],
+    );
+    final province = _stringValue(data['province']);
     final categoryLabel = _stringValue(data['category'] ?? data['type']);
-    final description = (data['description'] as String?)?.trim() ?? '';
-    final imageUrl = (data['imageUrl'] as String?)?.trim() ?? '';
-    final priority = _readPriority(data['priority']);
+    final description = _stringValue(data['description']);
+    final imageUrl = _resolveImageUrl(data, name);
+    final googlePlaceId =
+        _stringValue(data['googlePlaceId'] ?? data['placeId']);
+    final sourceId = _stringValue(
+      data['sourceId'] ??
+          data['destinationId'] ??
+          data['locationId'] ??
+          data['targetId'],
+    );
+    final priority = _readPriority(data);
+    final originalName = PlaceDisplayNameUtils.originalName(data);
 
     if (name.isEmpty || city.isEmpty || categoryLabel.isEmpty) {
       return null;
     }
 
+    final locationLabel = province.isEmpty ? city : '$city, $province';
+    final coordinates = _readCoordinates(data);
+
     return Destination(
-      id: 'admin-featured-${doc.id}',
+      id: id,
       name: name,
-      description: description,
-      location: city,
-      coordinates: null,
+      description: description.isEmpty ? locationLabel : description,
+      location: locationLabel,
+      coordinates: coordinates,
       imageUrl: imageUrl,
       category: _mapCategory(categoryLabel),
-      rating: 0.0,
+      rating: _readRating(data['rating']),
       tags: [
         'Featured',
-        'Admin Featured',
+        sourceLabel,
         categoryLabel,
         city,
+        province,
+        if (googlePlaceId.isNotEmpty) 'googlePlaceId:$googlePlaceId',
+        if (googlePlaceId.isNotEmpty) 'placeId:$googlePlaceId',
+        if (sourceId.isNotEmpty) 'sourceId:$sourceId',
+        if (sourceCollection.isNotEmpty) 'sourceCollection:$sourceCollection',
+        if (sourceCollection.isNotEmpty && sourceId.isNotEmpty)
+          'sourceRef:$sourceCollection/$sourceId',
+        if (originalName.isNotEmpty) 'originalName:$originalName',
         'priority:$priority',
       ].where((tag) => tag.trim().isNotEmpty).toList(growable: false),
     );
   }
 
-  static int _readPriority(Object? value) {
-    if (value is int) return value;
-    if (value is num) return value.round();
-    return 10;
+  static Destination _applyFeaturedDisplayName(
+    Destination destination,
+    Map<String, dynamic> featuredData,
+  ) {
+    final displayName = _firstDisplayName(featuredData);
+    if (displayName.isEmpty || displayName == destination.name) {
+      return destination;
+    }
+    return Destination(
+      id: destination.id,
+      name: displayName,
+      description: destination.description,
+      location: destination.location,
+      coordinates: destination.coordinates,
+      imageUrl: destination.imageUrl,
+      category: destination.category,
+      rating: destination.rating,
+      tags: destination.tags,
+    );
+  }
+
+  static Map<String, dynamic> _displayNameFields(Map<String, dynamic> data) {
+    return {
+      for (final field in const [
+        'displayNameOverride',
+        'adminDisplayName',
+        'displayName',
+        'originalName',
+        'googleName',
+        'rawName',
+      ])
+        if (_stringValue(data[field]).isNotEmpty)
+          field: _stringValue(data[field]),
+    };
+  }
+
+  static String _firstDisplayName(Map<String, dynamic> data) {
+    for (final field in const [
+      'displayNameOverride',
+      'adminDisplayName',
+      'displayName',
+    ]) {
+      final value = _stringValue(data[field]);
+      if (value.isNotEmpty) {
+        if (field == 'displayNameOverride') {
+          debugPrint('Featured place display name override used: $value');
+        }
+        return value;
+      }
+    }
+    return '';
+  }
+
+  static Destination _markFeatured(Destination destination, int priority) {
+    final tags = <String>{
+      ...destination.tags,
+      'Featured',
+      'Admin Featured',
+      'priority:$priority',
+    }.where((tag) => tag.trim().isNotEmpty).toList(growable: false);
+
+    return Destination(
+      id: destination.id,
+      name: destination.name,
+      description: destination.description,
+      location: destination.location,
+      coordinates: destination.coordinates,
+      imageUrl: destination.imageUrl,
+      category: destination.category,
+      rating: destination.rating,
+      tags: tags,
+    );
   }
 
   static String? _skipReason(
-    QueryDocumentSnapshot<Map<String, dynamic>> doc,
-    DateTime now,
-  ) {
-    final data = doc.data();
-    if (!_isActive(data)) {
+    Map<String, dynamic> data,
+    DateTime now, {
+    bool requiresFeatureFlag = true,
+    bool allowMissingActive = false,
+  }) {
+    if (requiresFeatureFlag && !_isFeatured(data)) {
+      return 'missing featured flag';
+    }
+
+    if (!_isActive(data, allowMissing: allowMissingActive)) {
       return 'inactive or status is not active';
     }
 
-    final startsAt = _timestampToDate(data['startsAt']);
+    final startsAt =
+        _timestampToDate(data['startsAt'] ?? data['featuredStartsAt']);
     if (startsAt != null && startsAt.isAfter(now)) {
       return 'startsAt is in the future';
     }
 
-    final endsAt = _timestampToDate(data['endsAt']);
+    final endsAt = _timestampToDate(data['endsAt'] ?? data['featuredEndsAt']);
     if (endsAt != null && endsAt.isBefore(now)) {
       return 'endsAt is in the past';
     }
@@ -152,7 +668,14 @@ class UserFeaturedPlacesService {
     return null;
   }
 
-  static bool _isActive(Map<String, dynamic> data) {
+  static bool _isFeatured(Map<String, dynamic> data) {
+    return data['isFeatured'] == true || data['featured'] == true;
+  }
+
+  static bool _isActive(
+    Map<String, dynamic> data, {
+    bool allowMissing = false,
+  }) {
     final isActive = data['isActive'];
     if (isActive is bool) return isActive;
 
@@ -176,7 +699,34 @@ class UserFeaturedPlacesService {
       }
     }
 
-    return false;
+    return allowMissing;
+  }
+
+  static int _readPriority(Map<String, dynamic> data) {
+    final featuredPriority = data['featuredPriority'];
+    if (featuredPriority is int) return featuredPriority;
+    if (featuredPriority is num) return featuredPriority.round();
+
+    final priority = data['priority'];
+    if (priority is int) return priority;
+    if (priority is num) return priority.round();
+
+    return 999;
+  }
+
+  static double _readRating(Object? value) {
+    if (value is num && value > 0 && value <= 5) return value.toDouble();
+    return 0.0;
+  }
+
+  static String? _readReferenceId(Map<String, dynamic> data) {
+    for (final field in _referenceFields) {
+      final value = data[field];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+    }
+    return null;
   }
 
   static String _stringValue(Object? value) {
@@ -188,6 +738,140 @@ class UserFeaturedPlacesService {
     if (value is Timestamp) return value.toDate();
     if (value is DateTime) return value;
     return null;
+  }
+
+  static LatLng? _readCoordinates(Map<String, dynamic> data) {
+    final latitude = _readDouble(data['latitude'] ?? data['lat']);
+    final longitude = _readDouble(data['longitude'] ?? data['lng']);
+    if (latitude != null && longitude != null) {
+      return LatLng(latitude, longitude);
+    }
+
+    final coordinates = data['coordinates'];
+    if (coordinates is GeoPoint) {
+      return LatLng(coordinates.latitude, coordinates.longitude);
+    }
+    if (coordinates is Map) {
+      final lat = _readDouble(coordinates['latitude'] ?? coordinates['lat']);
+      final lng = _readDouble(coordinates['longitude'] ?? coordinates['lng']);
+      if (lat != null && lng != null) return LatLng(lat, lng);
+    }
+
+    return null;
+  }
+
+  static double? _readDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    return null;
+  }
+
+  static String _resolveImageUrl(Map<String, dynamic> data, String name) {
+    for (final entry in <String, Object?>{
+      'imageUrl': data['imageUrl'],
+      'image': data['image'],
+      'image_url': data['image_url'],
+      'photoUrl': data['photoUrl'],
+      'photoURL': data['photoURL'],
+      'thumbnailUrl': data['thumbnailUrl'],
+      'thumbnail': data['thumbnail'],
+      'coverImageUrl': data['coverImageUrl'],
+      'bannerImage': data['bannerImage'],
+      'googlePhotoUrl': data['googlePhotoUrl'],
+    }.entries) {
+      final value = entry.value;
+      if (value is String && value.trim().startsWith('http')) {
+        debugPrint('Featured place image resolved from field: ${entry.key}');
+        return value.trim();
+      }
+    }
+
+    final reference = _readPhotoReference(data);
+    if (reference.isNotEmpty) {
+      final imageUrl = GoogleMapsService.buildPhotoUrl(reference);
+      if (imageUrl.isNotEmpty) {
+        debugPrint(
+          'Google photo URL built: ${data['googlePlaceId'] ?? data['placeId'] ?? name}',
+        );
+        return imageUrl;
+      }
+    }
+
+    debugPrint('Featured place image missing: $name');
+    return '';
+  }
+
+  static String _readPhotoReference(Map<String, dynamic> data) {
+    for (final field in const [
+      'googlePhotoReference',
+      'photoReference',
+      'photo_reference',
+      'google_photo_reference',
+    ]) {
+      final value = data[field];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+
+    final photos = data['photos'];
+    if (photos is List && photos.isNotEmpty) {
+      final first = photos.first;
+      if (first is Map) {
+        final value = first['photoReference'] ?? first['photo_reference'];
+        if (value is String && value.trim().isNotEmpty) return value.trim();
+      }
+    }
+    return '';
+  }
+
+  static Set<String> _dedupeKeys(Destination destination) {
+    final keys = <String>{};
+    final id = destination.id.trim().toLowerCase();
+    if (id.isNotEmpty) {
+      keys.add('id:$id');
+      keys.add('id:${id.replaceFirst('admin-location-', '')}');
+      keys.add('id:${id.replaceFirst('admin-featured-', '')}');
+    }
+
+    for (final tag in destination.tags) {
+      final normalizedTag = tag.trim().toLowerCase();
+      if (normalizedTag.startsWith('googleplaceid:')) {
+        final value = normalizedTag.replaceFirst('googleplaceid:', '').trim();
+        if (value.isNotEmpty) keys.add('google:$value');
+      }
+      if (normalizedTag.startsWith('placeid:')) {
+        final value = normalizedTag.replaceFirst('placeid:', '').trim();
+        if (value.isNotEmpty) keys.add('place:$value');
+      }
+      if (normalizedTag.startsWith('sourceid:')) {
+        final value = normalizedTag.replaceFirst('sourceid:', '').trim();
+        if (value.isNotEmpty) keys.add('source:$value');
+      }
+      if (normalizedTag.startsWith('sourceref:')) {
+        final value = normalizedTag.replaceFirst('sourceref:', '').trim();
+        if (value.isNotEmpty) keys.add('source-ref:$value');
+      }
+    }
+
+    final normalizedName = _normalizeName(destination.name);
+    if (normalizedName.isNotEmpty) keys.add('name:$normalizedName');
+
+    final coordinates = destination.coordinates;
+    if (coordinates != null) {
+      final latBucket = (coordinates.latitude * 10000).round();
+      final lngBucket = (coordinates.longitude * 10000).round();
+      keys.add('coords:$latBucket,$lngBucket');
+    }
+
+    return keys;
+  }
+
+  static String _normalizeName(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll('&', ' and ')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .join(' ');
   }
 
   static DestinationCategory _mapCategory(String value) {
@@ -206,4 +890,16 @@ class UserFeaturedPlacesService {
       _ => DestinationCategory.landmark,
     };
   }
+}
+
+class _FeaturedDestination {
+  final Destination destination;
+  final int priority;
+  final String sourceId;
+
+  const _FeaturedDestination({
+    required this.destination,
+    required this.priority,
+    required this.sourceId,
+  });
 }

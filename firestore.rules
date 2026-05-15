@@ -474,11 +474,55 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
 
-    // Cached destinations - public read, authenticated write
+
+    // App place source collections.
+    // Admin read access is needed for Featured Places search and reference creation.
+    // Source documents are not writable here. Featured state for app places should be
+    // stored in admin_featured_places as a reference to avoid copying or deleting originals.
+    match /destinations/{destinationId} {
+      allow get, list: if isAdminUid(request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    match /places/{placeId} {
+      allow get, list: if isAdminUid(request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    match /locations/{locationId} {
+      allow get, list: if isAdminUid(request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    // Cached destinations - public read, authenticated write.
+    // Used by the app to cache Google/app destinations so admins can later feature real saved places.
     match /cached_destinations/{destinationId} {
       allow read: if true;
       allow write: if signedIn()
-        && request.resource.data.keys() <= ['id', 'name', 'description', 'location', 'coordinates', 'imageUrl', 'category', 'rating', 'tags', 'updatedAt'];
+        && request.resource.data.keys().hasOnly([
+          'id',
+          'name',
+          'title',
+          'description',
+          'address',
+          'location',
+          'city',
+          'coordinates',
+          'latitude',
+          'longitude',
+          'imageUrl',
+          'googlePhotoUrl',
+          'googlePhotoReference',
+          'photoReference',
+          'googlePlaceId',
+          'placeId',
+          'source',
+          'category',
+          'rating',
+          'tags',
+          'createdAt',
+          'updatedAt'
+        ]);
     }
   }
 }

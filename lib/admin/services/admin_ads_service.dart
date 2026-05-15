@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/admin_ad.dart';
 
@@ -48,5 +49,17 @@ class AdminAdsService {
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': actorUid,
     });
+  }
+
+  Future<void> deleteAd({required String adId}) async {
+    debugPrint('Admin delete requested: admin_ads/$adId');
+    debugPrint('Admin delete confirmed: admin_ads/$adId');
+    try {
+      await _collection.doc(adId).delete();
+      debugPrint('Admin delete succeeded: admin_ads/$adId');
+    } catch (error) {
+      debugPrint('Admin delete failed: admin_ads/$adId $error');
+      rethrow;
+    }
   }
 }

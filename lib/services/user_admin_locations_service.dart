@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/destination.dart';
+import 'package:halaph/services/google_maps_service.dart';
+import 'package:halaph/utils/place_display_name_utils.dart';
 
 class UserAdminLocationsService {
   static const Duration _timeout = Duration(seconds: 4);
@@ -60,7 +63,11 @@ class UserAdminLocationsService {
   ) {
     final data = doc.data();
 
-    final name = (data['name'] as String?)?.trim() ?? '';
+    final source = ((data['source'] as String?) ?? '').trim().toLowerCase();
+    final name = PlaceDisplayNameUtils.resolveDisplayName(
+      data,
+      cleanRawName: source == 'google',
+    );
     final city = (data['city'] as String?)?.trim() ?? '';
     final province = (data['province'] as String?)?.trim() ?? '';
     final categoryLabel = (data['category'] as String?)?.trim() ?? '';
@@ -73,6 +80,7 @@ class UserAdminLocationsService {
     final fallbackDescription = province.isEmpty ? city : '$city, $province';
     final latitude = _readDouble(data['latitude']);
     final longitude = _readDouble(data['longitude']);
+    final imageUrl = _resolveImageUrl(data, name);
 
     return Destination(
       id: 'admin-location-${doc.id}',
@@ -82,7 +90,7 @@ class UserAdminLocationsService {
       coordinates: latitude == null || longitude == null
           ? null
           : LatLng(latitude, longitude),
-      imageUrl: '',
+      imageUrl: imageUrl,
       category: _mapCategory(categoryLabel),
       rating: 0.0,
       tags: [
@@ -104,6 +112,61 @@ class UserAdminLocationsService {
   static double? _readDouble(Object? value) {
     if (value is num) return value.toDouble();
     return null;
+  }
+
+  static String _resolveImageUrl(Map<String, dynamic> data, String name) {
+    for (final entry in <String, Object?>{
+      'imageUrl': data['imageUrl'],
+      'image': data['image'],
+      'image_url': data['image_url'],
+      'photoUrl': data['photoUrl'],
+      'photoURL': data['photoURL'],
+      'thumbnailUrl': data['thumbnailUrl'],
+      'thumbnail': data['thumbnail'],
+      'coverImageUrl': data['coverImageUrl'],
+      'bannerImage': data['bannerImage'],
+      'googlePhotoUrl': data['googlePhotoUrl'],
+    }.entries) {
+      final value = entry.value;
+      if (value is String && value.trim().startsWith('http')) {
+        debugPrint('Featured place image resolved from field: ${entry.key}');
+        return value.trim();
+      }
+    }
+
+    final reference = _readPhotoReference(data);
+    if (reference.isNotEmpty) {
+      final imageUrl = GoogleMapsService.buildPhotoUrl(reference);
+      if (imageUrl.isNotEmpty) {
+        debugPrint('Google photo URL built: ${data['googlePlaceId'] ?? name}');
+        return imageUrl;
+      }
+    }
+
+    debugPrint('Featured place image missing: $name');
+    return '';
+  }
+
+  static String _readPhotoReference(Map<String, dynamic> data) {
+    for (final field in const [
+      'googlePhotoReference',
+      'photoReference',
+      'photo_reference',
+      'google_photo_reference',
+    ]) {
+      final value = data[field];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+
+    final photos = data['photos'];
+    if (photos is List && photos.isNotEmpty) {
+      final first = photos.first;
+      if (first is Map) {
+        final value = first['photoReference'] ?? first['photo_reference'];
+        if (value is String && value.trim().isNotEmpty) return value.trim();
+      }
+    }
+    return '';
   }
 
   static DestinationCategory _mapCategory(String value) {

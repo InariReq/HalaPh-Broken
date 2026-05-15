@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/admin_ad.dart';
@@ -48,6 +49,7 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> {
                 canManage: _canManage,
                 onEdit: _openEditDialog,
                 onToggleActive: _toggleActive,
+                onDelete: _deleteAd,
               ),
           ],
         );
@@ -158,6 +160,32 @@ class _AdminAdsScreenState extends State<AdminAdsScreen> {
     }
   }
 
+  Future<void> _deleteAd(AdminAd ad) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => _DeleteConfirmDialog(
+        title: 'Delete Advertisement',
+        itemName: ad.title,
+        description:
+            'Disable keeps the advertisement. Delete permanently removes this admin ad record.',
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _service.deleteAd(adId: ad.id);
+      if (mounted) _showSnack('Advertisement deleted.');
+    } on FirebaseException catch (error) {
+      if (mounted) {
+        _showSnack(error.code == 'permission-denied'
+            ? 'Delete blocked by Firestore rules.'
+            : 'Could not delete advertisement.');
+      }
+    } catch (_) {
+      if (mounted) _showSnack('Could not delete advertisement.');
+    }
+  }
+
   void _showSnack(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
@@ -169,12 +197,14 @@ class _AdsList extends StatelessWidget {
   final bool canManage;
   final ValueChanged<AdminAd> onEdit;
   final ValueChanged<AdminAd> onToggleActive;
+  final ValueChanged<AdminAd> onDelete;
 
   const _AdsList({
     required this.ads,
     required this.canManage,
     required this.onEdit,
     required this.onToggleActive,
+    required this.onDelete,
   });
 
   @override
@@ -190,6 +220,7 @@ class _AdsList extends StatelessWidget {
                   canManage: canManage,
                   onEdit: onEdit,
                   onToggleActive: onToggleActive,
+                  onDelete: onDelete,
                 ),
             ],
           );
@@ -241,6 +272,11 @@ class _AdsList extends StatelessWidget {
                                     : Icons.check_circle_rounded,
                               ),
                             ),
+                            IconButton(
+                              tooltip: 'Delete',
+                              onPressed: canManage ? () => onDelete(ad) : null,
+                              icon: const Icon(Icons.delete_outline_rounded),
+                            ),
                           ],
                         ),
                       ),
@@ -260,12 +296,14 @@ class _AdCard extends StatelessWidget {
   final bool canManage;
   final ValueChanged<AdminAd> onEdit;
   final ValueChanged<AdminAd> onToggleActive;
+  final ValueChanged<AdminAd> onDelete;
 
   const _AdCard({
     required this.ad,
     required this.canManage,
     required this.onEdit,
     required this.onToggleActive,
+    required this.onDelete,
   });
 
   @override
@@ -310,15 +348,16 @@ class _AdCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 TextButton.icon(
                   onPressed: canManage ? () => onEdit(ad) : null,
                   icon: const Icon(Icons.edit_rounded),
                   label: const Text('Edit'),
                 ),
-                const SizedBox(width: 8),
                 TextButton.icon(
                   onPressed: canManage ? () => onToggleActive(ad) : null,
                   icon: Icon(
@@ -327,6 +366,11 @@ class _AdCard extends StatelessWidget {
                         : Icons.check_circle_rounded,
                   ),
                   label: Text(ad.isActive ? 'Disable' : 'Enable'),
+                ),
+                TextButton.icon(
+                  onPressed: canManage ? () => onDelete(ad) : null,
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  label: const Text('Delete'),
                 ),
               ],
             ),
@@ -632,6 +676,70 @@ class _AdFormDialogState extends State<_AdFormDialog> {
     final text = value.trim();
     if (text.isEmpty) return null;
     return DateTime.parse(text);
+  }
+}
+
+class _DeleteConfirmDialog extends StatefulWidget {
+  final String title;
+  final String itemName;
+  final String description;
+
+  const _DeleteConfirmDialog({
+    required this.title,
+    required this.itemName,
+    required this.description,
+  });
+
+  @override
+  State<_DeleteConfirmDialog> createState() => _DeleteConfirmDialogState();
+}
+
+class _DeleteConfirmDialogState extends State<_DeleteConfirmDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canDelete = _controller.text.trim() == 'DELETE';
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.itemName,
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            Text(widget.description),
+            const SizedBox(height: 12),
+            const Text('Type DELETE to confirm.'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _controller,
+              decoration: const InputDecoration(labelText: 'Confirmation'),
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: canDelete ? () => Navigator.pop(context, true) : null,
+          child: const Text('Delete'),
+        ),
+      ],
+    );
   }
 }
 

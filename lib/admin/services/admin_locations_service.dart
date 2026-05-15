@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/admin_location.dart';
 
@@ -28,7 +29,15 @@ class AdminLocationsService {
     required AdminLocation location,
     required String actorUid,
   }) async {
-    await _collection.add(location.toCreateMap(actorUid: actorUid));
+    final doc = await _collection.add(location.toCreateMap(actorUid: actorUid));
+    debugPrint(
+        'Admin featured toggle changed: ${doc.id} ${location.isFeatured}');
+    debugPrint(
+      'Admin existing place featured fields saved: ${doc.id}',
+    );
+    debugPrint(
+      'Admin featured priority saved: ${doc.id} ${location.featuredPriority}',
+    );
   }
 
   Future<void> updateLocation({
@@ -38,6 +47,15 @@ class AdminLocationsService {
     await _collection
         .doc(location.id)
         .update(location.toUpdateMap(actorUid: actorUid));
+    debugPrint(
+      'Admin featured toggle changed: ${location.id} ${location.isFeatured}',
+    );
+    debugPrint(
+      'Admin existing place featured fields saved: ${location.id}',
+    );
+    debugPrint(
+      'Admin featured priority saved: ${location.id} ${location.featuredPriority}',
+    );
   }
 
   Future<void> setActive({
@@ -50,5 +68,34 @@ class AdminLocationsService {
       'updatedAt': FieldValue.serverTimestamp(),
       'updatedBy': actorUid,
     });
+  }
+
+  Future<void> setFeatured({
+    required String locationId,
+    required bool isFeatured,
+    required int featuredPriority,
+    required String actorUid,
+  }) async {
+    await _collection.doc(locationId).update({
+      'isFeatured': isFeatured,
+      'featuredPriority': featuredPriority,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': actorUid,
+    });
+    debugPrint('Admin featured toggle changed: $locationId $isFeatured');
+    debugPrint('Admin featured priority saved: $locationId $featuredPriority');
+    debugPrint('Admin existing place featured fields saved: $locationId');
+  }
+
+  Future<void> deleteLocation({required String locationId}) async {
+    debugPrint('Admin delete requested: admin_locations/$locationId');
+    debugPrint('Admin delete confirmed: admin_locations/$locationId');
+    try {
+      await _collection.doc(locationId).delete();
+      debugPrint('Admin delete succeeded: admin_locations/$locationId');
+    } catch (error) {
+      debugPrint('Admin delete failed: admin_locations/$locationId $error');
+      rethrow;
+    }
   }
 }

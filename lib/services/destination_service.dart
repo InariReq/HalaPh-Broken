@@ -1,14 +1,18 @@
-import 'dart:math';
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:halaph/models/destination.dart';
+import 'package:halaph/services/google_maps_service.dart';
 import 'package:halaph/services/user_admin_locations_service.dart';
 import 'package:halaph/utils/dev_mode.dart';
+import 'package:halaph/utils/place_display_name_utils.dart';
 
 class DestinationService {
   static const LatLng _defaultSearchLocation = LatLng(14.5995, 120.9842);
@@ -22,6 +26,8 @@ class DestinationService {
   static bool _useTestLocation = false;
   static LatLng? _manualTestLocation;
   static final Map<String, String> _imageUrlCache = {};
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static const String _cachedDestinationsCollection = 'cached_destinations';
 
   // Popular malls in the Philippines with their coordinates
   static final List<Destination> _popularMalls = [
@@ -333,6 +339,13 @@ class DestinationService {
     );
   }
 
+  static Future<void> cacheDestinationForAdminFeature(
+    Destination destination, {
+    String source = 'app_search',
+  }) async {
+    await _upsertCachedDestination(destination, source: source);
+  }
+
   static Future<List<String>> getAutocompleteSuggestions(
     String input, {
     LatLng? location,
@@ -514,10 +527,12 @@ class DestinationService {
         final data = json.decode(response.body) as Map<String, dynamic>;
         if (data['status'] == 'OK') {
           final results = data['results'] as List;
-          return results
+          final destinations = results
               .map((item) => _convertGooglePlaceToDestination(item, null))
               .whereType<Destination>()
               .toList();
+          _cacheDestinationsBestEffort(destinations, source: 'google');
+          return destinations;
         }
       }
     } catch (e) {
@@ -808,13 +823,16 @@ class DestinationService {
       }
     }
 
-    String? imageUrl;
-    final photos = item['photos'] as List?;
-    if (photos != null && photos.isNotEmpty) {
-      final photoRef = photos[0]['photo_reference'] as String?;
-      if (photoRef != null) {
-        imageUrl =
-            'https://maps.googleapis.com/maps/api/place/photo?maxwidth=1200&photoreference=$photoRef&key=$_googleApiKey';
+    final photoReference = _firstGooglePhotoReference(item);
+    final imageUrl = photoReference == null
+        ? ''
+        : GoogleMapsService.buildPhotoUrl(photoReference);
+    if (photoReference == null) {
+      debugPrint('Google place photo reference missing: $id');
+    } else {
+      debugPrint('Google place photo reference found: $id');
+      if (imageUrl.isNotEmpty) {
+        debugPrint('Google photo URL built: $id');
       }
     }
 
@@ -824,11 +842,252 @@ class DestinationService {
       description: formattedAddress,
       location: formattedAddress,
       coordinates: (lat != null && lng != null) ? LatLng(lat, lng) : null,
-      imageUrl: imageUrl ?? '',
+      imageUrl: imageUrl,
       category: category,
       rating: rating,
-      tags: types?.cast<String>() ?? [],
+      tags: [
+        'google',
+        'googlePlaceId:$id',
+        'placeId:$id',
+        if (photoReference != null) 'googlePhotoReference:$photoReference',
+        if (photoReference != null) 'photoReference:$photoReference',
+        ...?types?.cast<String>(),
+      ],
     );
+  }
+
+  static void _cacheDestinationsBestEffort(
+    List<Destination> destinations, {
+    required String source,
+  }) {
+    for (final destination in destinations) {
+      unawaited(_upsertCachedDestination(destination, source: source));
+    }
+  }
+
+  static Future<void> _upsertCachedDestination(
+    Destination destination, {
+    required String source,
+  }) async {
+    final name = destination.name.trim();
+    final coordinates = destination.coordinates;
+    if (name.isEmpty || coordinates == null) {
+      debugPrint(
+          'Cached destination upsert skipped: missing name or coordinates');
+      return;
+    }
+
+    try {
+      final googlePlaceId = _tagValue(destination.tags, 'googlePlaceId:') ??
+          _tagValue(destination.tags, 'placeId:') ??
+          (destination.id.startsWith('google_') ? '' : destination.id).trim();
+      final effectiveSource = googlePlaceId.isNotEmpty ||
+              destination.tags.any((tag) => tag.toLowerCase() == 'google')
+          ? 'google'
+          : source;
+      final photoReference =
+          _tagValue(destination.tags, 'googlePhotoReference:') ??
+              _tagValue(destination.tags, 'photoReference:') ??
+              '';
+      final imageUrl = _bestDestinationImage(destination, photoReference);
+      final displayName = PlaceDisplayNameUtils.cleanGoogleDisplayName(name);
+      if (displayName.isNotEmpty && displayName != name) {
+        debugPrint(
+            'Cached destination display name cleaned: $name -> $displayName');
+      }
+      debugPrint('Featured place original name preserved: $name');
+
+      final existing = await _findCachedDestination(
+        googlePlaceId: googlePlaceId,
+        name: name,
+        coordinates: coordinates,
+      );
+      final existingData = existing?.data() ?? const <String, dynamic>{};
+      final existingImage = _firstHttpString(existingData, const [
+        'imageUrl',
+        'googlePhotoUrl',
+        'photoUrl',
+        'photoURL',
+        'thumbnailUrl',
+        'thumbnail',
+        'coverImageUrl',
+        'bannerImage',
+      ]);
+      final savedImage = imageUrl.isNotEmpty ? imageUrl : existingImage;
+      if (imageUrl.isEmpty && existingImage.isNotEmpty) {
+        debugPrint('Cached destination image preserved');
+      } else if (imageUrl.isNotEmpty) {
+        debugPrint('Cached destination image saved from field: imageUrl');
+      }
+
+      final doc = existing?.reference ??
+          _firestore
+              .collection(_cachedDestinationsCollection)
+              .doc(_cachedDestinationDocId(destination, googlePlaceId));
+      await doc.set({
+        'id': destination.id,
+        'name': name,
+        'title': name,
+        'displayName': displayName.isEmpty ? name : displayName,
+        'originalName': name,
+        if (effectiveSource == 'google') 'googleName': name,
+        'rawName': name,
+        'description': _preferNonBlank(
+          destination.description,
+          existingData['description'],
+        ),
+        'address':
+            _preferNonBlank(destination.location, existingData['address']),
+        'location': _preferNonBlank(
+          destination.location,
+          existingData['location'],
+        ),
+        'city': _preferNonBlank(destination.location, existingData['city']),
+        'category': _preferNonBlank(
+          destination.category.name,
+          existingData['category'],
+        ),
+        'latitude': coordinates.latitude,
+        'longitude': coordinates.longitude,
+        'imageUrl': savedImage,
+        if (savedImage.isNotEmpty) 'googlePhotoUrl': savedImage,
+        if (photoReference.isNotEmpty) 'googlePhotoReference': photoReference,
+        if (photoReference.isNotEmpty) 'photoReference': photoReference,
+        if (googlePlaceId.isNotEmpty) 'googlePlaceId': googlePlaceId,
+        if (googlePlaceId.isNotEmpty) 'placeId': googlePlaceId,
+        'source': effectiveSource,
+        'rating': destination.rating,
+        'tags': destination.tags,
+        'updatedAt': FieldValue.serverTimestamp(),
+        if (existing == null) 'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      debugPrint(
+        'Cached destination upserted: ${googlePlaceId.isEmpty ? name : googlePlaceId}',
+      );
+    } catch (error) {
+      debugPrint('Cached destination upsert failed: $error');
+    }
+  }
+
+  static Future<DocumentSnapshot<Map<String, dynamic>>?>
+      _findCachedDestination({
+    required String googlePlaceId,
+    required String name,
+    required LatLng coordinates,
+  }) async {
+    final collection = _firestore.collection(_cachedDestinationsCollection);
+    if (googlePlaceId.isNotEmpty) {
+      for (final field in const ['googlePlaceId', 'placeId']) {
+        final snapshot = await collection
+            .where(field, isEqualTo: googlePlaceId)
+            .limit(1)
+            .get();
+        if (snapshot.docs.isNotEmpty) return snapshot.docs.first;
+      }
+    }
+
+    final normalizedName = _normalizeDestinationName(name);
+    final coordinateBucket = _coordinateBucket(coordinates);
+    final snapshot = await collection.limit(250).get();
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      final docName = _normalizeDestinationName(data['name'] ?? data['title']);
+      if (normalizedName.isNotEmpty && docName == normalizedName) return doc;
+
+      final latitude = _readDouble(data['latitude'] ?? data['lat']);
+      final longitude = _readDouble(data['longitude'] ?? data['lng']);
+      if (latitude != null &&
+          longitude != null &&
+          _coordinateBucket(LatLng(latitude, longitude)) == coordinateBucket) {
+        return doc;
+      }
+    }
+    return null;
+  }
+
+  static String _cachedDestinationDocId(
+    Destination destination,
+    String googlePlaceId,
+  ) {
+    final raw = googlePlaceId.isNotEmpty
+        ? 'google_$googlePlaceId'
+        : '${_normalizeDestinationName(destination.name)}_${_coordinateBucket(destination.coordinates!)}';
+    return raw.replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+  }
+
+  static String _bestDestinationImage(
+    Destination destination,
+    String photoReference,
+  ) {
+    final imageUrl = destination.imageUrl.trim();
+    if (imageUrl.startsWith('http')) return imageUrl;
+    if (photoReference.isEmpty) return '';
+    final googlePhotoUrl = GoogleMapsService.buildPhotoUrl(photoReference);
+    if (googlePhotoUrl.isNotEmpty) {
+      debugPrint(
+          'Cached destination image saved from field: googlePhotoReference');
+    }
+    return googlePhotoUrl;
+  }
+
+  static String? _firstGooglePhotoReference(Map<String, dynamic> item) {
+    for (final field in const ['googlePhotoReference', 'photoReference']) {
+      final value = item[field];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+
+    final photos = item['photos'];
+    if (photos is List && photos.isNotEmpty) {
+      final first = photos.first;
+      if (first is Map) {
+        final value = first['photo_reference'] ?? first['photoReference'];
+        if (value is String && value.trim().isNotEmpty) return value.trim();
+      }
+    }
+    return null;
+  }
+
+  static String? _tagValue(List<String> tags, String prefix) {
+    final normalizedPrefix = prefix.toLowerCase();
+    for (final tag in tags) {
+      final trimmed = tag.trim();
+      if (trimmed.toLowerCase().startsWith(normalizedPrefix)) {
+        final value = trimmed.substring(prefix.length).trim();
+        if (value.isNotEmpty) return value;
+      }
+    }
+    return null;
+  }
+
+  static String _firstHttpString(
+    Map<String, dynamic> data,
+    List<String> fields,
+  ) {
+    for (final field in fields) {
+      final value = data[field];
+      if (value is String && value.trim().startsWith('http')) {
+        return value.trim();
+      }
+    }
+    return '';
+  }
+
+  static String _preferNonBlank(String candidate, Object? existing) {
+    final trimmed = candidate.trim();
+    if (trimmed.isNotEmpty) return trimmed;
+    if (existing is String && existing.trim().isNotEmpty) {
+      return existing.trim();
+    }
+    return '';
+  }
+
+  static double? _readDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    return null;
+  }
+
+  static String _coordinateBucket(LatLng coordinates) {
+    return '${(coordinates.latitude * 10000).round()},${(coordinates.longitude * 10000).round()}';
   }
 }
 

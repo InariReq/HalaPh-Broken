@@ -321,21 +321,30 @@ class _ExploreScreenState extends State<ExploreScreen>
     required int limit,
   }) {
     final merged = <Destination>[];
-    final seenIds = <String>{};
+    final seenKeys = <String>{};
 
     void addFeatured(Destination destination) {
-      if (seenIds.add(destination.id)) {
-        merged.add(destination);
+      final keys = _destinationDedupeKeys(destination);
+      if (keys.any(seenKeys.contains)) {
+        debugPrint(
+          'Featured place skipped duplicate: ${destination.id.isNotEmpty ? destination.id : destination.name}',
+        );
+        return;
       }
+      seenKeys.addAll(keys);
+      merged.add(destination);
     }
 
     var normalAdded = 0;
     void addNormal(Destination destination) {
       if (normalAdded >= limit) return;
-      if (seenIds.add(destination.id)) {
-        merged.add(destination);
-        normalAdded++;
+      final keys = _destinationDedupeKeys(destination);
+      if (keys.any(seenKeys.contains)) {
+        return;
       }
+      seenKeys.addAll(keys);
+      merged.add(destination);
+      normalAdded++;
     }
 
     for (final destination in featuredPlaces) {
@@ -346,6 +355,38 @@ class _ExploreScreenState extends State<ExploreScreen>
     }
 
     return merged;
+  }
+
+  Set<String> _destinationDedupeKeys(Destination destination) {
+    final keys = <String>{};
+    final id = destination.id.trim().toLowerCase();
+    if (id.isNotEmpty) {
+      keys.add('id:$id');
+      keys.add('id:${id.replaceFirst('admin-location-', '')}');
+      keys.add('id:${id.replaceFirst('admin-featured-', '')}');
+    }
+
+    final normalizedName = _normalizeDestinationName(destination.name);
+    if (normalizedName.isNotEmpty) keys.add('name:$normalizedName');
+
+    final coordinates = destination.coordinates;
+    if (coordinates != null) {
+      final latBucket = (coordinates.latitude * 10000).round();
+      final lngBucket = (coordinates.longitude * 10000).round();
+      keys.add('coords:$latBucket,$lngBucket');
+    }
+
+    return keys;
+  }
+
+  String _normalizeDestinationName(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll('&', ' and ')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .join(' ');
   }
 
   Future<void> _runDestinationSearch() async {

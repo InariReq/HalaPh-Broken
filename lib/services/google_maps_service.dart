@@ -6,6 +6,20 @@ import 'package:http/http.dart' as http;
 import 'package:halaph/models/destination.dart';
 import 'package:halaph/utils/dev_mode.dart';
 
+class GooglePlacesSearchResult {
+  final List<Destination> destinations;
+  final String? failure;
+  final String? photoFailure;
+
+  const GooglePlacesSearchResult({
+    required this.destinations,
+    this.failure,
+    this.photoFailure,
+  });
+
+  bool get isUnavailable => failure != null;
+}
+
 class GoogleMapsService {
   static String get _googleApiKey => (dotenv.env['MAPS_API_KEY'] ?? '').trim();
 
@@ -13,6 +27,19 @@ class GoogleMapsService {
   // If missing, API calls will gracefully fail and UI can show an estimated state.
   static bool get isConfigured =>
       DevModeService.allowPaidGoogleApis && _googleApiKey.isNotEmpty;
+
+  static String buildPhotoUrl(String photoReference, {int maxWidth = 1200}) {
+    final reference = photoReference.trim();
+    if (reference.isEmpty || !isConfigured) return '';
+    final uri = Uri.parse(
+      'https://maps.googleapis.com/maps/api/place/photo',
+    ).replace(queryParameters: {
+      'maxwidth': '$maxWidth',
+      'photoreference': reference,
+      'key': _googleApiKey,
+    });
+    return uri.toString();
+  }
 
   /// Get directions using Google Directions API.
   /// Costs: ~$5 per 1,000 requests.
@@ -196,7 +223,27 @@ class GoogleMapsService {
     int radius = 3000,
     int limit = 5,
   }) async {
-    if (!isConfigured) return <Destination>[];
+    final result = await searchPlacesNearbyDetailed(
+      location: location,
+      query: query,
+      radius: radius,
+      limit: limit,
+    );
+    return result.destinations;
+  }
+
+  static Future<GooglePlacesSearchResult> searchPlacesNearbyDetailed({
+    required LatLng location,
+    required String query,
+    int radius = 3000,
+    int limit = 5,
+  }) async {
+    if (!isConfigured) {
+      return const GooglePlacesSearchResult(
+        destinations: <Destination>[],
+        failure: 'Google API unavailable',
+      );
+    }
     try {
       final params = {
         'query': query,
@@ -216,19 +263,51 @@ class GoogleMapsService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
-        if (data['status'] == 'OK') {
+        final status = data['status'] as String? ?? 'UNKNOWN';
+        if (status == 'OK') {
           final results = data['results'] as List;
-          return results
-              .take(limit)
-              .map((item) => _convertToDestination(item))
-              .whereType<Destination>()
-              .toList();
+          final limitedResults =
+              results.take(limit).whereType<Map<String, dynamic>>().toList();
+          final destinations = <Destination>[];
+          var missingPhotoCount = 0;
+
+          for (final item in limitedResults) {
+            final destination = _convertToDestination(item);
+            if (destination == null) continue;
+            destinations.add(destination);
+            final hasImage = destination.imageUrl.trim().isNotEmpty;
+            final hasReference = destination.tags.any(
+              (tag) => tag.toLowerCase().startsWith('googlephotoreference:'),
+            );
+            if (!hasImage && !hasReference) missingPhotoCount += 1;
+          }
+
+          return GooglePlacesSearchResult(
+            destinations: destinations,
+            photoFailure: missingPhotoCount == 0
+                ? null
+                : 'Google photo unavailable: no photo reference returned for $missingPhotoCount result(s).',
+          );
         }
+        final message = data['error_message'] as String? ?? status;
+        return GooglePlacesSearchResult(
+          destinations: const <Destination>[],
+          failure: status == 'REQUEST_DENIED'
+              ? 'API key/request denied: $message'
+              : 'Google search failed: $message',
+        );
       }
+      return GooglePlacesSearchResult(
+        destinations: const <Destination>[],
+        failure: 'Google search failed: HTTP ${response.statusCode}',
+      );
     } catch (e) {
       debugPrint('Google Places search error: $e');
+      return GooglePlacesSearchResult(
+        destinations: const <Destination>[],
+        failure: 'Google search failed: $e',
+      );
     }
-    return <Destination>[];
   }
 
   static String _mapProfileToMode(String profile) {
@@ -254,17 +333,32 @@ class GoogleMapsService {
       final lat = (loc?['lat'] as num?)?.toDouble();
       final lng = (loc?['lng'] as num?)?.toDouble();
       if (lat == null || lng == null) return null;
+      final photoReference = _firstPhotoReference(item);
+      final imageUrl =
+          photoReference == null ? '' : buildPhotoUrl(photoReference);
+      if (photoReference == null) {
+        debugPrint('Google place photo reference missing: $placeId');
+      } else {
+        debugPrint('Google place photo reference found: $placeId');
+      }
+      if (imageUrl.isNotEmpty) {
+        debugPrint('Google photo URL built: $placeId');
+      }
 
       return Destination(
         id: placeId,
         name: name,
         description: 'A great place to visit.',
         location: item['formatted_address'] as String? ?? '',
-        imageUrl: '',
+        imageUrl: imageUrl,
         coordinates: LatLng(lat, lng),
         category: _mapTypeToCategory(item['types'] as List? ?? []),
         rating: (item['rating'] as num?)?.toDouble() ?? 4.0,
-        tags: ['google'],
+        tags: [
+          'google',
+          if (photoReference != null) 'googlePhotoReference:$photoReference',
+          if (photoReference != null) 'photoReference:$photoReference',
+        ],
       );
     } catch (_) {
       return null;
@@ -289,5 +383,17 @@ class GoogleMapsService {
       }
     }
     return DestinationCategory.activities;
+  }
+
+  static String? _firstPhotoReference(Map<String, dynamic> item) {
+    final photos = item['photos'];
+    if (photos is! List || photos.isEmpty) return null;
+    final first = photos.first;
+    if (first is! Map) return null;
+    final reference = first['photo_reference'] ?? first['photoReference'];
+    if (reference is String && reference.trim().isNotEmpty) {
+      return reference.trim();
+    }
+    return null;
   }
 }
