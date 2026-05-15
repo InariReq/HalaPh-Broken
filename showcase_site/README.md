@@ -13,17 +13,17 @@ showcase_site/index.html
 
 You can double-click the file in Finder or open it from a browser.
 
-## Release Links
+## Replace Placeholders
 
-Current showcase links and assets:
+Before publishing or presenting, replace these placeholder values:
 
-- The Android APK link points to `downloads/HalaPH-release-brand-theme-final.apk`.
-- The showcase QR image points to the hosted showcase website.
-- The APK QR image points to the hosted Android APK download.
-- The advertisement video is marked as Coming Soon until the final video link is ready.
+- `ANDROID_APK_URL_HERE` with the final Android APK download URL.
+- `ADVERTISEMENT_VIDEO_URL_HERE` with the advertisement video URL.
+- `WEBSITE_URL_HERE` with the hosted showcase website URL.
+- `QR_IMAGE_HERE` with a real QR code image or embedded image element.
 - Official contact email: `triplineph13@gmail.com`.
 - Team content is managed through the manual carousel in `app.js`.
-- The official slogan is shown below for consistency checks.
+- Official slogan if branding changes later.
 
 Current official slogan:
 
@@ -31,13 +31,12 @@ Current official slogan:
 Where Every Trip Meets It's Line
 ```
 
-## QR Codes
+## QR Code
 
-Do not regenerate QR images unless the hosted website URL or APK download URL changes.
-
-- `assets/site_qr.png` opens the hosted showcase website.
-- `assets/apk_qr.png` downloads the Android APK.
-- If a new QR image is required later, place it inside `showcase_site/assets/` and update only the related card markup.
+1. Host the website first or decide the final public URL.
+2. Generate a QR code from the hosted website URL.
+3. Replace the `QR_IMAGE_HERE` placeholder in `index.html`.
+4. If adding an image file later, place it inside `showcase_site/assets/` and update the QR card markup.
 
 ## Logo Asset
 
@@ -96,9 +95,9 @@ If a photo is missing, the website automatically shows the member initials. The 
 
 ## Final Pre-Showcase Checklist
 
-- Confirm the Android APK link still points to the final release file.
-- Confirm both QR codes open the expected targets.
-- Keep the advertisement video marked Coming Soon until the final video link exists.
+- Replace Android APK link.
+- Replace QR image.
+- Add advertisement video link.
 - Check website on phone.
 - Check download button.
 - Test app on Android.
