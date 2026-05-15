@@ -42,10 +42,11 @@ class AdminDashboardService {
 
   Future<AdminDashboardStats> loadStats() async {
     final results = await Future.wait<MapEntry<String, AdminDashboardMetric>>([
+      _countUserbase(),
       _countCollection(
         key: 'users',
         collectionPath: 'users',
-        successSubtitle: 'Registered user profile documents.',
+        successSubtitle: 'Registered user profile documents only.',
       ),
       _countCollection(
         key: 'sharedPlans',
@@ -140,6 +141,99 @@ class AdminDashboardService {
       subtitle:
           'Estimated app userbase from users and public profiles. Admin accounts are not counted.',
     );
+  }
+
+  Future<MapEntry<String, AdminDashboardMetric>> _countUserbase() async {
+    try {
+      final ids = <String>{};
+
+      final usersSnapshot = await _firestore.collection('users').get().timeout(
+            const Duration(seconds: 5),
+          );
+      for (final doc in usersSnapshot.docs) {
+        ids.add(doc.id);
+        final uid = doc.data()['uid'];
+        if (uid is String && uid.trim().isNotEmpty) {
+          ids.add(uid.trim());
+        }
+      }
+
+      final publicProfilesSnapshot =
+          await _firestore.collection('publicProfiles').get().timeout(
+                const Duration(seconds: 5),
+              );
+      for (final doc in publicProfilesSnapshot.docs) {
+        final uid = doc.data()['uid'];
+        if (uid is String && uid.trim().isNotEmpty) {
+          ids.add(uid.trim());
+        }
+      }
+
+      final friendCodesSnapshot =
+          await _firestore.collection('friendCodes').get().timeout(
+                const Duration(seconds: 5),
+              );
+      for (final doc in friendCodesSnapshot.docs) {
+        final uid = doc.data()['uid'];
+        if (uid is String && uid.trim().isNotEmpty) {
+          ids.add(uid.trim());
+        }
+      }
+
+      debugPrint('Admin dashboard userbase unique count: ${ids.length}');
+
+      return MapEntry(
+        'userbase',
+        AdminDashboardMetric(
+          value: ids.length.toString(),
+          subtitle:
+              'Unique app users from users, public profiles, and friend codes. Admin accounts are not counted.',
+        ),
+      );
+    } on FirebaseException catch (error) {
+      debugPrint(
+        'Admin dashboard userbase failed: ${error.code} ${error.message}',
+      );
+
+      if (error.code == 'permission-denied') {
+        return const MapEntry(
+          'userbase',
+          AdminDashboardMetric(
+            value: 'Restricted',
+            subtitle: 'Firestore rules block userbase reads.',
+            restricted: true,
+          ),
+        );
+      }
+
+      return MapEntry(
+        'userbase',
+        AdminDashboardMetric(
+          value: '—',
+          subtitle: 'Could not load userbase: ${error.code}.',
+        ),
+      );
+    } on TimeoutException {
+      debugPrint('Admin dashboard userbase failed: timed out');
+
+      return const MapEntry(
+        'userbase',
+        AdminDashboardMetric(
+          value: 'Timed out',
+          subtitle: 'Firestore did not respond quickly enough.',
+        ),
+      );
+    } catch (error) {
+      debugPrint('Admin dashboard userbase failed: $error');
+
+      return const MapEntry(
+        'userbase',
+        AdminDashboardMetric(
+          value: '—',
+          subtitle: 'Could not load userbase.',
+        ),
+      );
+    }
   }
 
   Future<MapEntry<String, AdminDashboardMetric>> _countCollection({
