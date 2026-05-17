@@ -43,12 +43,26 @@
       ]
     },
     {
-      "collection": "plans",
+      "collectionGroup": "plans",
       "queryScope": "COLLECTION",
       "fields": [
         {
           "fieldPath": "participantUids",
-          "arrayConfig": "ARRAY_CONTAINS"
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "admin_terminal_routes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
         },
         {
           "fieldPath": "updatedAt",
