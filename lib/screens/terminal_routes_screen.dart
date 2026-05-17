@@ -387,14 +387,21 @@ Future<void> showReportCorrectionSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => _ReportCorrectionSheet(route: route),
+    builder: (sheetContext) => _ReportCorrectionSheet(
+      parentContext: context,
+      route: route,
+    ),
   );
 }
 
 class _ReportCorrectionSheet extends StatefulWidget {
+  final BuildContext parentContext;
   final AdminTerminalRoute route;
 
-  const _ReportCorrectionSheet({required this.route});
+  const _ReportCorrectionSheet({
+    required this.parentContext,
+    required this.route,
+  });
 
   @override
   State<_ReportCorrectionSheet> createState() => _ReportCorrectionSheetState();
@@ -486,21 +493,24 @@ class _ReportCorrectionSheetState extends State<_ReportCorrectionSheet> {
   Future<void> _submit() async {
     setState(() => _isSubmitting = true);
     final route = widget.route;
-    final messenger = ScaffoldMessenger.of(context);
+    final parentMessenger = ScaffoldMessenger.of(widget.parentContext);
     try {
-      await _service.submitCorrection(
-        routeId: route.id,
-        routeName: route.routeName.isEmpty
-            ? '${route.originTerminal} → ${route.destination}'
-            : route.routeName,
-        terminalName: route.terminalName,
-        destination: route.destination,
-        correctionNote: _controller.text.trim(),
-        submittedByUid: FirebaseAuth.instance.currentUser?.uid,
-      );
+      await _service
+          .submitCorrection(
+            routeId: route.id,
+            routeName: route.routeName.isEmpty
+                ? '${route.originTerminal} → ${route.destination}'
+                : route.routeName,
+            terminalName: route.terminalName,
+            destination: route.destination,
+            correctionNote: _controller.text.trim(),
+            submittedByUid: FirebaseAuth.instance.currentUser?.uid,
+          )
+          .timeout(const Duration(seconds: 10));
       if (!mounted) return;
+      setState(() => _isSubmitting = false);
       Navigator.of(context).pop();
-      messenger.showSnackBar(
+      parentMessenger.showSnackBar(
         const SnackBar(
           content: Text('Thank you, your correction has been submitted.'),
         ),
@@ -508,7 +518,7 @@ class _ReportCorrectionSheetState extends State<_ReportCorrectionSheet> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      messenger.showSnackBar(
+      parentMessenger.showSnackBar(
         const SnackBar(
           content: Text('Something went wrong. Please try again.'),
         ),
