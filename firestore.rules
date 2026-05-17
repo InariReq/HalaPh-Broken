@@ -149,6 +149,14 @@ service cloud.firestore {
       allow create, update, delete: if isContentAdmin();
     }
 
+
+
+    match /admin_terminal_routes/{routeId} {
+      allow get: if isAdminUid(request.auth.uid);
+      allow list: if isAdminUid(request.auth.uid);
+      allow create, update, delete: if isContentAdmin();
+    }
+
     match /admin_ads/{adId} {
       allow get: if isAdminUid(request.auth.uid) || resource.data.isActive == true;
       allow list: if isAdminUid(request.auth.uid) || signedIn();

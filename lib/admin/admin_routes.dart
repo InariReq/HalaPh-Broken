@@ -5,6 +5,7 @@ import 'models/admin_user_role.dart';
 enum AdminRouteId {
   dashboard,
   locations,
+  terminalRoutes,
   advertisements,
   featuredPlaces,
   appSettings,
@@ -37,6 +38,12 @@ class AdminRoutes {
       id: AdminRouteId.locations,
       title: 'Locations',
       icon: Icons.place_rounded,
+      minimumRole: AdminUserRole.admin,
+    ),
+    AdminRouteConfig(
+      id: AdminRouteId.terminalRoutes,
+      title: 'Terminal Routes',
+      icon: Icons.directions_bus_outlined,
       minimumRole: AdminUserRole.admin,
     ),
     AdminRouteConfig(

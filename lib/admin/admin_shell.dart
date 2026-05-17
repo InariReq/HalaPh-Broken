@@ -8,6 +8,7 @@ import 'screens/admin_app_settings_screen.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'screens/admin_featured_places_screen.dart';
 import 'screens/admin_locations_screen.dart';
+import 'screens/admin_terminal_routes_screen.dart';
 import 'screens/admin_users_screen.dart';
 import 'services/admin_auth_service.dart';
 import 'widgets/admin_guard.dart';
@@ -208,6 +209,7 @@ class _AdminShellState extends State<AdminShell> {
       AdminRouteId.dashboard => const AdminDashboardScreen(),
       AdminRouteId.locations =>
         AdminLocationsScreen(currentAdmin: widget.adminUser),
+      AdminRouteId.terminalRoutes => const AdminTerminalRoutesScreen(),
       AdminRouteId.advertisements =>
         AdminAdsScreen(currentAdmin: widget.adminUser),
       AdminRouteId.featuredPlaces =>
