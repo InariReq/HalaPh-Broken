@@ -61,7 +61,7 @@ class _AdminTerminalRoutesScreenState extends State<AdminTerminalRoutesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    Icons.directions_bus_rounded,
+                    Icons.route_rounded,
                     size: 42,
                     color: Theme.of(context).colorScheme.primary,
                   ),
@@ -218,7 +218,7 @@ class _TerminalRoutesList extends StatelessWidget {
                             IconButton(
                               tooltip: 'Delete',
                               onPressed: () => onDelete(route),
-                              icon: const Icon(Icons.delete_outline_rounded),
+                              icon: const Icon(Icons.delete_rounded),
                             ),
                           ],
                         ),
@@ -266,7 +266,7 @@ class _TerminalRouteCard extends StatelessWidget {
                 IconButton(
                   tooltip: 'Delete',
                   onPressed: () => onDelete(route),
-                  icon: const Icon(Icons.delete_outline_rounded),
+                  icon: const Icon(Icons.delete_rounded),
                 ),
               ],
             ),
@@ -473,7 +473,7 @@ class _EmptyTerminalRoutesCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.directions_bus_outlined, size: 42),
+            Icon(Icons.route_rounded, size: 42),
             SizedBox(height: 12),
             Text('No terminal routes yet.'),
           ],

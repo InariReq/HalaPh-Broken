@@ -6,6 +6,7 @@ enum AdminRouteId {
   dashboard,
   locations,
   terminalRoutes,
+  routeReports,
   advertisements,
   featuredPlaces,
   appSettings,
@@ -43,7 +44,13 @@ class AdminRoutes {
     AdminRouteConfig(
       id: AdminRouteId.terminalRoutes,
       title: 'Terminal Routes',
-      icon: Icons.directions_bus_outlined,
+      icon: Icons.route_rounded,
+      minimumRole: AdminUserRole.admin,
+    ),
+    AdminRouteConfig(
+      id: AdminRouteId.routeReports,
+      title: 'Route Reports',
+      icon: Icons.fact_check_rounded,
       minimumRole: AdminUserRole.admin,
     ),
     AdminRouteConfig(
