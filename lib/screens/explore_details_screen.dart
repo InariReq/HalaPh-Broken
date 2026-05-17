@@ -9,10 +9,14 @@ import 'package:halaph/services/favorites_notifier.dart';
 import 'package:halaph/services/guide_mode_demo_state.dart';
 import 'package:halaph/services/guide_presenter_controller.dart';
 import 'package:halaph/services/simple_plan_service.dart';
+import 'package:halaph/services/user_terminal_route_service.dart';
 import 'package:halaph/screens/route_options_screen.dart';
+import 'package:halaph/screens/terminal_routes_screen.dart';
 import 'package:halaph/utils/navigation_utils.dart';
 import 'package:halaph/widgets/fullscreen_image_preview.dart';
+import 'package:halaph/widgets/route_accuracy_badge.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../admin/models/admin_terminal_route.dart';
 
 class ExploreDetailsScreen extends StatefulWidget {
   final String destinationId;
@@ -60,6 +64,69 @@ class ExploreDetailsScreen extends StatefulWidget {
   }
 }
 
+class _TerminalRouteCompactRow extends StatelessWidget {
+  final AdminTerminalRoute route;
+  final VoidCallback onTap;
+
+  const _TerminalRouteCompactRow({
+    required this.route,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        route.destination,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      if (route.operatorName.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          route.operatorName,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                      const SizedBox(height: 3),
+                      Text(
+                        formatTerminalRouteFare(route),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                RouteAccuracyBadge(
+                  confidenceLevel: route.confidenceLevel,
+                  sourceType: route.sourceType,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   Destination? _destination;
   bool _isLoading = true;
@@ -69,6 +136,10 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
   bool _guideDetailsSignaled = false;
   bool _isOpeningRoutes = false;
   StreamSubscription? _subscription;
+  final UserTerminalRouteService _terminalRouteService =
+      UserTerminalRouteService();
+  Future<List<AdminTerminalRoute>>? _terminalRoutesFuture;
+  String? _terminalRoutesPlaceName;
 
   @override
   void initState() {
@@ -401,6 +472,10 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
                     const SizedBox(height: 24),
                     _buildDetailsEntrance(
                       order: 4,
+                      child: _buildTerminalRoutesSection(_destination!.name),
+                    ),
+                    _buildDetailsEntrance(
+                      order: 5,
                       child: _buildViewRoutesButton(),
                     ),
                     const SizedBox(height: 32),
@@ -832,6 +907,59 @@ class _ExploreDetailsScreenState extends State<ExploreDetailsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTerminalRoutesSection(String placeName) {
+    final normalizedName = placeName.trim();
+    if (widget.guideModeDemo || normalizedName.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    if (_terminalRoutesPlaceName != normalizedName) {
+      _terminalRoutesPlaceName = normalizedName;
+      _terminalRoutesFuture =
+          _terminalRouteService.routesForPlace(normalizedName);
+    }
+
+    return FutureBuilder<List<AdminTerminalRoute>>(
+      future: _terminalRoutesFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.hasError) {
+          return const SizedBox.shrink();
+        }
+
+        final routes = snapshot.data ?? const <AdminTerminalRoute>[];
+        if (routes.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Terminal Routes',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  for (final route in routes)
+                    _TerminalRouteCompactRow(
+                      route: route,
+                      onTap: () => showTerminalRouteDetailSheet(context, route),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        );
+      },
     );
   }
 

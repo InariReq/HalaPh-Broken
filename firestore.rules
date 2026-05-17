@@ -152,9 +152,13 @@ service cloud.firestore {
 
 
     match /admin_terminal_routes/{routeId} {
-      allow get: if isAdminUid(request.auth.uid);
-      allow list: if isAdminUid(request.auth.uid);
+      allow get, list: if true;
       allow create, update, delete: if isContentAdmin();
+    }
+
+    match /route_correction_reports/{reportId} {
+      allow create: if true;
+      allow read, update, delete: if isAdminUid(request.auth.uid);
     }
 
     match /admin_ads/{adId} {

@@ -40,6 +40,7 @@ import 'screens/splash_screen.dart';
 import 'screens/add_place_screen.dart';
 import 'screens/friends_screen.dart';
 import 'screens/app_tutorial_screen.dart';
+import 'screens/terminal_routes_screen.dart';
 import 'widgets/halaph_launch_preflight.dart';
 import 'widgets/halaph_logo_loading.dart';
 import 'package:halaph/models/app_public_config.dart';
@@ -780,6 +781,10 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/friends',
       builder: (context, state) => const FriendsScreen(),
+    ),
+    GoRoute(
+      path: '/terminal-routes',
+      builder: (context, state) => const TerminalRoutesScreen(),
     ),
     GoRoute(
       path: '/route-options',

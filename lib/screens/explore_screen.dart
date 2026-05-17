@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:halaph/models/app_public_config.dart';
 import 'package:halaph/models/destination.dart';
@@ -710,6 +711,10 @@ class _ExploreScreenState extends State<ExploreScreen>
               const SizedBox(height: 12),
               _buildExploreSummary(),
               const SizedBox(height: 16),
+              if (!widget.guideModeDemo) ...[
+                _buildTerminalRoutesEntry(),
+                const SizedBox(height: 16),
+              ],
               Expanded(
                 child: _isLoading
                     ? _buildLoadingIndicator()
@@ -951,6 +956,63 @@ class _ExploreScreenState extends State<ExploreScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTerminalRoutesEntry() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Material(
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => GoRouter.of(context).push('/terminal-routes'),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.directions_bus_rounded,
+                    color: Colors.blue[700],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Terminal Routes',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Browse verified bus terminal references.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
