@@ -506,35 +506,49 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
-    // Cached destinations - public read, authenticated write.
-    // Used by the app to cache Google/app destinations so admins can later feature real saved places.
+    // Cached destinations - public read, authenticated write for app-cached Google/place records
     match /cached_destinations/{destinationId} {
       allow read: if true;
-      allow write: if signedIn()
+      allow create, update: if signedIn()
         && request.resource.data.keys().hasOnly([
           'id',
           'name',
           'title',
+          'displayName',
           'description',
           'address',
           'location',
           'city',
-          'coordinates',
+          'province',
+          'category',
           'latitude',
           'longitude',
+          'coordinates',
           'imageUrl',
+          'image',
+          'photoUrl',
+          'photoURL',
+          'thumbnailUrl',
+          'thumbnail',
+          'coverImageUrl',
+          'bannerImage',
           'googlePhotoUrl',
           'googlePhotoReference',
           'photoReference',
+          'photos',
           'googlePlaceId',
           'placeId',
           'source',
-          'category',
           'rating',
           'tags',
+          'originalName',
+          'googleName',
+          'rawName',
+          'normalizedName',
           'createdAt',
           'updatedAt'
         ]);
+      allow delete: if isContentAdmin();
     }
   }
 }

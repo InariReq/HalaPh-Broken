@@ -412,8 +412,6 @@ class _ReportCorrectionSheetState extends State<_ReportCorrectionSheet> {
   final _service = UserTerminalRouteService();
   bool _isSubmitting = false;
 
-  bool get _canSubmit => _controller.text.trim().length >= 10;
-
   @override
   void dispose() {
     _controller.dispose();
@@ -472,7 +470,7 @@ class _ReportCorrectionSheetState extends State<_ReportCorrectionSheet> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton(
-                    onPressed: !_canSubmit || _isSubmitting ? null : _submit,
+                    onPressed: _isSubmitting ? null : _submit,
                     child: _isSubmitting
                         ? const SizedBox(
                             width: 16,
@@ -491,10 +489,26 @@ class _ReportCorrectionSheetState extends State<_ReportCorrectionSheet> {
   }
 
   Future<void> _submit() async {
+    debugPrint('Report correction submit tapped');
+    final note = _controller.text.trim();
+
+    if (note.length < 10) {
+      debugPrint('Report correction validation failed: note too short');
+      ScaffoldMessenger.of(widget.parentContext).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter at least 10 characters.'),
+        ),
+      );
+      return;
+    }
+
+    FocusManager.instance.primaryFocus?.unfocus();
+
     setState(() => _isSubmitting = true);
     final route = widget.route;
     final parentMessenger = ScaffoldMessenger.of(widget.parentContext);
     try {
+      debugPrint('Report correction write started');
       await _service
           .submitCorrection(
             routeId: route.id,
@@ -503,10 +517,11 @@ class _ReportCorrectionSheetState extends State<_ReportCorrectionSheet> {
                 : route.routeName,
             terminalName: route.terminalName,
             destination: route.destination,
-            correctionNote: _controller.text.trim(),
+            correctionNote: note,
             submittedByUid: FirebaseAuth.instance.currentUser?.uid,
           )
           .timeout(const Duration(seconds: 10));
+      debugPrint('Report correction write succeeded');
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       Navigator.of(context).pop();
@@ -515,7 +530,8 @@ class _ReportCorrectionSheetState extends State<_ReportCorrectionSheet> {
           content: Text('Thank you, your correction has been submitted.'),
         ),
       );
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Report correction write failed: $error');
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       parentMessenger.showSnackBar(
